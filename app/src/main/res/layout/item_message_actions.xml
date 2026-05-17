@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    item_message_actions.xml
+    IDs used by ChatAdapter:
+      btn_copy   — copy button
+      btn_share  — share button
+      btn_expand — expand button
+    Each button: 40dp container, 8dp padding (icon ~24dp), bg_icon_circle, 4dp spacing
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_marginTop="6dp"
+    android:orientation="horizontal">
+
+    <ImageButton
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_copy"
+        android:background="@drawable/bg_icon_circle"/>
+
+    <ImageButton
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_menu_share"
+        android:background="@drawable/bg_icon_circle"/>
+
+    <ImageButton
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/arrow_down_float"
+        android:background="@drawable/bg_icon_circle"/>
+</LinearLayout>

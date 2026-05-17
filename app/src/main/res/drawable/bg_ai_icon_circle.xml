@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bg_ai_icon_circle.xml
+    Circle background for AI avatar icon (28dp view).
+    Light: colorPrimaryContainer (~#EADDFF light purple tint)
+    Dark:  colorPrimaryContainer (~#4F378B)
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="?attr/colorPrimaryContainer" />
+</shape>

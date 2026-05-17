@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Theme Manager" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Dark / Light / System -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Display Mode"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout android:id="@+id/ln_theme_light"
+                android:layout_width="match_parent" android:layout_height="56dp"
+                android:gravity="center_vertical" android:background="?attr/selectableItemBackground"
+                android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Light" android:paddingStart="8dp"/>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_theme_light"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/ln_theme_dark"
+                android:layout_width="match_parent" android:layout_height="56dp"
+                android:gravity="center_vertical" android:background="?attr/selectableItemBackground"
+                android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Dark" android:paddingStart="8dp"/>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_theme_dark"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/ln_theme_system"
+                android:layout_width="match_parent" android:layout_height="56dp"
+                android:gravity="center_vertical" android:background="?attr/selectableItemBackground"
+                android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Follow System" android:paddingStart="8dp"/>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_theme_system"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="?attr/colorOutlineVariant" android:layout_marginVertical="16dp"/>
+
+            <!-- Color Presets -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Color Preset"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:layout_marginBottom="12dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_color_presets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

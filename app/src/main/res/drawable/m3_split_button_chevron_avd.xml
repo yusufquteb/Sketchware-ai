@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Animated Vector Drawable for MaterialSplitButton chevron icon.
+    This drawable is used as the trailing icon in MaterialSplitButton.
+    It represents a chevron/dropdown arrow that can animate between
+    expanded and collapsed states.
+    
+    Source: Google Material Components for Android (material3)
+    Compatible with: material library 1.12.0+
+-->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="24"
+            android:viewportHeight="24">
+            <group
+                android:name="chevron_group"
+                android:pivotX="12"
+                android:pivotY="12">
+                <path
+                    android:name="chevron_path"
+                    android:fillColor="@android:color/transparent"
+                    android:pathData="M7,10 L12,15 L17,10"
+                    android:strokeColor="?attr/colorOnPrimary"
+                    android:strokeWidth="2"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round" />
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="chevron_group">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="200"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="rotation"
+                android:valueFrom="0"
+                android:valueTo="180"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+</animated-vector>

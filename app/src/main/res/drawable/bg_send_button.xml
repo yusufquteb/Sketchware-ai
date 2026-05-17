@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bg_send_button.xml
+    Send button circle background.
+    Light: colorPrimary (#6750A4)
+    Dark:  colorPrimary (#D0BCFF → but MaterialButton uses backgroundTint so this is a fallback shape)
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="?attr/colorPrimary" />
+</shape>
