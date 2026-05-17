@@ -106,7 +106,6 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
         }, true);
         shownProjects = newProjects;
         result.dispatchUpdatesTo(this);
-        notifyDataSetChanged();
     }
 
     @Override
@@ -148,12 +147,12 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
         if (yB.c(projectMap, "sc_ver_code").isEmpty()) {
             projectMap.put("sc_ver_code", "1");
             projectMap.put("sc_ver_name", "1.0");
-            lC.b(scId, projectMap);
+            new Thread(() -> lC.b(scId, projectMap)).start();
         }
 
         if (yB.b(projectMap, "sketchware_ver") <= 0) {
             projectMap.put("sketchware_ver", 61);
-            lC.b(scId, projectMap);
+            new Thread(() -> lC.b(scId, projectMap)).start();
         }
 
         if (yB.a(projectMap, "custom_icon")) {
@@ -227,20 +226,14 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
             } catch (Exception ignored) {}
             activity.runOnUiThread(() -> {
                 progressDialog.dismiss();
-                // FIX: Remove from BOTH lists immediately and notify adapter with targeted
-                // removal — prevents RecyclerView inconsistency (and ANR/crash) during scroll.
                 allProjects.remove(projectMap);
                 int shownIdx = shownProjects.indexOf(projectMap);
                 if (shownIdx >= 0) {
                     shownProjects.remove(shownIdx);
                     notifyItemRemoved(shownIdx);
                 } else {
-                    // Fallback if item is filtered out — refresh full list
                     notifyDataSetChanged();
                 }
-                // Reset so refreshProjectsList can proceed
-                projectsFragment.resetLoadingState();
-                projectsFragment.refreshProjectsList();
             });
         }).start();
     }

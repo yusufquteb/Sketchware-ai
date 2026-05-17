@@ -133,10 +133,9 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         b.setPeekHeight(targetH);
         b.setState(BottomSheetBehavior.STATE_EXPANDED);
         b.setSkipCollapsed(true);
-        // Allow drag — user can pull down/dismiss like Design page
         b.setDraggable(true);
-        // Prevent RecyclerView scroll from collapsing: nested scroll handled by sheet
-        binding.aiSheetMessages.setNestedScrollingEnabled(false);
+        // RecyclerView scrolls independently; sheet only drags when RV is at top
+        binding.aiSheetMessages.setNestedScrollingEnabled(true);
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
