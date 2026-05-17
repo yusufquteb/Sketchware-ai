@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sidebar child tool item (shown when category expanded) -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="42dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?attr/selectableItemBackground"
+    android:paddingStart="6dp"
+    android:paddingEnd="4dp">
+
+    <!-- Small icon for the tool -->
+    <ImageView
+        android:id="@+id/sidebar_tool_icon"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="center_vertical"
+        android:scaleType="fitCenter"
+        android:padding="2dp"
+        android:layout_marginStart="3dp"
+        app:tint="?attr/colorOnSurfaceVariant"/>
+
+    <!-- Tool name — hidden when sidebar collapsed -->
+    <TextView
+        android:id="@+id/sidebar_tool_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurface"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:visibility="gone"/>
+
+    <!-- Arrow — hidden when sidebar collapsed -->
+    <ImageView
+        android:id="@+id/sidebar_tool_arrow"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginEnd="4dp"
+        app:srcCompat="@drawable/ic_mtrl_arrow_right"
+        android:alpha="0.4"
+        android:visibility="gone"/>
+
+</LinearLayout>

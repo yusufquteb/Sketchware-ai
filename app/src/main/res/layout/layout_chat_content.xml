@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    layout_chat_content.xml
+    ========================
+    SINGLE SOURCE OF TRUTH for the entire Chat UI system.
+    Used via <include> in both ChatActivity and ChatBottomSheet.
+
+    Rules:
+    - All IDs are FIXED and IDENTICAL regardless of host container.
+    - NO hardcoded colors — all attrs come from Material 3 theme.
+    - Every touch target >= 48dp.
+    - Keyboard-safe via windowSoftInputMode + adjustResize on host.
+-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chat_coordinator_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <!-- ================================================================
+         MESSAGE AREA — fills remaining vertical space above input
+         ================================================================ -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/chat_message_area"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingBottom="@dimen/chat_input_area_height">
+
+        <!-- Primary message list -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chat_recycler_view"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:scrollbars="vertical"
+            android:overScrollMode="never"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/chat_typing_indicator_container"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Typing indicator (shown while AI is responding) -->
+        <LinearLayout
+            android:id="@+id/chat_typing_indicator_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:paddingStart="16dp"
+            android:gravity="center_vertical"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <!-- AI Avatar in typing indicator -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="?attr/colorSecondaryContainer"
+                android:layout_marginEnd="8dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_chat_ai_avatar"
+                    android:contentDescription="@string/chat_ai_typing"
+                    app:tint="?attr/colorOnSecondaryContainer" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Three animated dots -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/chat_bubble_ai_bg"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp">
+
+                <View
+                    android:id="@+id/chat_typing_dot_1"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/chat_typing_dot"
+                    android:alpha="0.4" />
+
+                <View
+                    android:id="@+id/chat_typing_dot_2"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/chat_typing_dot"
+                    android:alpha="0.4" />
+
+                <View
+                    android:id="@+id/chat_typing_dot_3"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/chat_typing_dot"
+                    android:alpha="0.4" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Empty state view (shown when no messages exist) -->
+        <LinearLayout
+            android:id="@+id/chat_empty_state"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            android:visibility="visible"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <ImageView
+                android:id="@+id/chat_empty_icon"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_chat_ai_avatar"
+                android:contentDescription="@null"
+                app:tint="?attr/colorOutline"
+                android:alpha="0.5" />
+
+            <TextView
+                android:id="@+id/chat_empty_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/chat_empty_title"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/chat_empty_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/chat_empty_subtitle"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Scroll to bottom FAB -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/chat_scroll_to_bottom_fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            android:src="@drawable/ic_chat_scroll_down"
+            android:contentDescription="@string/chat_scroll_to_bottom"
+            android:visibility="gone"
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurfaceVariant"
+            app:tint="?attr/colorOnSurfaceVariant"
+            app:elevation="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/chat_typing_indicator_container" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ================================================================
+         INPUT AREA — always pinned to bottom, keyboard-safe
+         ================================================================ -->
+    <LinearLayout
+        android:id="@+id/chat_input_area"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="?attr/colorSurface"
+        android:elevation="4dp">
+
+        <!-- Divider line above input -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <!-- Input row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <!-- Attach file button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/chat_btn_attach"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/chat_attach_file"
+                app:icon="@drawable/ic_chat_attach"
+                app:iconSize="24dp"
+                app:iconTint="?attr/colorOnSurfaceVariant" />
+
+            <!-- Text input field -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/chat_input_layout"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:hint="@string/chat_input_hint"
+                app:boxCornerRadiusTopStart="24dp"
+                app:boxCornerRadiusTopEnd="24dp"
+                app:boxCornerRadiusBottomStart="24dp"
+                app:boxCornerRadiusBottomEnd="24dp"
+                app:boxStrokeColor="?attr/colorOutlineVariant"
+                app:boxBackgroundColor="?attr/colorSurfaceVariant"
+                app:hintTextColor="?attr/colorOnSurfaceVariant"
+                app:counterEnabled="false">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/chat_input_edit_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:maxLines="6"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    android:textColor="?attr/colorOnSurface"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:imeOptions="actionSend"
+                    android:gravity="top" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Mic / Send button (mutually exclusive visibility) -->
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="4dp">
+
+                <!-- Mic button — shown when input is empty -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/chat_btn_mic"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/chat_voice_input"
+                    android:visibility="visible"
+                    app:icon="@drawable/ic_chat_mic"
+                    app:iconSize="24dp"
+                    app:iconTint="?attr/colorOnSurfaceVariant" />
+
+                <!-- Send button — shown when input has text -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/chat_btn_send"
+                    style="@style/Widget.Material3.Button.Icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/chat_send_message"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_chat_send"
+                    app:iconSize="24dp"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:backgroundTint="?attr/colorPrimary"
+                    app:iconTint="?attr/colorOnPrimary"
+                    app:cornerRadius="24dp" />
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

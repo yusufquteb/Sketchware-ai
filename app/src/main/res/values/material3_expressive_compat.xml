@@ -1,0 +1,50 @@
+<resources>
+    <!-- Compatibility aliases for builds that use a Material Components version without
+         the upstream Material3 Expressive style family. These aliases intentionally map
+         to the closest stable Material3 counterparts so enabling the Material 3 manager
+         never breaks resource linking. -->
+
+    <style name="Theme.Material3Expressive.Light.NoActionBar" parent="Theme.Material3.Light.NoActionBar" />
+    <style name="Theme.Material3Expressive.Dark.NoActionBar" parent="Theme.Material3.Dark.NoActionBar" />
+    <style name="Theme.Material3Expressive.DynamicColors.Light.NoActionBar" parent="Theme.Material3.Light.NoActionBar" />
+    <style name="Theme.Material3Expressive.DynamicColors.Dark.NoActionBar" parent="Theme.Material3.Dark.NoActionBar" />
+
+    <style name="MaterialAlertDialog.Material3Expressive" parent="MaterialAlertDialog.Material3" />
+    <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered" parent="ThemeOverlay.Material3.MaterialAlertDialog.Centered" />
+
+    <style name="Widget.Material3Expressive.Button" parent="Widget.Material3.Button" />
+    <style name="Widget.Material3Expressive.Button.OutlinedButton" parent="Widget.Material3.Button.OutlinedButton" />
+    <style name="Widget.Material3Expressive.Button.TonalButton" parent="Widget.Material3.Button.TonalButton" />
+    <style name="Widget.Material3Expressive.Button.ElevatedButton" parent="Widget.Material3.Button.ElevatedButton" />
+    <style name="Widget.Material3Expressive.Button.IconButton.Filled" parent="Widget.Material3.Button.IconButton.Filled" />
+    <style name="Widget.Material3Expressive.Button.IconButton.Tonal" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorSecondaryContainer</item>
+        <item name="iconTint">?attr/colorOnSecondaryContainer</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="iconPadding">0dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:paddingLeft">8dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingRight">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
+
+    <style name="Widget.Material3Expressive.CircularProgressIndicator" parent="Widget.Material3.CircularProgressIndicator" />
+    <style name="Widget.Material3Expressive.CircularProgressIndicator.Wavy" parent="Widget.Material3.CircularProgressIndicator" />
+    <style name="Widget.Material3Expressive.LinearProgressIndicator" parent="Widget.Material3.LinearProgressIndicator" />
+
+    <style name="Widget.Material3Expressive.Toolbar.OnSurface" parent="Widget.Material3.Toolbar">
+        <item name="android:background">?attr/colorSurface</item>
+        <item name="titleTextColor">?attr/colorOnSurface</item>
+        <item name="subtitleTextColor">?attr/colorOnSurfaceVariant</item>
+        <item name="navigationIconTint">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="Widget.Material3Expressive.CollapsingToolbar.Large" parent="Widget.Material3.CollapsingToolbar">
+        <item name="contentScrim">?attr/colorSurface</item>
+        <item name="statusBarScrim">@android:color/transparent</item>
+    </style>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Placeholder drawable for block_ori.
+    Used as tools:background in block_customview_spec.xml (design-time only).
+    This drawable represents the original block background shape.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FF7043" />
+    <corners android:radius="4dp" />
+</shape>
