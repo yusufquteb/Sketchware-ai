@@ -27,6 +27,9 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x gradlew
 
+    - name: Set up Android SDK path
+      run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
     - name: Generate test keystore
       run: |
         keytool -genkey -v \
@@ -58,6 +61,9 @@ jobs:
 
     - name: Make gradlew executable
       run: chmod +x gradlew
+
+    - name: Set up Android SDK path
+      run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
     - name: Generate and submit dependency graph
       uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
