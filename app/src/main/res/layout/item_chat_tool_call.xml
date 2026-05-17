@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_tool_call"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <!-- Header: icon | name+preview | status | chevron -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Tool icon in purple circle -->
+        <ImageView
+            android:id="@+id/tool_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_icon_circle"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
+            android:contentDescription=""
+            app:srcCompat="@drawable/ic_tool_call"
+            app:tint="?attr/colorOnPrimaryContainer" />
+
+        <!-- Name + preview -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tool_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:fontFamily="monospace"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tool_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Status icon -->
+        <ImageView
+            android:id="@+id/tool_status_icon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription=""
+            app:srcCompat="@drawable/ic_mtrl_check"
+            app:tint="?attr/colorPrimary" />
+
+        <!-- Expand chevron — adapter sets rotation 0/180 -->
+        <ImageView
+            android:id="@+id/expand_icon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription=""
+            app:srcCompat="@drawable/ic_mtrl_arrow_down"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+    </LinearLayout>
+
+    <!-- Progress bar (shown while running, adapter controls visibility) -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/tool_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:indeterminate="true"
+        android:visibility="gone"
+        app:trackColor="?attr/colorSurfaceContainerHighest"
+        app:trackCornerRadius="4dp" />
+
+    <!-- Expanded details — monospace, selectable, visibility by adapter -->
+    <TextView
+        android:id="@+id/tool_details"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_code_block"
+        android:fontFamily="monospace"
+        android:lineSpacingMultiplier="1.4"
+        android:padding="10dp"
+        android:textColor="#CCCCCC"
+        android:textIsSelectable="true"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- Install APK button — shown only for build artifacts -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_install_artifact"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Install APK"
+        android:visibility="gone"
+        app:icon="@drawable/ic_mtrl_apk_install"
+        app:iconGravity="textStart" />
+
+</LinearLayout>

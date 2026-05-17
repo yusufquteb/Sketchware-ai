@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_colors.xml  (res/values-night/)
+    =====================================
+    Night (Dark) mode overrides for chat color aliases.
+    All values map to Material 3 dark theme tokens.
+-->
+<resources>
+    <!-- User bubble: colorPrimary dark = #D0BCFF -->
+    <color name="chat_bubble_user_color">#D0BCFF</color>
+
+    <!-- AI bubble: colorSurfaceVariant dark = #49454F -->
+    <color name="chat_bubble_ai_color">#49454F</color>
+
+    <!-- Typing dot: onSurfaceVariant dark = #CAC4D0 -->
+    <color name="chat_typing_dot_color">#CAC4D0</color>
+
+    <!-- System msg bg: surfaceContainerHighest dark = #36343B -->
+    <color name="chat_system_msg_bg_color">#36343B</color>
+
+    <!-- Drag handle: outlineVariant dark = #49454F -->
+    <color name="chat_drag_handle_color">#49454F</color>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_typing_dot.xml
+    ====================
+    Small circular dot for the typing indicator animation.
+    Three of these are used inside the typing indicator container.
+    Animation (alpha pulse) is controlled programmatically by TypingIndicatorAnimator.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="@color/chat_typing_dot_color" />
+
+    <size
+        android:width="8dp"
+        android:height="8dp" />
+
+</shape>

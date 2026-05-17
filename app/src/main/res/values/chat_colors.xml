@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_colors.xml  (res/values/)
+    ================================
+    Day (Light) mode color aliases for the Chat system.
+    These are BRIDGE colors — they map semantic chat roles to Material 3 tokens.
+
+    RULE: NEVER use hardcoded hex colors anywhere in chat layouts.
+    All colors here reference the Material 3 theme palette indirectly.
+
+    Night (Dark) mode overrides are in res/values-night/chat_colors.xml.
+-->
+<resources>
+
+    <!--
+        User bubble background = colorPrimary alias.
+        In light mode: Material 3 purple/primary tone.
+    -->
+    <color name="chat_bubble_user_color">#6750A4</color>
+
+    <!--
+        AI bubble background = colorSurfaceVariant alias.
+        In light mode: light grey-purple surface.
+    -->
+    <color name="chat_bubble_ai_color">#E7E0EC</color>
+
+    <!--
+        Typing indicator dot = colorOnSurfaceVariant alias.
+    -->
+    <color name="chat_typing_dot_color">#49454F</color>
+
+    <!--
+        System message banner background = surfaceContainerHighest alias.
+    -->
+    <color name="chat_system_msg_bg_color">#ECE6F0</color>
+
+    <!--
+        BottomSheet drag handle = outlineVariant alias.
+    -->
+    <color name="chat_drag_handle_color">#CAC4D0</color>
+
+</resources>

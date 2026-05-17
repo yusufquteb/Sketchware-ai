@@ -1,0 +1,266 @@
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:id="@+id/container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/layout_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Material 3 Top App Bar -->
+            <com.google.android.material.appbar.AppBarLayout
+                android:id="@+id/app_bar_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fitsSystemWindows="true"
+                app:liftOnScroll="true">
+
+                <com.google.android.material.appbar.MaterialToolbar
+                    android:id="@+id/toolbar"
+                    android:layout_width="match_parent"
+                    android:layout_height="?attr/actionBarSize"
+                    app:navigationIcon="?attr/homeAsUpIndicator"
+                    app:titleTextAppearance="?attr/textAppearanceTitleMedium"
+                    app:subtitleTextAppearance="?attr/textAppearanceLabelSmall"
+                    app:subtitleTextColor="?attr/colorOnSurfaceVariant"
+                    tools:menu="@menu/design_menu"
+                    tools:subtitle="605"
+                    tools:title="InternalDemo" />
+
+                <!-- Material 3 Secondary Tabs with icons -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tab_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    app:tabGravity="fill"
+                    app:tabMode="fixed"
+                    app:tabIndicatorAnimationMode="elastic"
+                    app:tabIndicatorColor="?attr/colorPrimary"
+                    app:tabIndicatorFullWidth="false"
+                    app:tabSelectedTextColor="?attr/colorPrimary"
+                    app:tabTextColor="?attr/colorOnSurfaceVariant"
+                    app:tabRippleColor="?attr/colorPrimary"
+                    app:tabIconTint="?attr/colorOnSurfaceVariant"
+                    app:tabInlineLabel="true"
+                    app:tabTextAppearance="?attr/textAppearanceLabelMedium" />
+
+                <com.google.android.material.divider.MaterialDivider
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:dividerColor="?attr/colorOutlineVariant" />
+            </com.google.android.material.appbar.AppBarLayout>
+
+            <!-- Main content area -->
+            <androidx.coordinatorlayout.widget.CoordinatorLayout
+                android:id="@+id/layout_coordinator"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <com.besome.sketch.lib.ui.CustomViewPager
+                    android:id="@+id/viewpager"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+            </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+            <!-- Build progress section -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:dividerColor="?attr/colorOutlineVariant" />
+
+            <LinearLayout
+                android:id="@+id/progress_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/colorSurfaceContainerLow"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="4dp">
+
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                        android:id="@+id/progress_spinner"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginEnd="8dp"
+                        android:indeterminate="true"
+                        app:indicatorSize="16dp"
+                        app:trackThickness="2dp" />
+
+                    <TextView
+                        android:id="@+id/progress_text"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:singleLine="true"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="Building your awesome app..." />
+
+                    <TextView
+                        android:id="@+id/progress_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?attr/textAppearanceLabelSmall"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="45%" />
+                </LinearLayout>
+
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/progress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginBottom="6dp"
+                    android:indeterminate="false"
+                    android:progress="0"
+                    app:trackStopIndicatorSize="0dp"
+                    app:trackCornerRadius="2dp"
+                    app:trackThickness="4dp" />
+            </LinearLayout>
+
+            <!-- Material 3 Bottom Bar -->
+            <LinearLayout
+                android:id="@+id/bottom_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/colorSurfaceContainer"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingVertical="6dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <!-- File selector chip — now larger, takes weight=1 + freed undo/redo space -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/file_name_container"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:strokeWidth="1dp"
+                    app:contentPadding="0dp"
+                    app:rippleColor="?attr/colorPrimary">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="14dp"
+                        android:paddingVertical="12dp">
+
+                        <ImageView
+                            android:id="@+id/img_orientation"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginEnd="10dp"
+                            android:src="@drawable/ic_mtrl_screen"
+                            app:tint="?attr/colorPrimary"
+                            tools:ignore="ContentDescription" />
+
+                        <TextView
+                            android:id="@+id/file_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:text="main"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
+                            android:textColor="?attr/colorOnSurface" />
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="6dp"
+                            android:src="@drawable/ic_arrow_drop_down_24px"
+                            app:tint="?attr/colorOnSurfaceVariant"
+                            tools:ignore="ContentDescription" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- btn_undo / btn_redo removed — kept as zero-size stubs for backward compat -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_undo"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone"
+                    android:contentDescription="Undo" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_redo"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone"
+                    android:contentDescription="Redo" />
+
+                <!-- Run split button — kept as requested -->
+                <com.google.android.material.button.MaterialSplitButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="0dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_run"
+                        style="?attr/materialSplitButtonLeadingFilledStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Run"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        app:icon="@drawable/ic_mtrl_run" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_options"
+                        style="?attr/materialSplitButtonIconFilledStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:icon="@drawable/m3_split_button_chevron_avd"
+                        app:iconSize="24dp" />
+                </com.google.android.material.button.MaterialSplitButton>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- View Property panel -->
+        <com.besome.sketch.editor.view.ViewProperty
+            android:id="@+id/view_property"
+            android:layout_width="match_parent"
+            android:layout_height="170dp"
+            android:layout_alignParentBottom="true"
+            android:translationY="170dp" />
+    </RelativeLayout>
+
+    <!-- Navigation Drawer -->
+    <com.besome.sketch.design.DesignDrawer
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="end" />
+</androidx.drawerlayout.widget.DrawerLayout>

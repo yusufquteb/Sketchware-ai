@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_dimens.xml
+    ================
+    Dimension values for the chat system.
+    Base grid: 8dp — all values are multiples of 8.
+    Section spacing: 16dp.
+    Touch targets: min 48dp.
+-->
+<resources>
+
+    <!-- Input area height constant (used as paddingBottom for RecyclerView) -->
+    <dimen name="chat_input_area_height">72dp</dimen>
+
+    <!-- Message bubble padding -->
+    <dimen name="chat_bubble_padding_h">14dp</dimen>
+    <dimen name="chat_bubble_padding_v">10dp</dimen>
+
+    <!-- Corner radii -->
+    <dimen name="chat_bubble_radius_large">20dp</dimen>
+    <dimen name="chat_bubble_radius_tail">4dp</dimen>
+
+    <!-- Item vertical spacing -->
+    <dimen name="chat_item_spacing">4dp</dimen>
+
+    <!-- AI avatar size -->
+    <dimen name="chat_ai_avatar_size">28dp</dimen>
+
+    <!-- Typing dot size -->
+    <dimen name="chat_typing_dot_size">8dp</dimen>
+
+    <!-- Action button icon size -->
+    <dimen name="chat_action_icon_size">20dp</dimen>
+
+    <!-- Action button touch target -->
+    <dimen name="chat_action_touch_target">40dp</dimen>
+
+    <!-- Input horizontal margin -->
+    <dimen name="chat_input_margin_h">4dp</dimen>
+
+    <!-- Empty state icon size -->
+    <dimen name="chat_empty_icon_size">80dp</dimen>
+
+</resources>

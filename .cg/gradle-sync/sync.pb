@@ -1,0 +1,8 @@
+
+1a/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main1778944943029"Ò
+app/build.gradler/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/app/build.gradle­A ö²ŸŽÝ3*@933c0583c92f305ce8b06865655dbc54022531a393c25e98f222d4b94f920142"Ê
+build.gradlen/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/build.gradleÜ ö²ŸŽÝ3*@819bf6ba02c17545773fe329f9618e09da67d6ff4b93f2c5e83ce1c267a97d2f"Ô
+gradle.propertiess/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/gradle.properties¨ ¦¡¿ÉÝ3*@bf8952b3fdaf0f6779ec49688e2c309078272b43256f8fc522596381f82022c2"ƒ
+(gradle/wrapper/gradle-wrapper.propertiesŠ/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/gradle/wrapper/gradle-wrapper.propertiesš ö²ŸŽÝ3*@e4c1bf33371614b3fd9dfc6af4b199091c9dc1e64feb02ec8c11fa9a985899b2"Ð
+settings.gradleq/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/settings.gradleç ö²ŸŽÝ3*@1c56205557117c281151046316a8917f7a872032607578e70569805c8e473194*À
+|/storage/emulated/0/AndroidIDEProjects/mod sketchware /nikit/sketchware-nikit/Sketchware-Pro-main/.cg/gradle-sync/project.pb@56dc002bd32defa2a6fa4fb9d3a2875f6867b8464541caf8aa934cbe98555cdb

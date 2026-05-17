@@ -1,0 +1,15 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_clear_chat"
+        android:icon="@drawable/ic_mtrl_delete_sweep"
+        android:title="Clear conversation"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_chat_settings"
+        android:icon="@drawable/ic_mtrl_settings"
+        android:title="AI Settings"
+        app:showAsAction="always" />
+</menu>

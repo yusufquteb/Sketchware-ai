@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_sheet_drag_handle.xml
+    ==========================
+    Drag handle pill shown at the top of ChatBottomSheetFragment.
+    32dp wide × 4dp tall, rounded, surfaceVariant color.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners android:radius="2dp" />
+
+    <solid android:color="@color/chat_drag_handle_color" />
+
+    <size
+        android:width="32dp"
+        android:height="4dp" />
+
+</shape>

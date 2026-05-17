@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    fragment_chat_bottom_sheet.xml
+    ================================
+    ChatBottomSheetFragment host layout.
+    Contains ONLY the BottomSheet scaffold — all chat content comes from <include>.
+
+    Structural difference from activity_chat_ui.xml:
+      - Has a drag handle + header row instead of AppBar/Toolbar
+      - Background: colorSurfaceContainerLowest for visual distinction
+
+    IDs in THIS file (BottomSheet-specific):
+      - chat_sheet_handle
+      - chat_sheet_title
+      - chat_sheet_model_label
+      - chat_sheet_close_btn
+
+    IDs from included layout_chat_content.xml (IDENTICAL to ChatActivity):
+      - chat_coordinator_root
+      - chat_recycler_view
+      - chat_typing_indicator_container
+      - chat_empty_state
+      - chat_scroll_to_bottom_fab
+      - chat_input_area
+      - chat_btn_attach, chat_input_layout, chat_input_edit_text
+      - chat_btn_mic, chat_btn_send
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorSurfaceContainerLowest">
+
+    <!-- ── Drag handle indicator ── -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:paddingTop="6dp">
+
+        <View
+            android:id="@+id/chat_sheet_handle"
+            android:layout_width="32dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:background="@drawable/chat_sheet_drag_handle" />
+    </FrameLayout>
+
+    <!-- ── Header row (replaces AppBar in BottomSheet context) ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:background="?attr/colorSurface">
+
+        <!-- AI avatar icon -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="?attr/colorPrimaryContainer"
+            android:layout_marginEnd="10dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_chat_ai_avatar"
+                android:contentDescription="@null"
+                app:tint="?attr/colorOnPrimaryContainer" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Title and model label -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/chat_sheet_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/chat_activity_title"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurface" />
+
+            <TextView
+                android:id="@+id/chat_sheet_model_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/chat_default_model"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+
+        <!-- Close button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/chat_sheet_close_btn"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="@string/chat_close"
+            app:icon="@drawable/ic_close"
+            app:iconSize="20dp"
+            app:iconTint="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
+
+    <!-- 1dp divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant" />
+
+    <!-- ── Unified chat content — IDENTICAL layout to ChatActivity ── -->
+    <include
+        layout="@layout/layout_chat_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

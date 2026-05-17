@@ -1,0 +1,49 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/menu_logic_showsource"
+        android:icon="@drawable/ic_mtrl_code"
+        android:orderInCategory="100"
+        android:title="Show Source Code"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/menu_logic_undo"
+        android:icon="@drawable/ic_mtrl_undo"
+        android:orderInCategory="100"
+        android:title="Undo"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/menu_logic_redo"
+        android:icon="@drawable/ic_mtrl_redo"
+        android:orderInCategory="100"
+        android:title="Redo"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/menu_block_helper"
+        android:icon="@drawable/ic_mtrl_bookmark"
+        android:orderInCategory="100"
+        android:title="Blocks collection"
+        app:showAsAction="always" />
+
+
+    <item
+        android:id="@+id/menu_logic_edit_generated_java"
+        android:icon="@drawable/ic_mtrl_edit"
+        android:orderInCategory="100"
+        android:title="Edit Generated Java"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_logic_reset_generated_java"
+        android:title="Reset generated Java override"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_logic_ask_ai"
+        android:title="Ask AI about this screen"
+        app:showAsAction="never" />
+</menu>

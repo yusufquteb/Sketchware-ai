@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sidebar category header — styled like the project drawer cards (Asset/Code/etc).
+  Wraps in a MaterialCardView so each group looks like a distinct card.
+-->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="4dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginTop="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardElevation="0dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="?attr/colorOutlineVariant"
+    app:cardCornerRadius="10dp"
+    app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+    app:rippleColor="?attr/colorPrimaryContainer">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="4dp">
+
+        <!-- Category icon -->
+        <ImageView
+            android:id="@+id/sidebar_cat_icon"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:scaleType="fitCenter"
+            android:padding="3dp"
+            app:tint="?attr/colorPrimary"/>
+
+        <!-- Category label — hidden when sidebar collapsed -->
+        <TextView
+            android:id="@+id/sidebar_cat_label"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:visibility="gone"/>
+
+        <!-- Expand arrow — hidden when sidebar collapsed -->
+        <ImageView
+            android:id="@+id/sidebar_cat_arrow"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="4dp"
+            app:srcCompat="@drawable/ic_mtrl_arrow_right"
+            app:tint="?attr/colorOnSurfaceVariant"
+            android:visibility="gone"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
