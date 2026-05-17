@@ -30,12 +30,20 @@ jobs:
     - name: Set up Android SDK path
       run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-    - name: Install Android SDK platform 36
+    - name: Accept Android SDK licenses and install platform 36
       run: |
-        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-          "platforms;android-36" \
-          "build-tools;35.0.0" \
-          "platform-tools"
+        # Find sdkmanager wherever it is on this runner
+        SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name "sdkmanager" -type f 2>/dev/null | head -1)
+        if [ -z "$SDKMANAGER" ]; then
+          SDKMANAGER=$(which sdkmanager 2>/dev/null || echo "")
+        fi
+        if [ -z "$SDKMANAGER" ]; then
+          echo "sdkmanager not found — skipping SDK install, relying on pre-installed SDK"
+        else
+          echo "Using sdkmanager at: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" || true
+        fi
 
     - name: Generate test keystore
       run: |
@@ -50,7 +58,7 @@ jobs:
           -dname "CN=Test,OU=Test,O=Test,L=Test,S=Test,C=US"
 
     - name: Build debug (android26)
-      run: ./gradlew assembleAndroid26Debug
+      run: ./gradlew assembleAndroid26Debug --stacktrace
 
   dependency-submission:
     runs-on: ubuntu-latest
