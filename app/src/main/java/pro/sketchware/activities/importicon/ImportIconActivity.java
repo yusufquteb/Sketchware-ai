@@ -368,7 +368,7 @@ public class ImportIconActivity extends BaseAppCompatActivity implements IconAda
                 selected_color_hex = attr;
                 dialogBinding.selectColour.setText(selected_color_hex);
                 adapter.setSelectedColor(selected_color);
-                adapter.notifyDataSetChanged();
+                adapter.notifyItemRangeChanged(0, adapter.getItemCount());
 
                 dialogBinding.selectColour.setBackgroundColor(selected_color);
 
