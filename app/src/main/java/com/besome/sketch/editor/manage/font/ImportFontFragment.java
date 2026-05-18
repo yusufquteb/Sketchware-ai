@@ -89,8 +89,9 @@ public class ImportFontFragment extends qA {
             SketchwareUtil.toast(message);
         } else {
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_import_complete));
+            int insertStart = projectResourceBeans.size();
             projectResourceBeans.addAll(newResourceBeans);
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemRangeInserted(insertStart, newResourceBeans.size());
         }
 
         toggleEmptyStateVisibility();
@@ -108,7 +109,7 @@ public class ImportFontFragment extends qA {
             projectResourceBeans.forEach(bean -> bean.isSelected = false);
         }
 
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
     }
 
     public boolean isResourceNameExist(String resourceName) {
@@ -202,7 +203,7 @@ public class ImportFontFragment extends qA {
             projectResourceBeans = bundle.getParcelableArrayList("fonts");
         }
 
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeInserted(0, projectResourceBeans.size());
         toggleEmptyStateVisibility();
     }
 
@@ -213,14 +214,14 @@ public class ImportFontFragment extends qA {
         if (requestCode == 271 && resultCode == Activity.RESULT_OK) {
             resourceBean = intent.getParcelableExtra("resource_bean");
             projectResourceBeans.add(resourceBean);
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemInserted(projectResourceBeans.size() - 1);
             toggleEmptyStateVisibility();
             ((ManageFontActivity) requireActivity()).collectionFontsFragment.loadProjectResources();
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_add_complete));
         } else if (requestCode == 272 && resultCode == Activity.RESULT_OK) {
             resourceBean = intent.getParcelableExtra("resource_bean");
             projectResourceBeans.set(adapter.selectedPosition, resourceBean);
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemChanged(adapter.selectedPosition);
             toggleEmptyStateVisibility();
             ((ManageFontActivity) requireActivity()).collectionFontsFragment.loadProjectResources();
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_edit_complete));

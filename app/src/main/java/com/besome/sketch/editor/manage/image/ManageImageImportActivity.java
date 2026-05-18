@@ -119,7 +119,7 @@ public class ManageImageImportActivity extends BaseAppCompatActivity implements 
                     projectResourceBean.resName = name;
                     projectResourceBean.isDuplicateCollection = false;
                     nameValidator.a(getReservedSelectedCollectionNames());
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemChanged(selectedItem);
                 } else {
                     int i = 0;
                     while (i < selectedCollections.size()) {
@@ -128,7 +128,7 @@ public class ManageImageImportActivity extends BaseAppCompatActivity implements 
                         projectResourceBean2.isDuplicateCollection = false;
                     }
                     nameValidator.a(getReservedSelectedCollectionNames());
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                 }
             }
         }
@@ -186,7 +186,7 @@ public class ManageImageImportActivity extends BaseAppCompatActivity implements 
         super.onPostCreate(savedInstanceState);
         initializeLogic();
         showPreview(0);
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
     }
 
     @Override
@@ -299,7 +299,7 @@ public class ManageImageImportActivity extends BaseAppCompatActivity implements 
                             nameValidator.c(selectedCollections.get(selectedItem).resName);
                             nameValidator.a(1);
                         }
-                        adapter.notifyDataSetChanged();
+                        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                     }
                 });
             }

@@ -119,7 +119,7 @@ public class ManageSoundImportActivity extends BaseAppCompatActivity implements 
                         sound.isDuplicateCollection = false;
                     }
                     nameValidator.a(getReservedSelectedCollectionNames());
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                 } else {
                     ed_input_edittext.setText(selectedCollections.get(selectedItem).resName);
                 }
@@ -217,7 +217,7 @@ public class ManageSoundImportActivity extends BaseAppCompatActivity implements 
         super.onPostCreate(savedInstanceState);
         initializeLogic();
         showPreview(0);
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
     }
 
     @Override
@@ -367,7 +367,7 @@ public class ManageSoundImportActivity extends BaseAppCompatActivity implements 
                             nameValidator.c(selectedCollections.get(selectedItem).resName);
                             nameValidator.a(1);
                         }
-                        adapter.notifyDataSetChanged();
+                        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                     }
                 });
             }
