@@ -95,7 +95,7 @@ public class ThemeSettingsActivity extends AppCompatActivity {
 
             h.card.setOnClickListener(v -> {
                 ThemeManager.setPreset(ThemeSettingsActivity.this, pos);
-                notifyDataSetChanged(); // update selection highlight immediately
+                notifyItemRangeChanged(0, getItemCount());
 
                 // Restart the app cleanly so every Activity re-runs onCreate()
                 // and picks up the new preset overlay via BaseAppCompatActivity.

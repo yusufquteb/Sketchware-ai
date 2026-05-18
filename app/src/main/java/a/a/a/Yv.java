@@ -127,7 +127,7 @@ public class Yv extends qA {
 
     public void resetSelection() {
         sounds.forEach(projectResourceBean -> projectResourceBean.isSelected = false);
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, sounds.size());
         actBinding.layoutBtnImport.setVisibility(View.GONE);
     }
 

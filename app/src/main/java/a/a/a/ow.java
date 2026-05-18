@@ -107,13 +107,13 @@ public class ow extends qA {
             sounds.add(data.getParcelableExtra("project_resource"));
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_add_complete));
 
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemInserted(sounds.size() - 1);
             updateNoSoundsTextVisibility();
             ((ManageSoundActivity) requireActivity()).collectionSounds.loadProjectSounds();
         } else if (requestCode == 270 && resultCode == Activity.RESULT_OK) {
             sounds.set(adapter.lastSelectedSound, data.getParcelableExtra("project_resource"));
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_edit_complete));
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemChanged(adapter.lastSelectedSound);
             updateNoSoundsTextVisibility();
             ((ManageSoundActivity) requireActivity()).collectionSounds.loadProjectSounds();
         }
@@ -245,7 +245,7 @@ public class ow extends qA {
             actBinding.fab.show();
             actBinding.layoutBtnGroup.setVisibility(View.GONE);
         }
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, sounds.size());
     }
 
     private ArrayList<String> getSoundsNames() {
@@ -284,8 +284,9 @@ public class ow extends qA {
             SketchwareUtil.toast(Helper.getResString(R.string.common_message_name_unavailable) + "\n[" + unavailableNames + "]");
         } else {
             SketchwareUtil.toast(Helper.getResString(R.string.design_manager_message_import_complete));
+            int insertStart = sounds.size();
             sounds.addAll(newResources);
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemRangeInserted(insertStart, newResources.size());
         }
 
         updateNoSoundsTextVisibility();

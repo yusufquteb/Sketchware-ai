@@ -925,18 +925,17 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
         if (requestCode == REQUEST_FILE_PICK && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri uri = data.getData();
-            try {
-                InputStream is = getContentResolver().openInputStream(uri);
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
                 if (is != null) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                     StringBuilder sb = new StringBuilder();
                     String line;
                     int charCount = 0;
-                    while ((line = reader.readLine()) != null && charCount < 8000) {
-                        sb.append(line).append("\n");
-                        charCount += line.length();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+                        while ((line = reader.readLine()) != null && charCount < 8000) {
+                            sb.append(line).append("\n");
+                            charCount += line.length();
+                        }
                     }
-                    reader.close();
                     String fileName = uri.getLastPathSegment();
                     String fileContent = "```\n// File: " + fileName + "\n" + sb.toString().trim() + "\n```";
                     String current = binding.inputMessage.getText() != null
