@@ -1211,7 +1211,7 @@ public class AiProjectBottomSheet
                 xml = new pro.sketchware.ia.GeradorDeLayoutPro(context, prompt).generateLayout();
             } catch (Exception e) { error = e.getMessage(); }
             final String finalXml = xml; final String finalError = error;
-            main.post(() -> {
+            mainHandler.post(() -> {
                 if (typingIndicator != null)
                     typingIndicator.setVisibility(android.view.View.GONE);
                 if (finalError != null || finalXml == null || finalXml.isEmpty()) {
