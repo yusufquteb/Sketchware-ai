@@ -351,7 +351,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
         backgroundExecutor.shutdownNow();
         if (pendingSearch != null) searchDebounceHandler.removeCallbacks(pendingSearch);
