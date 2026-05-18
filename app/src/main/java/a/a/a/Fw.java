@@ -78,7 +78,7 @@ public class Fw extends qA {
 
     public void a(ProjectFileBean var1) {
         activitiesFiles.add(var1);
-        projectFilesAdapter.notifyDataSetChanged();
+        projectFilesAdapter.notifyItemInserted(activitiesFiles.size() - 1);
     }
 
     public void a(boolean var1) {

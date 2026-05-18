@@ -449,8 +449,7 @@ public class pu extends qA {
 
     private void addImage(ProjectResourceBean projectResourceBean) {
         images.add(projectResourceBean);
-        adapter.notifyDataSetChanged();
-        adapter.notifyItemInserted(adapter.getItemCount());
+        adapter.notifyItemInserted(images.size() - 1);
         updateGuideVisibility();
     }
 
