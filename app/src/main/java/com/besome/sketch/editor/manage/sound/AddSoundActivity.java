@@ -205,6 +205,19 @@ public class AddSoundActivity extends BaseDialogActivity implements View.OnClick
         pauseNowPlaying();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+        if (nowPlayingPlayer != null) {
+            nowPlayingPlayer.release();
+            nowPlayingPlayer = null;
+        }
+    }
+
     private void saveSound() {
         if (isSoundValid(soundNameValidator)) {
             String soundName = Helper.getText(this.soundName);

@@ -323,19 +323,6 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
 
         runLoadLocalLibrariesTask();
 
-        // Empty state CTA button — mirrors toolbar download action
-        binding.btnDownloadEmpty.setOnClickListener(v -> {
-            if (getSupportFragmentManager().findFragmentByTag("library_downloader_dialog") != null) return;
-            Bundle bundle = new Bundle();
-            bundle.putBoolean("notAssociatedWithProject", notAssociatedWithProject);
-            bundle.putSerializable("buildSettings", buildSettings);
-            bundle.putString("localLibFile", getLocalLibFile(scId).getAbsolutePath());
-            LibraryDownloaderDialogFragment fragment = new LibraryDownloaderDialogFragment();
-            fragment.setArguments(bundle);
-            fragment.setOnLibraryDownloadedTask(this::runLoadLocalLibrariesTask);
-            fragment.show(getSupportFragmentManager(), "library_downloader_dialog");
-        });
-
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {

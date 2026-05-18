@@ -2143,6 +2143,12 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
     public void onSaveInstanceState(Bundle bundle) {
         bundle.putString("sc_id", scId);
         bundle.putString("id", id);

@@ -179,6 +179,15 @@ public class AddSoundCollectionActivity extends BaseDialogActivity implements Vi
         o();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (H != null) {
+            H.cancel();
+            H = null;
+        }
+    }
+
     private void p() {
         Intent intent = new Intent("android.intent.action.GET_CONTENT", MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         intent.setType("audio/*");
