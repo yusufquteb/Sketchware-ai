@@ -1492,7 +1492,6 @@ public class AiProjectBottomSheet
         for (AiProvider p : AiProvider.values()) {
             if (!preferences.prefs().getBoolean("provider_enabled_" + p.name(), true)) continue;
             if (p.requiresApiKey() && !preferences.hasApiKey(p)
-                    && p != AiProvider.LOCAL_LLM) continue;
 
             // Task 1: Use cached models first; fall back to static list so selector
             // is never empty even before the user has fetched models from the network.

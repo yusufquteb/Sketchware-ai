@@ -383,7 +383,7 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
         EventBean.deleteEvent(sc_id, event, currentActivity);
         bB.a(requireContext(), getString(R.string.common_message_complete_delete), 0).show();
         events.get(getPaletteIndex()).remove(position);
-        eventAdapter.refreshAfterDelete();
+        eventAdapter.refreshAfterDelete(position);
     }
 
     private void initializeEvents(ArrayList<EventBean> events) {

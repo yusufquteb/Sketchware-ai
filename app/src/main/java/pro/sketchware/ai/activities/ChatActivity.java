@@ -644,10 +644,8 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         dialog.setContentView(dialogBinding.getRoot());
 
         // Only providers that are ENABLED in AI Settings AND ready (key or free)
-        // LOCAL_LLM is excluded — it's configured separately in AI Settings
         List<AiProvider> availableProviders = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            if (p == AiProvider.LOCAL_LLM) continue;  // handled separately
             // Default-enabled mirrors AiSettingsActivity defaults
             boolean defaultEnabled = (p == AiProvider.GOOGLE_AI_STUDIO
                     || p == AiProvider.SAMBANOVA

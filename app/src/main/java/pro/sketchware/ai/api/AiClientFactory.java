@@ -10,7 +10,7 @@ import pro.sketchware.ai.storage.AiPreferences;
  *            OPENROUTER, DEEPINFRA, TOGETHER, HUGGINGFACE, CEREBRAS,
  *            GOOGLE_AI_STUDIO, SAMBANOVA, MISTRAL, COHERE, HYPERBOLIC,
  *            KLUSTER, OVH, CLOUDFLARE, GITHUB_MODELS, LAMBDA, SCALEWAY,
- *            FIREWORKS, NOVITA, CHUTES (AirForce AI), LOCAL_LLM.
+ *            FIREWORKS, NOVITA, CHUTES (AirForce AI), MORPH.
  */
 public final class AiClientFactory {
 
@@ -45,12 +45,7 @@ public final class AiClientFactory {
             case FIREWORKS:        return new FireworksApiClient(apiKey);
             case NOVITA:           return new NovitaApiClient(apiKey);
             case CHUTES:           return new ChutesApiClient(apiKey);
-            case LOCAL_LLM: {
-                String url      = preferences.prefs().getString("ai_local_llm_url",       "http://localhost:1234");
-                String model    = preferences.prefs().getString("ai_local_llm_model",      "local-model");
-                String filePath = preferences.prefs().getString("ai_local_llm_file_path", "");
-                return new LocalLlmApiClient(url, model, filePath.isEmpty() ? null : filePath);
-            }
+            case MORPH:            return new MorphApiClient(apiKey);
             default: return null;
         }
     }
@@ -79,16 +74,16 @@ public final class AiClientFactory {
             case FIREWORKS:        return "\u2705 Stable \u2014 $1 free credit, fast Llama 4 & DeepSeek";
             case NOVITA:           return "\u2705 Stable \u2014 $0.50 free for 1 year, Llama 4 & DeepSeek R1";
             case CHUTES:           return "\u2705 Free \u2014 AirForce AI, no API key needed. GPT-4o, Claude, Gemini, Llama 4, DeepSeek & more";
+            case MORPH:            return "\u2705 Stable \u2014 morph-v3-fast for precise code & XML layout editing";
             case NVIDIA:           return "\u26A0\uFE0F May have rate limits \u2014 use meta/llama-3.3-70b-instruct";
             case OPENROUTER:       return "\u26A0\uFE0F Quality varies by sub-model \u2014 prefix model with provider/";
             case DEEPINFRA:        return "\u26A0\uFE0F Supports Gemma 2/3 \u2014 check model ID matches exactly";
             case HUGGINGFACE:      return "\u26A0\uFE0F Free tier has rate limits \u2014 set model to specific HF model ID";
-            case LOCAL_LLM:        return "\u2139\uFE0F Requires local server (LM Studio / Ollama) \u2014 supports Gemma 2/3/4";
             default:               return "Unknown provider";
         }
     }
 
     public static boolean requiresApiKey(AiProvider provider) {
-        return provider != AiProvider.LOCAL_LLM && provider != AiProvider.CHUTES;
+        return provider != AiProvider.CHUTES;
     }
 }

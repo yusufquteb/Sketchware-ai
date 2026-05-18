@@ -181,7 +181,6 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         // Collect all enabled providers' models into a flat list (same as Design page)
         java.util.List<pro.sketchware.ai.models.ModelInfo> all = new java.util.ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            if (p == AiProvider.LOCAL_LLM) continue;
             if (!preferences.prefs().getBoolean("provider_enabled_" + p.name(), true)) continue;
             if (p.requiresApiKey() && !preferences.hasApiKey(p)) continue;
             // Use cached models first, fall back to static list

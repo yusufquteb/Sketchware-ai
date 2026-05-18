@@ -157,15 +157,17 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
 
         if (yB.a(projectMap, "custom_icon")) {
             String iconFolder = wq.e() + File.separator + scId;
-            File iconFile = new File(iconFolder, "icon.png");
-            if (iconFile.exists()) {
-                Uri uri;
-                String providerPath = activity.getPackageName() + ".provider";
-                uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
-                holder.binding.imgIcon.setImageURI(uri);
-            } else {
-                holder.binding.imgIcon.setImageResource(R.drawable.default_icon);
-            }
+            new Thread(() -> {
+                File iconFile = new File(iconFolder, "icon.png");
+                if (iconFile.exists()) {
+                    String providerPath = activity.getPackageName() + ".provider";
+                    Uri uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
+                    activity.runOnUiThread(() -> holder.binding.imgIcon.setImageURI(uri));
+                } else {
+                    activity.runOnUiThread(() ->
+                            holder.binding.imgIcon.setImageResource(R.drawable.default_icon));
+                }
+            }).start();
         }
 
         if (isPinned(projectMap)) {

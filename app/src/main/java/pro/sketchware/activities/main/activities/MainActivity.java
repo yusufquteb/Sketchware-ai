@@ -342,7 +342,7 @@ public class MainActivity extends BasePermissionAppCompatActivity {
         // commitNow() executes the transaction synchronously, ensuring that
         // isAdded() returns the correct state for any subsequent navigation call
         // that might arrive before the Looper has a chance to drain the queue.
-        transaction.commit();
+        transaction.commitAllowingStateLoss();
 
         activeFragment = projectsFragment;
         currentNavItemId = R.id.item_projects;
