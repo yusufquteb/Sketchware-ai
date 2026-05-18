@@ -241,11 +241,11 @@ public class VariableItemView extends LinearLayout {
                 @Override public int getNewListSize() { return newVariables.size(); }
                 @Override public boolean areItemsTheSame(int oldPos, int newPos) {
                     VariableItem o = oldVariables.get(oldPos), n = newVariables.get(newPos);
-                    return Objects.equals(o.type, n.type) && Objects.equals(o.name, n.name);
+                    return Objects.equals(o.type(), n.type()) && Objects.equals(o.name(), n.name());
                 }
                 @Override public boolean areContentsTheSame(int oldPos, int newPos) {
                     return areItemsTheSame(oldPos, newPos)
-                            && oldVariables.get(oldPos).icon == newVariables.get(newPos).icon;
+                            && oldVariables.get(oldPos).icon() == newVariables.get(newPos).icon();
                 }
             }).dispatchUpdatesTo(this);
         }
