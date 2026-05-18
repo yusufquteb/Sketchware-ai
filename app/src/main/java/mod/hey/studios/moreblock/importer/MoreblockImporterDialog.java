@@ -142,8 +142,10 @@ public class MoreblockImporterDialog extends MaterialAlertDialogBuilder {
             BlockUtil.loadMoreblockPreview(holder.binding.blockArea, bean.spec);
 
             holder.binding.transparentOverlay.setOnClickListener(v -> {
+                int prev = selectedPosition;
                 selectedPosition = holder.getAbsoluteAdapterPosition();
-                notifyDataSetChanged();
+                if (prev >= 0) notifyItemChanged(prev);
+                notifyItemChanged(selectedPosition);
             });
         }
 
