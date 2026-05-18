@@ -130,7 +130,6 @@ public class EventsManagerDetailsFragment extends qA {
                 }
             }
             binding.eventsRecyclerView.setAdapter(new EventsAdapter(listMap));
-            binding.eventsRecyclerView.getAdapter().notifyDataSetChanged();
         }
         Collections.reverse(listMap);
         if (listMap.isEmpty()) {

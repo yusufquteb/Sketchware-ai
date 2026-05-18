@@ -185,7 +185,6 @@ public class EventsManagerFragment extends qA {
         if (FileUtil.isExistFile(EventsManagerConstants.LISTENERS_FILE.getAbsolutePath())) {
             listMap = new Gson().fromJson(FileUtil.readFile(EventsManagerConstants.LISTENERS_FILE.getAbsolutePath()), Helper.TYPE_MAP_LIST);
             binding.listenersRecyclerView.setAdapter(new ListenersAdapter(listMap, requireContext()));
-            binding.listenersRecyclerView.getAdapter().notifyDataSetChanged();
         }
         Collections.reverse(listMap);
     }
