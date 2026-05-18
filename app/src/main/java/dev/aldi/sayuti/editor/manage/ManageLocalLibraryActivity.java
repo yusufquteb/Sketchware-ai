@@ -359,7 +359,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
 
     private void runLoadLocalLibrariesTask() {
         k();
-        new Handler().postDelayed(() -> new LoadLocalLibrariesTask(this).execute(), 500L);
+        new Handler(android.os.Looper.getMainLooper()).postDelayed(() -> new LoadLocalLibrariesTask(this).execute(), 500L);
     }
 
     private List<LocalLibrary> getAdapterLocalLibraries() {
@@ -805,7 +805,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             .setSingleChoiceItems(options, sortMode, (d, which) -> {
                 sortMode = which;
                 d.dismiss();
-                new android.os.Handler().post(() -> applySortAndPublish(true));
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> applySortAndPublish(true));
             })
             .show();
     }
@@ -936,7 +936,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                     .setPositiveButton("Backup, then proceed", (d, w) -> {
                         backupAllLibraries();
                         // Execute after brief delay to let backup start
-                        new android.os.Handler().postDelayed(() -> runOnUiThread(() -> {
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> runOnUiThread(() -> {
                             switch (key) {
                                 case "update_all": batchUpdateAvailableLibraries(); break;
                                 case "clean_unused": showRemoveUnusedLibrariesDialog(); break;
