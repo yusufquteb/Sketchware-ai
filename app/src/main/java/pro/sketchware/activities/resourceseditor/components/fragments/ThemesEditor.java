@@ -272,7 +272,6 @@ public class ThemesEditor extends Fragment {
 
             theme.addAttribute(attribute, value);
             attributesAdapter.submitList(new ArrayList<>(theme.getAttributes().keySet()));
-            attributesAdapter.notifyDataSetChanged();
             hasUnsavedChanges = true;
         });
 

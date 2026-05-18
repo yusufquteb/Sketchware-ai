@@ -71,7 +71,7 @@ public class fu extends qA implements View.OnClickListener {
         for (ProjectResourceBean image : collectionImages) {
             image.isSelected = false;
         }
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, collectionImages.size());
     }
 
     public boolean isSelecting() {
@@ -101,7 +101,6 @@ public class fu extends qA implements View.OnClickListener {
             openImageImportDetails.launch(intent);
         }
         unselectAll();
-        adapter.notifyDataSetChanged();
     }
 
     private void onItemSelected() {

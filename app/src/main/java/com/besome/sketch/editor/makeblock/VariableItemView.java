@@ -46,7 +46,7 @@ public class VariableItemView extends LinearLayout {
 
     private void setPreview(VariableItem variableItem) {
         selectedVariableItem = variableItem;
-        tvPreview.setText(getTypeName(variableItem.type, variableItem.name));
+        tvPreview.setText(getTypeName(variableItem.type(), variableItem.name()));
     }
 
     private String getTypeName(String type, String name) {
@@ -212,7 +212,7 @@ public class VariableItemView extends LinearLayout {
     }
 
     public Pair<String, String> getSelectedItem() {
-        return new Pair<>(selectedVariableItem.type, selectedVariableItem.name);
+        return new Pair<>(selectedVariableItem.type(), selectedVariableItem.name());
     }
 
     private record VariableItem(String type, String name, @DrawableRes int icon) {
@@ -229,8 +229,8 @@ public class VariableItemView extends LinearLayout {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder viewHolder, int position) {
             VariableItem variableItem = variables.get(position);
-            viewHolder.binding.name.setText(getTypeName(variableItem.type, variableItem.name));
-            viewHolder.binding.icon.setImageResource(variableItem.icon);
+            viewHolder.binding.name.setText(getTypeName(variableItem.type(), variableItem.name()));
+            viewHolder.binding.icon.setImageResource(variableItem.icon());
         }
 
         public void setData(ArrayList<VariableItem> newVariables) {
@@ -241,11 +241,11 @@ public class VariableItemView extends LinearLayout {
                 @Override public int getNewListSize() { return newVariables.size(); }
                 @Override public boolean areItemsTheSame(int oldPos, int newPos) {
                     VariableItem o = oldVariables.get(oldPos), n = newVariables.get(newPos);
-                    return Objects.equals(o.type, n.type) && Objects.equals(o.name, n.name);
+                    return Objects.equals(o.type(), n.type()) && Objects.equals(o.name(), n.name());
                 }
                 @Override public boolean areContentsTheSame(int oldPos, int newPos) {
                     return areItemsTheSame(oldPos, newPos)
-                            && oldVariables.get(oldPos).icon == newVariables.get(newPos).icon;
+                            && oldVariables.get(oldPos).icon() == newVariables.get(newPos).icon();
                 }
             }).dispatchUpdatesTo(this);
         }

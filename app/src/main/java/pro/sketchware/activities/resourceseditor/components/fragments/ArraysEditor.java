@@ -316,7 +316,6 @@ public class ArraysEditor extends Fragment {
 
             array.addAttribute(attribute, value);
             attributesAdapter.submitList(new ArrayList<>(array.getAttributes().keySet()));
-            attributesAdapter.notifyDataSetChanged();
             hasUnsavedChanges = true;
         });
 

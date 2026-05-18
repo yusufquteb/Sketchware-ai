@@ -14,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
@@ -32,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import android.util.Base64;
@@ -254,6 +256,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void setMessages(@NonNull List<ChatMessage> messages) {
+        List<ChatItem> oldItems = new ArrayList<>(items);
         items.clear();
         Map<String, Integer> latestAssistantIndexByToolId = collectLatestAssistantIndexByToolId(messages);
         for (int i = 0; i < messages.size(); i++) {
@@ -271,7 +274,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 applyPersistedToolResult(msg);
             }
         }
-        notifyDataSetChanged();
+        List<ChatItem> newItems = new ArrayList<>(items);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldItems.size(); }
+            @Override public int getNewListSize() { return newItems.size(); }
+            @Override public boolean areItemsTheSame(int oldPos, int newPos) {
+                ChatMessage oldMsg = oldItems.get(oldPos).message;
+                ChatMessage newMsg = newItems.get(newPos).message;
+                if (oldMsg == null || newMsg == null) return oldMsg == newMsg;
+                return Objects.equals(oldMsg.getId(), newMsg.getId());
+            }
+            @Override public boolean areContentsTheSame(int oldPos, int newPos) {
+                ChatItem oldItem = oldItems.get(oldPos);
+                ChatItem newItem = newItems.get(newPos);
+                if (oldItem.message == null || newItem.message == null) return oldItem.message == newItem.message;
+                return Objects.equals(oldItem.message.getContent(), newItem.message.getContent())
+                        && oldItem.toolStates.size() == newItem.toolStates.size();
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     private void applyPersistedToolResult(@NonNull ChatMessage msg) {

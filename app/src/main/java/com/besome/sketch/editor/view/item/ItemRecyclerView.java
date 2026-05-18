@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -125,8 +126,14 @@ public class ItemRecyclerView extends RecyclerView implements ItemView, EditorLi
         }
 
         public void setItemList(List<String> newList) {
+            List<String> oldList = dataList;
             dataList = newList;
-            notifyDataSetChanged();
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldList.size(); }
+                @Override public int getNewListSize() { return newList.size(); }
+                @Override public boolean areItemsTheSame(int o, int n) { return oldList.get(o).equals(newList.get(n)); }
+                @Override public boolean areContentsTheSame(int o, int n) { return areItemsTheSame(o, n); }
+            }).dispatchUpdatesTo(this);
         }
 
         @NonNull

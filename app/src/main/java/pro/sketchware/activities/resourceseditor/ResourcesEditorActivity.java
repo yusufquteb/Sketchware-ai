@@ -54,6 +54,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 
     private final Handler searchDebounceHandler = new Handler(Looper.getMainLooper());
     private Runnable pendingSearch;
+    private final java.util.concurrent.ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
     private final String variantFullNameStarts = "values-";
     public yq yq;
     public boolean isComingFromSrcCodeEditor;
@@ -152,7 +153,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 
     private void startBackgroundTask() {
         k();
-        Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             loadDataInBackground();
             runOnUiThread(this::h);
         });

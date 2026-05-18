@@ -426,14 +426,12 @@ public class AiProjectBottomSheet
         switch (tool.name) {
             case "generate_layout":
                 // Don't put text in input — trigger the inline Dialog-style generator directly
-                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                        () -> showInlineLayoutGenerator(actName), 100);
+                mainHandler.postDelayed(() -> showInlineLayoutGenerator(actName), 100);
                 return null;  // signal: don't fill input
 
             case "edit_ui":
                 // Edit Layout: first read current layout, then let user describe the edit
-                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                        () -> showInlineLayoutEditor(actName), 100);
+                mainHandler.postDelayed(() -> showInlineLayoutEditor(actName), 100);
                 return null;
             case "describe_layout":
                 return "Describe the current layout of the '" + actName + "' screen";
@@ -1203,8 +1201,7 @@ public class AiProjectBottomSheet
     private void handleLayoutGenerationPrompt(String prompt) {
         String actName = currentActivityXmlName != null
                 ? currentActivityXmlName.replace(".xml", "") : "main";
-        android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
-        main.post(() -> {
+        mainHandler.post(() -> {
             if (typingText != null) typingText.setText("Generating layout…");
             if (typingIndicator != null) typingIndicator.setVisibility(android.view.View.VISIBLE);
         });
@@ -1214,7 +1211,7 @@ public class AiProjectBottomSheet
                 xml = new pro.sketchware.ia.GeradorDeLayoutPro(context, prompt).generateLayout();
             } catch (Exception e) { error = e.getMessage(); }
             final String finalXml = xml; final String finalError = error;
-            main.post(() -> {
+            mainHandler.post(() -> {
                 if (typingIndicator != null)
                     typingIndicator.setVisibility(android.view.View.GONE);
                 if (finalError != null || finalXml == null || finalXml.isEmpty()) {
