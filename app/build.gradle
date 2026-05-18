@@ -63,10 +63,15 @@ android {
 
     signingConfigs {
         debug {
-            storeFile = file("../testkey.keystore")
-            storePassword = "testkey"
-            keyAlias = "testkey"
-            keyPassword = "testkey"
+            def keystoreFile = file("../testkey.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "testkey"
+                keyAlias = "testkey"
+                keyPassword = "testkey"
+            }
+            // If testkey.keystore is absent (local build), Android falls back
+            // to the default debug keystore (~/.android/debug.keystore).
         }
     }
 
