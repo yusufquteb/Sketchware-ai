@@ -276,8 +276,9 @@ public class LogReaderActivity extends BaseAppCompatActivity {
         }
 
         public void deleteAll() {
+            int oldSize = data.size();
             data.clear();
-            binding.logsRecyclerView.getAdapter().notifyDataSetChanged();
+            binding.logsRecyclerView.getAdapter().notifyItemRangeRemoved(0, oldSize);
             binding.noContentLayout.setVisibility(View.VISIBLE);
         }
 

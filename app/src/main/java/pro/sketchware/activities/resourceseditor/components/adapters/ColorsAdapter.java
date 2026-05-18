@@ -5,9 +5,11 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
@@ -66,8 +68,9 @@ public class ColorsAdapter extends RecyclerView.Adapter<ColorsAdapter.ViewHolder
     }
 
     public void filter(String newText) {
+        List<ColorModel> oldData = filteredData;
         if (newText == null || newText.isEmpty()) {
-            filteredData = new ArrayList<>(originalData); // Reset to original data
+            filteredData = new ArrayList<>(originalData);
         } else {
             String filterText = newText.toLowerCase().trim();
             filteredData = originalData.stream()
@@ -75,7 +78,17 @@ public class ColorsAdapter extends RecyclerView.Adapter<ColorsAdapter.ViewHolder
                             item.getColorValue().toLowerCase().contains(filterText))
                     .collect(Collectors.toCollection(ArrayList::new));
         }
-        notifyDataSetChanged();
+        List<ColorModel> newData = filteredData;
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldData.size(); }
+            @Override public int getNewListSize() { return newData.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldData.get(op).getColorName(), newData.get(np).getColorName());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldData.get(op).getColorValue(), newData.get(np).getColorValue());
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

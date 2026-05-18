@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -38,9 +39,19 @@ public class DependencyDownloadAdapter extends RecyclerView.Adapter<DependencyDo
     }
 
     public void setDependencies(@NonNull List<DependencyDownloadItem> newDependencies) {
+        List<DependencyDownloadItem> oldDependencies = new ArrayList<>(dependencies);
         dependencies.clear();
         dependencies.addAll(newDependencies);
-        notifyDataSetChanged();
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldDependencies.size(); }
+            @Override public int getNewListSize() { return newDependencies.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldDependencies.get(op).getName().equals(newDependencies.get(np).getName());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                return oldDependencies.get(op).equals(newDependencies.get(np));
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     public void updateDependency(@NonNull DependencyDownloadItem updatedItem) {

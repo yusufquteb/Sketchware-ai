@@ -158,8 +158,9 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
 
         // Clear
         binding.libAiBtnClear.setOnClickListener(v -> {
+            int oldSize = chatHistory.size();
             chatHistory.clear();
-            chatAdapter.notifyDataSetChanged();
+            chatAdapter.notifyItemRangeRemoved(0, oldSize);
             showEmpty(true);
         });
 

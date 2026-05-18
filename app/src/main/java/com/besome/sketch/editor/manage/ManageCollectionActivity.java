@@ -18,6 +18,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -139,7 +140,7 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
             }
         }
 
-        collectionAdapter.notifyDataSetChanged();
+        collectionAdapter.notifyItemRangeChanged(0, collectionAdapter.getItemCount());
     }
 
     private void handleFabOnClick(int categoryId) {
@@ -249,7 +250,6 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
                     }
                 }
 
-                collectionAdapter.notifyDataSetChanged();
             }
         }
     }
@@ -327,7 +327,6 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
         }
 
         bB.a(getApplicationContext(), Helper.getResString(R.string.common_message_complete_delete), 1).show();
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private int getCurrentCategoryItemId() {
@@ -481,7 +480,7 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
         }
 
         if (collectionAdapter != null) {
-            collectionAdapter.notifyDataSetChanged();
+            collectionAdapter.notifyItemRangeChanged(0, collectionAdapter.getItemCount());
         }
     }
 
@@ -505,70 +504,54 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
             collection.setLayoutManager(new GridLayoutManager(getApplicationContext(), getGridLayoutColumnCount()));
             currentItemId = 0;
         }
-
-        if (collectionAdapter != null) {
-            collectionAdapter.notifyDataSetChanged();
-        }
     }
 
     private void loadImages() {
         images = Op.g().f();
         if (currentItemId == 0) {
-            collectionAdapter.setData(images);
             collectionAdapter.currentViewType = 0;
+            collectionAdapter.setData(images);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void loadSounds() {
         sounds = Qp.g().f();
         if (currentItemId == 1) {
-            collectionAdapter.setData(sounds);
             collectionAdapter.currentViewType = 1;
+            collectionAdapter.setData(sounds);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void loadFonts() {
         fonts = Np.g().f();
         if (currentItemId == 2) {
-            collectionAdapter.setData(fonts);
             collectionAdapter.currentViewType = 2;
+            collectionAdapter.setData(fonts);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void loadWidgets() {
         widgets = Rp.h().f();
         if (currentItemId == 3) {
-            collectionAdapter.setData(widgets);
             collectionAdapter.currentViewType = 3;
+            collectionAdapter.setData(widgets);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void loadBlocks() {
         blocks = Mp.h().f();
         if (currentItemId == 4) {
-            collectionAdapter.setData(blocks);
             collectionAdapter.currentViewType = 4;
+            collectionAdapter.setData(blocks);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void loadMoreBlocks() {
         moreBlocks = Pp.h().f();
         if (currentItemId == 5) {
-            collectionAdapter.setData(moreBlocks);
             collectionAdapter.currentViewType = 5;
+            collectionAdapter.setData(moreBlocks);
         }
-
-        collectionAdapter.notifyDataSetChanged();
     }
 
     private void unselectToBeDeletedItems() {
@@ -796,13 +779,34 @@ public class ManageCollectionActivity extends BaseAppCompatActivity implements V
             BlockUtil.loadMoreblockPreview(holder.blockArea, bean.spec);
         }
 
-        private void setData(ArrayList<? extends SelectableBean> beans) {
-            currentCollectionTypeItems = beans;
-            if (beans.size() <= 0) {
-                noItemsNote.setVisibility(View.VISIBLE);
-            } else {
-                noItemsNote.setVisibility(View.GONE);
-            }
+        private void setData(ArrayList<? extends SelectableBean> newBeans) {
+            ArrayList<? extends SelectableBean> oldBeans = currentCollectionTypeItems;
+            currentCollectionTypeItems = newBeans;
+            noItemsNote.setVisibility(newBeans.isEmpty() ? View.VISIBLE : View.GONE);
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldBeans.size(); }
+                @Override public int getNewListSize() { return newBeans.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    SelectableBean o = oldBeans.get(op), n = newBeans.get(np);
+                    if (o instanceof ProjectResourceBean && n instanceof ProjectResourceBean) {
+                        return java.util.Objects.equals(((ProjectResourceBean) o).resName, ((ProjectResourceBean) n).resName);
+                    }
+                    if (o instanceof WidgetCollectionBean && n instanceof WidgetCollectionBean) {
+                        return java.util.Objects.equals(((WidgetCollectionBean) o).name, ((WidgetCollectionBean) n).name);
+                    }
+                    if (o instanceof BlockCollectionBean && n instanceof BlockCollectionBean) {
+                        return java.util.Objects.equals(((BlockCollectionBean) o).name, ((BlockCollectionBean) n).name);
+                    }
+                    if (o instanceof MoreBlockCollectionBean && n instanceof MoreBlockCollectionBean) {
+                        return java.util.Objects.equals(((MoreBlockCollectionBean) o).name, ((MoreBlockCollectionBean) n).name);
+                    }
+                    return false;
+                }
+                @Override public boolean areContentsTheSame(int op, int np) {
+                    SelectableBean o = oldBeans.get(op), n = newBeans.get(np);
+                    return o.isSelected == n.isSelected;
+                }
+            }).dispatchUpdatesTo(this);
         }
 
         @Override

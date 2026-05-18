@@ -90,21 +90,41 @@ public class LibrarySidebarAdapter extends RecyclerView.Adapter<RecyclerView.Vie
     /** Call when sidebar width changes (collapsed ↔ expanded). */
     public void setSidebarExpanded(boolean expanded) {
         this.sidebarExpanded = expanded;
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     /** Toggle a category's expanded/collapsed state. */
     private void toggleCategory(int visiblePos) {
-        // Find which category index this is
         int catIdx = 0;
         for (int i = 0; i <= visiblePos; i++) {
             if (visible.get(i).isCategory) catIdx++;
         }
-        catIdx--; // 0-indexed
+        catIdx--;
         if (catIdx < 0 || catIdx >= catExpanded.size()) return;
-        catExpanded.set(catIdx, !catExpanded.get(catIdx));
+        boolean expanding = !catExpanded.get(catIdx);
+        catExpanded.set(catIdx, expanding);
+
+        int insertPos = visiblePos + 1;
+        int childCount = 0;
+        for (int i = visiblePos + 1; i < visible.size(); i++) {
+            if (visible.get(i).isCategory) break;
+            childCount++;
+        }
+
         rebuildVisible();
-        notifyDataSetChanged();
+
+        if (expanding) {
+            int newChildCount = 0;
+            for (int i = visiblePos + 1; i < visible.size(); i++) {
+                if (visible.get(i).isCategory) break;
+                newChildCount++;
+            }
+            notifyItemChanged(visiblePos);
+            if (newChildCount > 0) notifyItemRangeInserted(insertPos, newChildCount);
+        } else {
+            notifyItemChanged(visiblePos);
+            if (childCount > 0) notifyItemRangeRemoved(insertPos, childCount);
+        }
     }
 
     private void rebuildVisible() {

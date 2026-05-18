@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.besome.sketch.beans.BlockBean;
@@ -20,6 +21,7 @@ import com.besome.sketch.beans.ViewBean;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -144,6 +146,7 @@ public class StringsAdapter extends RecyclerView.Adapter<StringsAdapter.ViewHold
     }
 
     public void filter(String query) {
+        List<HashMap<String, Object>> oldData = filteredData;
         if (query == null || query.isEmpty()) {
             filteredData = new ArrayList<>(originalData);
         } else {
@@ -156,7 +159,17 @@ public class StringsAdapter extends RecyclerView.Adapter<StringsAdapter.ViewHold
                 }
             }
         }
-        notifyDataSetChanged();
+        List<HashMap<String, Object>> newData = filteredData;
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldData.size(); }
+            @Override public int getNewListSize() { return newData.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldData.get(op).get("key"), newData.get(np).get("key"));
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldData.get(op).get("text"), newData.get(np).get("text"));
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     public boolean isXmlStringUsed(String key) {

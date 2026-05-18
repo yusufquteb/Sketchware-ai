@@ -12,8 +12,11 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import androidx.recyclerview.widget.DiffUtil;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import a.a.a.Vs;
 import a.a.a.wB;
@@ -35,16 +38,30 @@ public class PaletteSelectorAdapter extends RecyclerView.Adapter<PaletteSelector
     }
 
     public void setPalettes(List<paletteSelectorRecord> list) {
-        paletteList.clear();
+        List<paletteSelectorRecord> newList = new ArrayList<>();
         for (paletteSelectorRecord palette : list) {
             if (paletteSelector.matchesSearch(palette.text())) {
-                paletteList.add(palette);
+                newList.add(palette);
             }
         }
-        if (!paletteList.isEmpty() && selectedPosition < 0) {
+        if (!newList.isEmpty() && selectedPosition < 0) {
             selectedPosition = 0;
         }
-        notifyDataSetChanged();
+        List<paletteSelectorRecord> oldList = new ArrayList<>(paletteList);
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return newList.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldList.get(op).index() == newList.get(np).index();
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                paletteSelectorRecord o = oldList.get(op), n = newList.get(np);
+                return Objects.equals(o.text(), n.text()) && o.color() == n.color();
+            }
+        });
+        paletteList.clear();
+        paletteList.addAll(newList);
+        diff.dispatchUpdatesTo(this);
     }
 
     @NonNull
@@ -70,8 +87,10 @@ public class PaletteSelectorAdapter extends RecyclerView.Adapter<PaletteSelector
         holder.binding.bg.getLayoutParams().width = position == selectedPosition ? ViewGroup.LayoutParams.MATCH_PARENT : (int) wB.a(context, 4f);
 
         holder.itemView.setOnClickListener(v -> {
+            int prev = selectedPosition;
             selectedPosition = holder.getAbsoluteAdapterPosition();
-            notifyDataSetChanged();
+            if (prev >= 0) notifyItemChanged(prev);
+            if (selectedPosition >= 0) notifyItemChanged(selectedPosition);
             if (onBlockCategorySelectListener != null) {
                 onBlockCategorySelectListener.a(id, color);
             }
@@ -87,8 +106,10 @@ public class PaletteSelectorAdapter extends RecyclerView.Adapter<PaletteSelector
         for (int i = 0; i < paletteList.size(); i++) {
             int paletteId = paletteList.get(i).index();
             if (paletteId == tag) {
+                int prev = selectedPosition;
                 selectedPosition = i;
-                notifyDataSetChanged();
+                if (prev >= 0) notifyItemChanged(prev);
+                notifyItemChanged(selectedPosition);
                 if (onBlockCategorySelectListener != null) {
                     onBlockCategorySelectListener.a(paletteId, paletteList.get(i).color());
                 }
@@ -99,8 +120,10 @@ public class PaletteSelectorAdapter extends RecyclerView.Adapter<PaletteSelector
 
     public void selectPosition(int pos) {
         if (pos >= 0 && pos < paletteList.size()) {
+            int prev = selectedPosition;
             selectedPosition = pos;
-            notifyDataSetChanged();
+            if (prev >= 0) notifyItemChanged(prev);
+            notifyItemChanged(selectedPosition);
             if (onBlockCategorySelectListener != null) {
                 onBlockCategorySelectListener.a(paletteList.get(pos).index(), paletteList.get(pos).color());
             }
