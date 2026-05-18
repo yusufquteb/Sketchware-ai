@@ -334,7 +334,7 @@ public class ImportIconActivity extends BaseAppCompatActivity implements IconAda
                     selected_color_hex = "#" + String.format("%06X", var1 & (0x00FFFFFF));
                     dialogBinding.selectColour.setText(selected_color_hex);
                     adapter.setSelectedColor(selected_color);
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemRangeChanged(0, adapter.getItemCount());
 
                     dialogBinding.selectColour.setBackgroundColor(selected_color);
 
@@ -351,7 +351,7 @@ public class ImportIconActivity extends BaseAppCompatActivity implements IconAda
                     selected_color_hex = "@color/" + var1;
                     dialogBinding.selectColour.setText(selected_color_hex);
                     adapter.setSelectedColor(selected_color);
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemRangeChanged(0, adapter.getItemCount());
 
                     dialogBinding.selectColour.setBackgroundColor(selected_color);
 
@@ -421,7 +421,7 @@ public class ImportIconActivity extends BaseAppCompatActivity implements IconAda
     private void updateIcons(String type) {
         selected_icon_type = type;
         adapter.setSelectedIconType(selected_icon_type);
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
     }
 
     private void showSaveDialog(int iconPosition) {
