@@ -52,6 +52,15 @@ public class WorkspaceActivity extends AppCompatActivity {
     private AiPreferences aiPreferences;
     private String workspaceId;
     private Workspace workspace;
+    private final ViewPager2.OnPageChangeCallback pageChangeCallback =
+            new ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    binding.fabAction.setImageResource(R.drawable.ic_mtrl_add);
+                    binding.fabAction.setContentDescription(
+                            position == 0 ? "New Chat" : "Add Project");
+                }
+            };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,6 +99,14 @@ public class WorkspaceActivity extends AppCompatActivity {
         workspace = workspaceManager.getWorkspace(workspaceId);
         if (workspace != null) {
             binding.collapsingToolbar.setTitle(workspace.getName());
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (binding != null) {
+            binding.viewPager.unregisterOnPageChangeCallback(pageChangeCallback);
         }
     }
 
@@ -148,14 +165,7 @@ public class WorkspaceActivity extends AppCompatActivity {
             }
         });
 
-        binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                binding.fabAction.setImageResource(R.drawable.ic_mtrl_add);
-                binding.fabAction.setContentDescription(
-                        position == 0 ? "New Chat" : "Add Project");
-            }
-        });
+        binding.viewPager.registerOnPageChangeCallback(pageChangeCallback);
     }
 
     private void applyInsets() {
