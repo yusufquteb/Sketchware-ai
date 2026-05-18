@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -60,21 +61,27 @@ public class FontManagerFragment extends qA {
     }
 
     public void loadProjectResources() {
+        ArrayList<ProjectResourceBean> oldList = projectResourceBeans;
         projectResourceBeans = Np.g().f();
-        adapter.notifyDataSetChanged();
+        ArrayList<ProjectResourceBean> newList = projectResourceBeans;
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList != null ? oldList.size() : 0; }
+            @Override public int getNewListSize() { return newList.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldList.get(op).resName.equals(newList.get(np).resName);
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                return oldList.get(op).resFullName.equals(newList.get(np).resFullName);
+            }
+        }).dispatchUpdatesTo(adapter);
 
-        if (projectResourceBeans.isEmpty()) {
-            binding.tvGuide.setVisibility(View.VISIBLE);
-            binding.fontList.setVisibility(View.GONE);
-        } else {
-            binding.fontList.setVisibility(View.VISIBLE);
-            binding.tvGuide.setVisibility(View.GONE);
-        }
+        binding.tvGuide.setVisibility(projectResourceBeans.isEmpty() ? View.VISIBLE : View.GONE);
+        binding.fontList.setVisibility(projectResourceBeans.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     public final void resetSelection() {
         projectResourceBeans.forEach(resource -> resource.isSelected = false);
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
         actBinding.layoutBtnImport.setVisibility(View.GONE);
     }
 
@@ -120,7 +127,6 @@ public class FontManagerFragment extends qA {
         }
 
         resetSelection();
-        adapter.notifyDataSetChanged();
     }
 
     @Override

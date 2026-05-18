@@ -131,7 +131,7 @@ public class ManageFontImportActivity extends BaseAppCompatActivity implements V
                     }
                 }
                 nameValidator.a(getReservedSelectedCollectionNames());
-                itemAdapter.notifyDataSetChanged();
+                itemAdapter.notifyItemRangeChanged(0, itemAdapter.getItemCount());
             }
 
         } else if (id == binding.imgBackbtn.getId()) {
@@ -188,7 +188,7 @@ public class ManageFontImportActivity extends BaseAppCompatActivity implements V
         super.onPostCreate(savedInstanceState);
         initializeLogic();
         showPreview(0);
-        itemAdapter.notifyDataSetChanged();
+        itemAdapter.notifyItemRangeChanged(0, itemAdapter.getItemCount());
     }
 
     @Override
@@ -282,7 +282,7 @@ public class ManageFontImportActivity extends BaseAppCompatActivity implements V
                             nameValidator.a(1);
                         }
 
-                        itemAdapter.notifyDataSetChanged();
+                        itemAdapter.notifyItemRangeChanged(0, itemAdapter.getItemCount());
                     }
                 });
             }
