@@ -52,6 +52,8 @@ import pro.sketchware.utility.UI;
 
 public class ResourcesEditorActivity extends BaseAppCompatActivity {
 
+    private final Handler searchDebounceHandler = new Handler(Looper.getMainLooper());
+    private Runnable pendingSearch;
     private final String variantFullNameStarts = "values-";
     public yq yq;
     public boolean isComingFromSrcCodeEditor;
@@ -150,11 +152,10 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 
     private void startBackgroundTask() {
         k();
-
-        Executors.newSingleThreadExecutor().execute(() -> new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        Executors.newSingleThreadExecutor().execute(() -> {
             loadDataInBackground();
             runOnUiThread(this::h);
-        }, 1000));
+        });
     }
 
     private void loadDataInBackground() {
@@ -313,19 +314,23 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
             searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
                 @Override
                 public boolean onQueryTextChange(String newText) {
-                    newText = newText.toLowerCase().trim();
-                    int currentItem = binding.viewPager.getCurrentItem();
-                    if (currentItem == 0) {
-                        stringsEditor.adapter.filter(newText);
-                    } else if (currentItem == 1) {
-                        colorsEditor.adapter.filter(newText);
-                    } else if (currentItem == 2) {
-                        stylesEditor.adapter.filter(newText);
-                    } else if (currentItem == 3) {
-                        themesEditor.adapter.filter(newText);
-                    } else if (currentItem == 4) {
-                        arraysEditor.adapter.filter(newText);
-                    }
+                    String query = newText.toLowerCase().trim();
+                    if (pendingSearch != null) searchDebounceHandler.removeCallbacks(pendingSearch);
+                    pendingSearch = () -> {
+                        int currentItem = binding.viewPager.getCurrentItem();
+                        if (currentItem == 0) {
+                            stringsEditor.adapter.filter(query);
+                        } else if (currentItem == 1) {
+                            colorsEditor.adapter.filter(query);
+                        } else if (currentItem == 2) {
+                            stylesEditor.adapter.filter(query);
+                        } else if (currentItem == 3) {
+                            themesEditor.adapter.filter(query);
+                        } else if (currentItem == 4) {
+                            arraysEditor.adapter.filter(query);
+                        }
+                    };
+                    searchDebounceHandler.postDelayed(pendingSearch, 150);
                     return false;
                 }
 
