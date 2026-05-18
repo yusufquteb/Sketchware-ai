@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -74,6 +75,7 @@ public class MoreblockImporterDialog extends MaterialAlertDialogBuilder {
     }
 
     private void filterList(String query, ArrayList<MoreBlockCollectionBean> beanList) {
+        ArrayList<MoreBlockCollectionBean> oldList = new ArrayList<>(moreBlockCollectionList);
         moreBlockCollectionList.clear();
 
         if (query.isEmpty()) {
@@ -87,7 +89,16 @@ public class MoreblockImporterDialog extends MaterialAlertDialogBuilder {
         }
 
         adapter.resetSelectedPosition();
-        adapter.notifyDataSetChanged();
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return moreBlockCollectionList.size(); }
+            @Override public boolean areItemsTheSame(int oldPos, int newPos) {
+                return oldList.get(oldPos).name.equals(moreBlockCollectionList.get(newPos).name);
+            }
+            @Override public boolean areContentsTheSame(int oldPos, int newPos) {
+                return oldList.get(oldPos).spec.equals(moreBlockCollectionList.get(newPos).spec);
+            }
+        }).dispatchUpdatesTo(adapter);
     }
 
     public interface CallBack {

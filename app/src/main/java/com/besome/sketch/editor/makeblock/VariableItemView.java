@@ -11,12 +11,14 @@ import android.widget.TextView;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 import a.a.a.kq;
 import a.a.a.mB;
@@ -157,22 +159,17 @@ public class VariableItemView extends LinearLayout {
         binding.list.setAdapter(adapter);
 
         adapter.setData(variableItems);
-        adapter.notifyDataSetChanged();
 
         binding.navRail.setOnItemSelectedListener(
                 item -> {
                     int itemId = item.getItemId();
                     if (itemId == R.id.variables) {
-                        // variables list
                         adapter.setData(variableItems);
                     } else if (itemId == R.id.views) {
-                        // views list
                         adapter.setData(viewsVariableList);
                     } else {
-                        // components list
                         adapter.setData(componentsVariableList);
                     }
-                    adapter.notifyDataSetChanged();
                     return true;
                 });
 
@@ -222,7 +219,7 @@ public class VariableItemView extends LinearLayout {
     }
 
     private class VariableItemAdapter extends RecyclerView.Adapter<VariableItemAdapter.ViewHolder> {
-        private ArrayList<VariableItem> variables;
+        private ArrayList<VariableItem> variables = new ArrayList<>();
 
         @Override
         public int getItemCount() {
@@ -236,8 +233,21 @@ public class VariableItemView extends LinearLayout {
             viewHolder.binding.icon.setImageResource(variableItem.icon);
         }
 
-        public void setData(ArrayList<VariableItem> variableItems) {
-            variables = variableItems;
+        public void setData(ArrayList<VariableItem> newVariables) {
+            ArrayList<VariableItem> oldVariables = variables;
+            variables = newVariables;
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldVariables.size(); }
+                @Override public int getNewListSize() { return newVariables.size(); }
+                @Override public boolean areItemsTheSame(int oldPos, int newPos) {
+                    VariableItem o = oldVariables.get(oldPos), n = newVariables.get(newPos);
+                    return Objects.equals(o.type, n.type) && Objects.equals(o.name, n.name);
+                }
+                @Override public boolean areContentsTheSame(int oldPos, int newPos) {
+                    return areItemsTheSame(oldPos, newPos)
+                            && oldVariables.get(oldPos).icon == newVariables.get(newPos).icon;
+                }
+            }).dispatchUpdatesTo(this);
         }
 
         @Override

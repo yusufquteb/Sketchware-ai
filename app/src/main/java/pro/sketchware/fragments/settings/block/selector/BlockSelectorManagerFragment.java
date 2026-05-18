@@ -162,14 +162,16 @@ public class BlockSelectorManagerFragment extends qA {
             if (!isEdit) {
                 if (!itemAlreadyExists(selectorName)) {
                     selectors.add(new Selector(selectorTitle, selectorName, new ArrayList<>()));
+                    saveAllSelectors();
+                    adapter.notifyItemInserted(selectors.size() - 1);
                 } else {
                     SketchwareUtil.toast("An item with this name already exists");
                 }
             } else {
                 selectors.set(index, new Selector(selectorTitle, selectorName, selectors.get(index).getData()));
+                saveAllSelectors();
+                adapter.notifyItemChanged(index);
             }
-            saveAllSelectors();
-            adapter.notifyDataSetChanged();
             v.dismiss();
         });
         dialog.setNegativeButton("Cancel", (v, which) -> v.dismiss());
@@ -198,7 +200,7 @@ public class BlockSelectorManagerFragment extends qA {
             showConfirmationDialog("Are you sure you want to delete this selector?", confirmDialog -> {
                 selectors.remove(index);
                 saveAllSelectors();
-                adapter.notifyDataSetChanged();
+                adapter.notifyItemRemoved(index);
                 confirmDialog.dismiss();
             }, DialogInterface::dismiss);
         });
@@ -271,16 +273,17 @@ public class BlockSelectorManagerFragment extends qA {
                 if (selector != null) {
                     selectors.add(selector);
                     saveAllSelectors();
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemInserted(selectors.size() - 1);
                 } else {
                     SketchwareUtil.toastError("Make sure you select a file that contains selector item(s).");
                 }
             } else {
                 List<Selector> selectorsN = getSelectorsFromFile(file);
                 if (selectorsN != null) {
+                    int insertStart = selectors.size();
                     selectors.addAll(selectorsN);
                     saveAllSelectors();
-                    adapter.notifyDataSetChanged();
+                    adapter.notifyItemRangeInserted(insertStart, selectorsN.size());
                 } else {
                     SketchwareUtil.toastError("Make sure you select a file that contains selector item(s).");
                 }

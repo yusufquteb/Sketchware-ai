@@ -168,7 +168,7 @@ public class BlockSelectorDetailsFragment extends qA {
                     confirmDialog -> {
                         selectors.get(index).getData().remove(indexA);
                         saveAll();
-                        adapter.notifyDataSetChanged();
+                        adapter.notifyItemRemoved(indexA);
                         confirmDialog.dismiss();
                     },
                     DialogInterface::dismiss
