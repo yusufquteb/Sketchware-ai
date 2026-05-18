@@ -171,19 +171,20 @@ public class LibrarySettingsImporter {
             @Override
             public void onClick(View v) {
                 if (!mB.a() && v.getId() == R.id.project_layout) {
+                    int prev = selectedProjectIndex;
                     selectedProjectIndex = getLayoutPosition();
-                    selectProject(selectedProjectIndex);
+                    selectProject(prev, selectedProjectIndex);
                 }
             }
 
-            private void selectProject(int index) {
+            private void selectProject(int prevIndex, int index) {
                 if (!projects.isEmpty()) {
                     for (Map<String, Object> projectMap : projects) {
                         projectMap.put("selected", false);
                     }
-
                     projects.get(index).put("selected", true);
-                    notifyDataSetChanged();
+                    if (prevIndex >= 0) notifyItemChanged(prevIndex);
+                    notifyItemChanged(index);
                 }
             }
         }
