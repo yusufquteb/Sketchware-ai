@@ -393,6 +393,18 @@ public final class DesignXmlEditorTool {
         return null;
     }
 
+    private static void collectIds(JsonArray views, java.util.List<String> ids) {
+        if (views == null) return;
+        for (JsonElement el : views) {
+            if (!el.isJsonObject()) continue;
+            JsonObject v = el.getAsJsonObject();
+            if (v.has("id")) ids.add(v.get("id").getAsString());
+            if (v.has("children") && v.get("children").isJsonArray()) {
+                collectIds(v.getAsJsonArray("children"), ids);
+            }
+        }
+    }
+
     /** Recursively describes the view tree as indented text. */
     private static void describeTree(JsonArray views, String indent, StringBuilder sb) {
         if (views == null) return;
@@ -1035,6 +1047,32 @@ public final class DesignXmlEditorTool {
             // Read optional current_layout (for edit mode — preserves existing views)
             String currentLayout = (args.has("current_layout") && !args.get("current_layout").isJsonNull())
                     ? args.get("current_layout").getAsString().trim() : null;
+
+            // XML ID Lock Layer: if current_layout is not provided, check for existing views.
+            // If the activity already has views, refuse to replace without acknowledgement to
+            // prevent AI from accidentally destroying IDs referenced by existing logic blocks.
+            if (currentLayout == null || currentLayout.isEmpty()) {
+                try {
+                    File viewFile = new File(ctx.getProjectDataDir(scId), "view");
+                    if (viewFile.exists()) {
+                        JsonArray existingArr = readViewArray(viewFile);
+                        JsonObject existingEntry = findEntry(existingArr, actName);
+                        if (existingEntry != null && existingEntry.has("data")) {
+                            JsonArray existingData = existingEntry.getAsJsonArray("data");
+                            if (existingData.size() > 1) { // >1 because root LinearLayout always exists
+                                java.util.List<String> existingIds = new java.util.ArrayList<>();
+                                collectIds(existingData, existingIds);
+                                return error("XML ID Lock: activity '" + actName + "' already has "
+                                        + existingData.size() + " view(s) with IDs: "
+                                        + String.join(", ", existingIds) + ". "
+                                        + "These IDs may be referenced in logic blocks. "
+                                        + "Call describe_layout first to get current XML, "
+                                        + "then pass it as current_layout so the AI preserves existing IDs.");
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
 
             // GeradorDeLayoutPro: edit mode if currentLayout provided, generate mode if null
             String xml;
