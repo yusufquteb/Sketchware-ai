@@ -21,8 +21,11 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.Objects;
 
 import com.besome.sketch.beans.BlockBean;
 import com.besome.sketch.beans.ComponentBean;
@@ -195,7 +198,6 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
             }
             if (eventAdapter != null) {
                 eventAdapter.a(events.get(getPaletteIndex()));
-                eventAdapter.notifyDataSetChanged();
                 restoreSearchState();
             }
         }
@@ -221,7 +223,7 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
             jC.a(sc_id).n(currentActivity.getJavaName(), moreBlock.targetId);
             bB.a(requireContext(), getString(R.string.common_message_complete_delete), 0).show();
             events.get(getPaletteIndex()).remove(position);
-            eventAdapter.refreshAfterDelete();
+            eventAdapter.refreshAfterDelete(position);
         }
     }
 
@@ -232,7 +234,7 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
                     bean.initValue();
                 }
             }
-            eventAdapter.notifyDataSetChanged();
+            eventAdapter.notifyItemRangeChanged(0, eventAdapter.getItemCount());
         }
     }
 
@@ -252,7 +254,6 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
                         importMoreBlockFromCollection.setVisibility(View.GONE);
                     }
                     eventAdapter.a(events.get(getPaletteIndex(item.getItemId())));
-                    eventAdapter.notifyDataSetChanged();
                     return true;
                 });
         fab = parent.findViewById(R.id.fab);
@@ -542,17 +543,29 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
         }
 
         public void a(ArrayList<EventBean> arrayList) {
+            ArrayList<EventBean> oldList = new ArrayList<>(currentCategoryEvents);
             currentCategoryEvents = arrayList;
             String previousQuery = searchQuery;
             searchQuery = "";
             filteredEvents.clear();
-            
+
             if (!previousQuery.isEmpty()) {
                 searchQuery = previousQuery;
                 applyFilterAndSort();
             } else {
                 applySorting();
                 updateEmptyState();
+                DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                    @Override public int getOldListSize() { return oldList.size(); }
+                    @Override public int getNewListSize() { return currentCategoryEvents.size(); }
+                    @Override public boolean areItemsTheSame(int op, int np) {
+                        EventBean o = oldList.get(op), n = currentCategoryEvents.get(np);
+                        return Objects.equals(o.targetId, n.targetId) && Objects.equals(o.eventName, n.eventName);
+                    }
+                    @Override public boolean areContentsTheSame(int op, int np) {
+                        return areItemsTheSame(op, np);
+                    }
+                }).dispatchUpdatesTo(this);
             }
         }
 
@@ -570,16 +583,17 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
             applyFilterAndSort();
         }
 
-        public void refreshAfterDelete() {
+        public void refreshAfterDelete(int position) {
             if (!searchQuery.isEmpty()) {
                 applyFilterAndSort();
             } else {
                 updateEmptyState();
-                notifyDataSetChanged();
+                notifyItemRemoved(position);
             }
         }
 
         private void applyFilterAndSort() {
+            ArrayList<EventBean> oldFiltered = new ArrayList<>(filteredEvents);
             filteredEvents.clear();
 
             if (!searchQuery.isEmpty()) {
@@ -594,7 +608,17 @@ public class rs extends qA implements View.OnClickListener, MoreblockImporterDia
 
             applySorting();
             updateEmptyState();
-            notifyDataSetChanged();
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldFiltered.size(); }
+                @Override public int getNewListSize() { return filteredEvents.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    EventBean o = oldFiltered.get(op), n = filteredEvents.get(np);
+                    return Objects.equals(o.targetId, n.targetId) && Objects.equals(o.eventName, n.eventName);
+                }
+                @Override public boolean areContentsTheSame(int op, int np) {
+                    return areItemsTheSame(op, np);
+                }
+            }).dispatchUpdatesTo(this);
         }
 
         private void applySorting() {

@@ -537,7 +537,7 @@ public class AiSettingsActivity extends AppCompatActivity {
         new MaterialAlertDialogBuilder(this)
                 .setTitle(title)
                 .setView(layout)
-                .setPositiveButton("Save", (d, w) -> {
+                .setPositiveButton(R.string.common_word_save, (d, w) -> {
                     try {
                         float t = Float.parseFloat(tempInput.getText().toString().trim());
                         int   k = Integer.parseInt(tokensInput.getText().toString().trim());
@@ -550,7 +550,7 @@ public class AiSettingsActivity extends AppCompatActivity {
                         Toast.makeText(this, "Invalid value", Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 

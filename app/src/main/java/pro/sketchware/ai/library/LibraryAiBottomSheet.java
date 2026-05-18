@@ -206,13 +206,13 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         int current = enabledProviders.indexOf(currentProvider);
 
         new MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Select Provider")
+            .setTitle(pro.sketchware.R.string.ai_select_provider_title)
             .setSingleChoiceItems(labels.toArray(new String[0]), current, (d, which) -> {
                 d.dismiss();
                 AiProvider selected = enabledProviders.get(which);
                 showModelSubPicker(selected);
             })
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(pro.sketchware.R.string.common_word_cancel, null)
             .show();
     }
 
@@ -234,7 +234,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
                     .apply();
                 updateProviderLabel();
             })
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(pro.sketchware.R.string.common_word_cancel, null)
             .show();
     }
 
