@@ -167,7 +167,7 @@ public class ManageResourceActivity extends BaseAppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        binding.filesListRecyclerView.getAdapter().notifyDataSetChanged();
+        binding.filesListRecyclerView.getAdapter().notifyItemRangeChanged(0, binding.filesListRecyclerView.getAdapter().getItemCount());
     }
 
     @Override
