@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import pro.sketchware.ai.activities.ChatActivity;
@@ -28,6 +29,7 @@ public class WorkspaceConversationsFragment extends Fragment
     private ConversationManager conversationManager;
     private ConversationsAdapter adapter;
     private String workspaceId;
+    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
 
     @Nullable
     @Override
@@ -71,7 +73,7 @@ public class WorkspaceConversationsFragment extends Fragment
     private void refreshConversations() {
         if (binding == null || workspaceId == null) return;
 
-        Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             List<Conversation> conversations =
                     conversationManager.getConversationsForWorkspace(workspaceId);
             if (binding == null) return;
