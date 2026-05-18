@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bg_input_bar.xml
+    Input bar container background.
+    Light: slightly elevated surface (~#ECE6F0 surfaceContainerHigh)
+    Dark: dark elevated surface (~#2B2930)
+    Corner radius 28dp gives the pill/stadium shape seen in image.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/colorSurfaceContainerHigh" />
+    <corners android:radius="28dp" />
+</shape>

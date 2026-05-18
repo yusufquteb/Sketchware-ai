@@ -1,0 +1,14 @@
+{
+  "mode": "TARGETED_SURGICAL_MODE",
+  "default_behavior": "TOOL_DEPENDENT",
+  "permissions": {
+    "directory_management": "GRANTED",
+    "full_system_override": "GRANTED"
+  },
+  "operational_rules": {
+    "ui": "ONLY_USE_VIEW_TOOLS.NO_RAW_JSON_WRITING.",
+    "logic": "READ_BLOCK_CHAIN_BEFORE_MODIFY.",
+    "tokens_optimization": "MINIMIZE_READ_RANGE_USE_SPECIFIC_TOOLS.",
+    "error_handling": "TOOL_OUTPUT_DRIVEN_DECISIONS_ONLY"
+  }
+}

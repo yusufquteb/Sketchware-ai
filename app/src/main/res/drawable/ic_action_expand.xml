@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ic_action_expand.xml
+    Expand / fullscreen icon — 4 corner arrows pointing outward.
+    Matches توسيع (expand) icon in screenshot action row.
+    The icon in the image looks like an expand/resize with arrows at each corner.
+    22dp × 22dp.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Top-left arrow -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,3v6h2V5h4V3z"/>
+    <!-- Top-right arrow -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M21,3h-6v2h4v4h2z"/>
+    <!-- Bottom-left arrow -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,21v-6h2v4h4v2z"/>
+    <!-- Bottom-right arrow -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M21,21h-6v-2h4v-4h2z"/>
+</vector>

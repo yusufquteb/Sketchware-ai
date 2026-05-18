@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Sort submenu -->
+    <item
+        android:id="@+id/menu_sort"
+        android:title="Sort By"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/menu_sort_name"
+                android:title="Name"
+                app:showAsAction="never" />
+            <item
+                android:id="@+id/menu_sort_size"
+                android:title="Size"
+                app:showAsAction="never" />
+            <item
+                android:id="@+id/menu_sort_date"
+                android:title="Date Modified"
+                app:showAsAction="never" />
+        </menu>
+    </item>
+
+    <!-- Expand / Collapse -->
+    <item
+        android:id="@+id/menu_expand_all"
+        android:title="Expand All"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_collapse_all"
+        android:title="Collapse All"
+        app:showAsAction="never" />
+
+    <!-- Toggle generated files -->
+    <item
+        android:id="@+id/menu_toggle_generated"
+        android:title="Hide Generated"
+        app:showAsAction="never" />
+
+    <!-- Search in project -->
+    <item
+        android:id="@+id/menu_search_in_project"
+        android:title="Search in Project"
+        app:showAsAction="never" />
+
+</menu>

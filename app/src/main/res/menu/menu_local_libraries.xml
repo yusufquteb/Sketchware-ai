@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Primary actions shown as icons -->
+    <item
+        android:id="@+id/action_download"
+        android:icon="@drawable/ic_mtrl_download"
+        android:title="Add Library"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_refresh_versions"
+        android:icon="@drawable/ic_mtrl_refresh"
+        android:title="Check Updates"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_ai"
+        android:icon="@drawable/ic_ai_robot"
+        android:title="AI Assistant"
+        app:showAsAction="always" />
+
+    <!-- Overflow — useful unique actions only, each with an icon -->
+    <item
+        android:id="@+id/action_update_all"
+        android:icon="@drawable/ic_mtrl_update"
+        android:title="Update all with updates"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_sort"
+        android:icon="@drawable/ic_mtrl_sort"
+        android:title="Sort libraries"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_select"
+        android:icon="@drawable/ic_mtrl_checklist"
+        android:title="Select libraries"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_find_duplicate_libraries"
+        android:icon="@drawable/ic_mtrl_filter"
+        android:title="Find duplicate libraries"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_detect_conflicts"
+        android:icon="@drawable/ic_mtrl_warning"
+        android:title="Detect conflicts"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_clean_unused"
+        android:icon="@drawable/ic_mtrl_delete_sweep"
+        android:title="Clean unused libraries"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_manage_repositories"
+        android:icon="@drawable/ic_mtrl_code"
+        android:title="Manage repositories"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_clean_orphans"
+        android:icon="@drawable/ic_mtrl_clear_all"
+        android:title="Clean orphan files"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_scan_jars"
+        android:icon="@drawable/ic_mtrl_bug_report"
+        android:title="Scan JARs for coordinates"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_backup_all"
+        android:icon="@drawable/ic_mtrl_checklist"
+        android:title="Backup all libraries"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_restore_backup"
+        android:icon="@drawable/ic_mtrl_history"
+        android:title="Restore from backup"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_version_history"
+        android:icon="@drawable/ic_mtrl_history"
+        android:title="Version history"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_delete_old_unused"
+        android:icon="@drawable/ic_mtrl_delete"
+        android:title="Delete old unused libraries"
+        app:showAsAction="never" />
+
+    <!-- Kept as hidden to preserve R.id for contextual toolbar handler -->
+    <item
+        android:id="@+id/action_remove_unused_libraries"
+        android:title="Remove unused libraries"
+        android:visible="false"
+        app:showAsAction="never" />
+
+</menu>

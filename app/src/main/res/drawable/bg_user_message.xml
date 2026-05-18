@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bg_user_message.xml
+    User message bubble.
+    Light: colorPrimary (#6750A4)
+    Dark:  colorPrimary (#7965AF lighter purple)
+    Full 20dp rounded corners — pill look as in image.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/colorPrimary" />
+    <corners android:radius="20dp" />
+</shape>

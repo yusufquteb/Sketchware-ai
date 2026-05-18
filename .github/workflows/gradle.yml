@@ -1,0 +1,85 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+    - name: Make gradlew executable
+      run: chmod +x gradlew
+
+    - name: Set up Android SDK path
+      run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+    - name: Accept Android SDK licenses and install platform 36
+      run: |
+        # Find sdkmanager wherever it is on this runner
+        SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name "sdkmanager" -type f 2>/dev/null | head -1)
+        if [ -z "$SDKMANAGER" ]; then
+          SDKMANAGER=$(which sdkmanager 2>/dev/null || echo "")
+        fi
+        if [ -z "$SDKMANAGER" ]; then
+          echo "sdkmanager not found — skipping SDK install, relying on pre-installed SDK"
+        else
+          echo "Using sdkmanager at: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" || true
+        fi
+
+    - name: Generate test keystore
+      run: |
+        keytool -genkey -v \
+          -keystore testkey.keystore \
+          -alias testkey \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass testkey \
+          -keypass testkey \
+          -dname "CN=Test,OU=Test,O=Test,L=Test,S=Test,C=US"
+
+    - name: Build debug (android26)
+      run: ./gradlew assembleAndroid26Debug --stacktrace
+
+  dependency-submission:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Make gradlew executable
+      run: chmod +x gradlew
+
+    - name: Set up Android SDK path
+      run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+    - name: Generate and submit dependency graph
+      continue-on-error: true
+      uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0

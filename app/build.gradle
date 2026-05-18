@@ -1,0 +1,247 @@
+def secrets = System.getenv("GOOGLE_SERVICES_JSON")
+def analyticsEnabled = secrets != null
+
+apply plugin: "com.android.application"
+apply plugin: "kotlin-android"
+
+if (analyticsEnabled) {
+    apply plugin: "com.google.gms.google-services"
+    apply plugin: "com.google.firebase.crashlytics"
+}
+
+android {
+    compileSdk = 36
+
+    def gitCommitHash = "git rev-parse HEAD".execute().text.trim()
+    def shortCommitHash = "git rev-parse --short HEAD".execute().text.trim()
+
+    defaultConfig {
+        applicationId = "pro.sketchware"
+        namespace = "pro.sketchware"
+        //noinspection ExpiredTargetSdkVersion since we don't target getting Sketchware Pro on Google Play.
+        targetSdk = 28
+        minSdk = 26
+        versionCode = 150
+        versionName = "v7.0.0-${shortCommitHash}"
+
+        buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            shrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.debug
+        }
+        debug {
+            minifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    packagingOptions {
+        resources.excludes += "license/*"
+        resources.excludes += "META-INF/DEPENDENCIES"
+        resources.pickFirsts += "api_database/*"
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    androidResources {
+        additionalParameters.addAll("--stable-ids", "${rootDir}/public-stable-ids.txt")
+    }
+
+    signingConfigs {
+        debug {
+            def keystoreFile = file("../testkey.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "testkey"
+                keyAlias = "testkey"
+                keyPassword = "testkey"
+            }
+            // If testkey.keystore is absent (local build), Android falls back
+            // to the default debug keystore (~/.android/debug.keystore).
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+        resValues = true
+    }
+
+    configurations.implementation {
+        exclude group: 'javax.inject', module: 'javax.inject'
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-compiler-embeddable"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-common"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-jvm"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-script-runtime"
+    }
+
+    flavorDimensions "default"
+    productFlavors {
+        android26 {
+            versionName "v7.0.0-android26-${shortCommitHash}"
+            dimension "default"
+            resValue "integer", "for_min_sdk", "26"
+            resValue "bool", "enable_relase_app", "true"
+            resValue "bool", "enable_r8", "true"
+        }
+        android33 {
+            versionName "v7.0.0-android33-${shortCommitHash}"
+            dimension "default"
+            resValue "integer", "for_min_sdk", "33"
+            resValue "bool", "enable_relase_app", "true"
+            resValue "bool", "enable_r8", "true"
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+
+        def flavorName = variant.productFlavors.isEmpty()
+                ? "noflavor"
+                : variant.productFlavors.collect { it.second }.join("-")
+
+        def buildType = variant.buildType
+
+        variant.outputs.forEach { output ->
+            output.outputFileName.set(
+                    "app-${buildType}-${flavorName}.apk"
+            )
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar", "*.aar"])
+    testImplementation "junit:junit:4.13.2"
+
+    implementation libs.bundles.ui
+    implementation libs.bundles.image
+    implementation libs.bundles.coil
+    implementation libs.bundles.networking
+
+    // Sora editor (with BOM for consistent versions)
+    def editorGroupId = "io.github.Rosemoe.sora-editor"
+    implementation platform("$editorGroupId:bom:0.23.5")
+    implementation "$editorGroupId:editor"
+    implementation "$editorGroupId:language-java"
+    implementation "$editorGroupId:language-textmate"
+
+    implementation "com.google.code.gson:gson:2.13.2"
+    implementation "io.noties.markwon:core:4.6.2"
+    implementation "com.github.Cosmic-Ide:DependencyResolver:05ec26af0b"
+    implementation "com.github.PranavPurwar:filepicker:74526bea66"
+    implementation "com.github.topjohnwu.libsu:core:5.0.4"
+    implementation "dev.chrisbanes.insetter:insetter:0.6.1"
+    implementation "com.github.Iyxan23:zipalign-java:1.2.2"
+    implementation "com.madgag:scpkix-jdk15on:1.47.0.3"
+    implementation "javax.xml.stream:stax-api:1.0-2"
+    implementation "com.github.waelchateur:kotlinc-for-sketchware:2.1.21_rc3"
+    implementation "io.github.itsaky:nb-javac-android:17.0.0.3"
+    implementation "com.fasterxml.woodstox:woodstox-core:6.5.1"
+    implementation "com.guardsquare:proguard-core:9.0.2"
+    compileOnly "org.jetbrains.kotlin:kotlin-compiler:2.1.21"
+
+    // Flavor-specific dependencies (direct coordinates)
+    android26Implementation "com.android.tools.build:bundletool:1.18.1"
+    android33Implementation "com.android.tools.build:bundletool:1.18.3"
+    android26Implementation "com.google.protobuf:protobuf-java:3.19.2"
+    android33Implementation "com.google.protobuf:protobuf-java:4.33.2"
+    android26Implementation("com.android.tools:sdklib:25.3.0") {
+        exclude group: "com.intellij", module: "annotations"
+    }
+    android33Implementation("com.android.tools:sdklib:26.4.3") {
+        exclude group: "com.intellij", module: "annotations"
+    }
+    android26Implementation "com.android.tools:r8:8.11.18"
+    android33Implementation "com.android.tools:r8:8.13.17"
+    android26Implementation "org.eclipse.jdt:ecj:3.26.0"
+    android33Implementation "org.eclipse.jdt:ecj:3.34.0"
+    android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
+        exclude group: "com.google.guava", module: "guava"
+    }
+    android33Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.27.1") {
+        exclude group: "com.google.guava", module: "guava"
+    }
+
+    // Analytics and Crashlytics
+    if (analyticsEnabled) {
+        new File("$projectDir/google-services.json").text = secrets
+    }
+    implementation platform("com.google.firebase:firebase-bom:34.9.0")
+    implementation "com.google.firebase:firebase-crashlytics"
+    implementation "com.google.firebase:firebase-analytics"
+    implementation "com.google.firebase:firebase-messaging"
+
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs_nio:2.1.5"
+
+    // Additional project workflow dependencies
+    implementation "net.lingala.zip4j:zip4j:2.11.5"
+    implementation "org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r"
+
+    testImplementation "junit:junit:4.13.2"
+}
+
+tasks.register('createMockGoogleServices') {
+    doLast {
+        def googleServicesFile = file("google-services.json")
+        if (secrets != null) {
+            googleServicesFile.text = secrets
+            return
+        }
+        if (!googleServicesFile.exists()) {
+            def mockContent = """{
+  "project_info": {
+    "project_number": "123456789000",
+    "firebase_url": "https://mock-project-default-rtdb.firebaseio.com",
+    "project_id": "mock-project",
+    "storage_bucket": "mock-project.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789000:android:mockappid123456",
+        "android_client_info": {
+          "package_name": "${android.defaultConfig.applicationId}"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "mock_AIzaSyBQJCUXVKUjD38-u5pWkqMtesIfFvxAcvs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}"""
+            googleServicesFile.text = mockContent
+        }
+        def mockReleaseFile = file("src/release/google-services.json")
+        if (!mockReleaseFile.exists()) {
+            mockReleaseFile.parentFile.mkdirs()
+            mockReleaseFile.text = googleServicesFile.text
+        }
+    }
+}
+
+preBuild.dependsOn createMockGoogleServices
