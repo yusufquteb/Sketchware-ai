@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
@@ -79,9 +80,21 @@ public class WorkspaceProjectsAdapter extends RecyclerView.Adapter<WorkspaceProj
     }
 
     public void setProjects(@NonNull List<ProjectInfo> newProjects) {
+        List<ProjectInfo> oldProjects = new ArrayList<>(projects);
         projects.clear();
         projects.addAll(newProjects);
-        notifyDataSetChanged();
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldProjects.size(); }
+            @Override public int getNewListSize() { return newProjects.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldProjects.get(op).getScId().equals(newProjects.get(np).getScId());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                ProjectInfo o = oldProjects.get(op), n = newProjects.get(np);
+                return java.util.Objects.equals(o.getName(), n.getName())
+                    && java.util.Objects.equals(o.getScId(), n.getScId());
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {

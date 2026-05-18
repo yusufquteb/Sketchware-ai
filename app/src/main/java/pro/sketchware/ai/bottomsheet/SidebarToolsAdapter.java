@@ -130,19 +130,43 @@ public class SidebarToolsAdapter
 
     public void setSidebarExpanded(boolean expanded) {
         this.sidebarExpanded = expanded;
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     // ── Category expand / collapse ────────────────────────────────────────────
 
     private void toggleCategory(int categoryIndex) {
         CategoryEntry cat = categories.get(categoryIndex);
-        cat.isExpanded = !cat.isExpanded;
+        boolean expanding = !cat.isExpanded;
+        cat.isExpanded = expanding;
+
+        // Find the flat-list position of this category header
+        int catFlatPos = -1;
+        for (int i = 0; i < flatList.size(); i++) {
+            if (flatList.get(i).type == TYPE_CATEGORY && flatList.get(i).categoryIndex == categoryIndex) {
+                catFlatPos = i;
+                break;
+            }
+        }
+
+        int childCount = (int) cat.tools.size();
+
         if (attachedRv != null) {
             TransitionManager.beginDelayedTransition(attachedRv, new ChangeBounds());
         }
         rebuildFlatList();
-        notifyDataSetChanged();
+
+        if (catFlatPos >= 0) {
+            notifyItemChanged(catFlatPos);
+            int insertPos = catFlatPos + 1;
+            if (expanding) {
+                if (childCount > 0) notifyItemRangeInserted(insertPos, childCount);
+            } else {
+                if (childCount > 0) notifyItemRangeRemoved(insertPos, childCount);
+            }
+        } else {
+            notifyDataSetChanged();
+        }
     }
 
     private void rebuildFlatList() {

@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -58,9 +59,20 @@ public class ModelSelectorAdapter extends RecyclerView.Adapter<ModelSelectorAdap
     public int getItemCount() { return models.size(); }
 
     public void setModels(@NonNull List<ModelInfo> newModels) {
+        List<ModelInfo> oldModels = new ArrayList<>(models);
         models.clear();
         models.addAll(newModels);
-        notifyDataSetChanged();
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldModels.size(); }
+            @Override public int getNewListSize() { return newModels.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return Objects.equals(oldModels.get(op).getId(), newModels.get(np).getId());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                ModelInfo o = oldModels.get(op), n = newModels.get(np);
+                return Objects.equals(o.getId(), n.getId()) && Objects.equals(o.getName(), n.getName());
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     /**
@@ -73,26 +85,24 @@ public class ModelSelectorAdapter extends RecyclerView.Adapter<ModelSelectorAdap
     @Nullable
     public String updateModelsForProvider(@NonNull AiProvider provider) {
         List<String> staticIds = AiProviderModels.getStaticModels(provider);
-        models.clear();
+        List<ModelInfo> newModels = new ArrayList<>();
         for (String id : staticIds) {
-            // ModelInfo is immutable — constructor: (id, name, provider, contextLength, description)
-            models.add(new ModelInfo(id, id, provider, 0L, null));
+            newModels.add(new ModelInfo(id, id, provider, 0L, null));
         }
 
-        // Validate current selection against the new provider's list
         if (!AiProviderModels.isModelValidForProvider(provider, selectedModelId)) {
             String def = AiProviderModels.getDefaultModel(provider);
             selectedModelId = def.isEmpty() ? null : def;
         }
 
-        notifyDataSetChanged();
+        setModels(newModels);
         return selectedModelId;
     }
 
     public void setSelectedModelId(@Nullable String modelId) {
         String prev = this.selectedModelId;
         this.selectedModelId = modelId;
-        if (!Objects.equals(prev, modelId)) notifyDataSetChanged();
+        if (!Objects.equals(prev, modelId)) notifyItemRangeChanged(0, getItemCount());
     }
 
     @Nullable
@@ -122,7 +132,7 @@ public class ModelSelectorAdapter extends RecyclerView.Adapter<ModelSelectorAdap
             binding.getRoot().setOnClickListener(v -> {
                 String prev = selectedModelId;
                 selectedModelId = model.getId();
-                if (!Objects.equals(prev, selectedModelId)) notifyDataSetChanged();
+                if (!Objects.equals(prev, selectedModelId)) notifyItemRangeChanged(0, getItemCount());
                 listener.onModelSelected(model);
             });
 
