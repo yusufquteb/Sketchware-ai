@@ -14,6 +14,7 @@ import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -68,12 +69,23 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
     }
 
     public void setStates(List<ProviderState> newStates) {
+        List<ProviderState> oldStates = new ArrayList<>(states);
         states.clear();
-        // Task 2: LOCAL_LLM is managed via its own dedicated section — exclude from main list
         for (ProviderState s : newStates) {
             if (s.provider != AiProvider.LOCAL_LLM) states.add(s);
         }
-        notifyDataSetChanged();
+        List<ProviderState> filtered = new ArrayList<>(states);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldStates.size(); }
+            @Override public int getNewListSize() { return filtered.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldStates.get(op).provider == filtered.get(np).provider;
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                ProviderState o = oldStates.get(op), n = filtered.get(np);
+                return o.enabled == n.enabled && java.util.Objects.equals(o.modelsCountText, n.modelsCountText);
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     /** Programmatically toggle a provider (e.g. Manus revert) */
