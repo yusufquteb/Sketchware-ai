@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
+import java.util.concurrent.Executors;
 
 import pro.sketchware.ai.activities.ChatActivity;
 import pro.sketchware.ai.adapters.ConversationsAdapter;
@@ -70,17 +71,22 @@ public class WorkspaceConversationsFragment extends Fragment
     private void refreshConversations() {
         if (binding == null || workspaceId == null) return;
 
-        List<Conversation> conversations =
-                conversationManager.getConversationsForWorkspace(workspaceId);
-        adapter.setConversations(conversations);
-
-        if (conversations.isEmpty()) {
-            binding.emptyState.setVisibility(View.VISIBLE);
-            binding.conversationsList.setVisibility(View.GONE);
-        } else {
-            binding.emptyState.setVisibility(View.GONE);
-            binding.conversationsList.setVisibility(View.VISIBLE);
-        }
+        Executors.newSingleThreadExecutor().execute(() -> {
+            List<Conversation> conversations =
+                    conversationManager.getConversationsForWorkspace(workspaceId);
+            if (binding == null) return;
+            requireActivity().runOnUiThread(() -> {
+                if (binding == null) return;
+                adapter.setConversations(conversations);
+                if (conversations.isEmpty()) {
+                    binding.emptyState.setVisibility(View.VISIBLE);
+                    binding.conversationsList.setVisibility(View.GONE);
+                } else {
+                    binding.emptyState.setVisibility(View.GONE);
+                    binding.conversationsList.setVisibility(View.VISIBLE);
+                }
+            });
+        });
     }
 
     @Override
