@@ -87,7 +87,9 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
                     }
                     jC.b(sc_id).j();
                     jC.b(sc_id).l();
-                    viewSelectorAdapter.notifyDataSetChanged();
+                    int insertedAt264 = jC.b(sc_id).b().size() - 1;
+                    if (insertedAt264 >= 0) viewSelectorAdapter.notifyItemInserted(insertedAt264);
+                    else viewSelectorAdapter.notifyDataSetChanged();
                 }
                 break;
             case 265:
@@ -123,7 +125,9 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
                     }
                     jC.b(sc_id).j();
                     jC.b(sc_id).l();
-                    viewSelectorAdapter.notifyDataSetChanged();
+                    int insertedAt266 = jC.b(sc_id).c().size() - 1;
+                    if (insertedAt266 >= 0) viewSelectorAdapter.notifyItemInserted(insertedAt266);
+                    else viewSelectorAdapter.notifyDataSetChanged();
                 }
                 break;
             case 276:
@@ -139,7 +143,7 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
                     }
                     a(presetData, activity, requestCode);
                     jC.b(sc_id).j();
-                    viewSelectorAdapter.notifyDataSetChanged();
+                    viewSelectorAdapter.notifyItemChanged(viewSelectorAdapter.selectedItem);
                     Intent intent2 = new Intent();
                     intent2.putExtra("project_file", activity);
                     setResult(RESULT_OK, intent2);
@@ -152,7 +156,7 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
                     ProjectFileBean customView = jC.b(sc_id).c().get(viewSelectorAdapter.selectedItem);
                     a(presetData, customView, requestCode);
                     jC.b(sc_id).j();
-                    viewSelectorAdapter.notifyDataSetChanged();
+                    viewSelectorAdapter.notifyItemChanged(viewSelectorAdapter.selectedItem);
                     Intent intent3 = new Intent();
                     intent3.putExtra("project_file", customView);
                     setResult(RESULT_OK, intent3);
