@@ -85,7 +85,7 @@ public class IconSelectorDialog {
                 );
             } catch (Resources.NotFoundException e) {
                 iconsList.remove(position);
-                notifyItemRemoved(position);
+                notifyDataSetChanged();
             }
 
             return convertView;
