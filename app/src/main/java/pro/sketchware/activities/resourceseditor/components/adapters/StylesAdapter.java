@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -51,15 +52,22 @@ public class StylesAdapter extends RecyclerView.Adapter<StylesAdapter.StyleViewH
     }
 
     public void filter(String newText) {
+        List<StyleModel> oldList = new ArrayList<>(stylesList);
         stylesList.clear();
-
         for (StyleModel style : originalList) {
             if (style.getStyleName().toLowerCase().contains(newText)) {
                 stylesList.add(style);
             }
         }
-
-        notifyDataSetChanged();
+        List<StyleModel> newList = new ArrayList<>(stylesList);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return newList.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldList.get(op).getStyleName(), newList.get(np).getStyleName());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) { return true; }
+        }).dispatchUpdatesTo(this);
     }
 
     public class StyleViewHolder extends RecyclerView.ViewHolder {
