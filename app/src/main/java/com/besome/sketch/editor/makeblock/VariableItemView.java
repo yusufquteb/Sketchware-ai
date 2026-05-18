@@ -229,8 +229,8 @@ public class VariableItemView extends LinearLayout {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder viewHolder, int position) {
             VariableItem variableItem = variables.get(position);
-            viewHolder.binding.name.setText(getTypeName(variableItem.type, variableItem.name));
-            viewHolder.binding.icon.setImageResource(variableItem.icon);
+            viewHolder.binding.name.setText(getTypeName(variableItem.type(), variableItem.name()));
+            viewHolder.binding.icon.setImageResource(variableItem.icon());
         }
 
         public void setData(ArrayList<VariableItem> newVariables) {
