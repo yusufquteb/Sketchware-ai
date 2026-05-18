@@ -46,7 +46,7 @@ public class VariableItemView extends LinearLayout {
 
     private void setPreview(VariableItem variableItem) {
         selectedVariableItem = variableItem;
-        tvPreview.setText(getTypeName(variableItem.type, variableItem.name));
+        tvPreview.setText(getTypeName(variableItem.type(), variableItem.name()));
     }
 
     private String getTypeName(String type, String name) {
@@ -212,7 +212,7 @@ public class VariableItemView extends LinearLayout {
     }
 
     public Pair<String, String> getSelectedItem() {
-        return new Pair<>(selectedVariableItem.type, selectedVariableItem.name);
+        return new Pair<>(selectedVariableItem.type(), selectedVariableItem.name());
     }
 
     private record VariableItem(String type, String name, @DrawableRes int icon) {
