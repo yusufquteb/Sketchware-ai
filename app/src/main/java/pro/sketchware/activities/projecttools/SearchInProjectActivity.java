@@ -20,6 +20,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -170,22 +171,34 @@ public class SearchInProjectActivity extends BaseAppCompatActivity {
 
     private void runSearch(String query) {
         if (query.length() < 2) {
+            int oldSize = results.size();
             results.clear();
-            adapter.notifyDataSetChanged();
+            if (oldSize > 0) adapter.notifyItemRangeRemoved(0, oldSize);
             statusView.setText("Type at least 2 characters...");
             return;
         }
         statusView.setText("Searching...");
         executor.execute(() -> {
-            // FIX: Corrected the path to ProjectToolPaths
             List<SearchResult> found = ProjectSearchUtil.globalSearch(
-                    ProjectToolPaths.getProjectDataDir(scId), 
+                    ProjectToolPaths.getProjectDataDir(scId),
                     query, caseSensitive, useRegex, activeFilter);
-            
+
             runOnUiThread(() -> {
+                List<SearchResult> oldResults = new ArrayList<>(results);
                 results.clear();
                 results.addAll(found);
-                adapter.notifyDataSetChanged();
+                DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                    @Override public int getOldListSize() { return oldResults.size(); }
+                    @Override public int getNewListSize() { return found.size(); }
+                    @Override public boolean areItemsTheSame(int op, int np) {
+                        SearchResult o = oldResults.get(op), n = found.get(np);
+                        return java.util.Objects.equals(o.filePath, n.filePath)
+                            && o.lineNumber == n.lineNumber;
+                    }
+                    @Override public boolean areContentsTheSame(int op, int np) {
+                        return java.util.Objects.equals(oldResults.get(op).lineContent, found.get(np).lineContent);
+                    }
+                }).dispatchUpdatesTo(adapter);
                 statusView.setText(found.size() + " results for \"" + query + "\""
                         + (activeFilter != FileFilter.ALL ? " in " + activeFilter.name() : ""));
             });
