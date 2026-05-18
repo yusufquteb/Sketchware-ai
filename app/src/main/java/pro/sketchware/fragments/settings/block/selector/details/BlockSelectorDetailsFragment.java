@@ -138,7 +138,7 @@ public class BlockSelectorDetailsFragment extends qA {
                     selectors.get(index).getData().set(indexA, newItem);
                 }
                 saveAll();
-                adapter.notifyDataSetChanged();
+                adapter.notifyItemRangeChanged(0, adapter.getItemCount());
             }
             v.dismiss();
         });

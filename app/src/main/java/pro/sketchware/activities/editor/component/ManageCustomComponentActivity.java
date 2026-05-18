@@ -165,7 +165,6 @@ public class ManageCustomComponentActivity extends BaseAppCompatActivity {
             Parcelable state = componentView.getLayoutManager().onSaveInstanceState();
             componentView.setAdapter(adapter);
             componentView.getLayoutManager().onRestoreInstanceState(state);
-            adapter.notifyDataSetChanged();
             componentView.setVisibility(View.VISIBLE);
             tv_guide.setVisibility(View.GONE);
             return;

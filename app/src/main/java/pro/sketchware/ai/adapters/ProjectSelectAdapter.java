@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
@@ -42,10 +43,20 @@ public class ProjectSelectAdapter extends RecyclerView.Adapter<ProjectSelectAdap
     }
 
     public void setProjects(@NonNull List<WorkspaceProjectsAdapter.ProjectInfo> newProjects) {
+        List<WorkspaceProjectsAdapter.ProjectInfo> oldProjects = new ArrayList<>(projects);
         projects.clear();
         projects.addAll(newProjects);
         selectedIds.clear();
-        notifyDataSetChanged();
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldProjects.size(); }
+            @Override public int getNewListSize() { return newProjects.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldProjects.get(op).getScId().equals(newProjects.get(np).getScId());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldProjects.get(op).getName(), newProjects.get(np).getName());
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     @NonNull
@@ -56,7 +67,7 @@ public class ProjectSelectAdapter extends RecyclerView.Adapter<ProjectSelectAdap
     public void setAlreadyAdded(@NonNull Set<String> ids) {
         alreadyAddedIds.clear();
         alreadyAddedIds.addAll(ids);
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {

@@ -314,7 +314,7 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
         if (showGenerated) {
             addRoot("Generated App",  ProjectToolPaths.getProjectGeneratedAppDir(scId),    false);
         }
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
         updateStatus();
     }
 

@@ -49,7 +49,7 @@ public class AiSidebarAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     public void setShowLabels(boolean show) {
         this.showLabels = show;
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     private void toggleCategory(int visiblePos) {
@@ -58,9 +58,32 @@ public class AiSidebarAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             if (visible.get(i).type == AiPageConfig.ToolType.CATEGORY) catIdx++;
         }
         if (catIdx < 0 || catIdx >= catExpanded.size()) return;
-        catExpanded.set(catIdx, !catExpanded.get(catIdx));
+        boolean expanding = !catExpanded.get(catIdx);
+        catExpanded.set(catIdx, expanding);
+
+        // Count children that will be inserted/removed after visiblePos
+        int insertPos = visiblePos + 1;
+        int childCount = 0;
+        for (int i = visiblePos + 1; i < visible.size(); i++) {
+            if (visible.get(i).type == AiPageConfig.ToolType.CATEGORY) break;
+            childCount++;
+        }
+
         rebuildVisible();
-        notifyDataSetChanged();
+
+        if (expanding) {
+            // After rebuild visible has the new children; count how many were added
+            int newChildCount = 0;
+            for (int i = visiblePos + 1; i < visible.size(); i++) {
+                if (visible.get(i).type == AiPageConfig.ToolType.CATEGORY) break;
+                newChildCount++;
+            }
+            notifyItemChanged(visiblePos);
+            if (newChildCount > 0) notifyItemRangeInserted(insertPos, newChildCount);
+        } else {
+            notifyItemChanged(visiblePos);
+            if (childCount > 0) notifyItemRangeRemoved(insertPos, childCount);
+        }
     }
 
     private void rebuildVisible() {

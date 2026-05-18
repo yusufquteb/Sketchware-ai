@@ -20,6 +20,7 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.transition.TransitionManager;
@@ -500,13 +501,22 @@ public class EnableBuiltInLibrariesActivity extends BaseAppCompatActivity {
 
         public void filter(String query) {
             String lowerQuery = query.toLowerCase();
-            filteredLibraries = new ArrayList<>();
+            List<BuiltInLibraries.BuiltInLibrary> newFiltered = new ArrayList<>();
             for (BuiltInLibraries.BuiltInLibrary library : libraries) {
                 if (library.getName().toLowerCase().contains(lowerQuery) || library.getPackageName().orElse("").toLowerCase().contains(lowerQuery)) {
-                    filteredLibraries.add(library);
+                    newFiltered.add(library);
                 }
             }
-            notifyDataSetChanged();
+            List<BuiltInLibraries.BuiltInLibrary> oldFiltered = filteredLibraries;
+            filteredLibraries = newFiltered;
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldFiltered.size(); }
+                @Override public int getNewListSize() { return newFiltered.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    return oldFiltered.get(op).getName().equals(newFiltered.get(np).getName());
+                }
+                @Override public boolean areContentsTheSame(int op, int np) { return true; }
+            }).dispatchUpdatesTo(this);
         }
 
         private static class ViewHolder extends RecyclerView.ViewHolder {

@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -50,15 +51,22 @@ public class ArraysAdapter extends RecyclerView.Adapter<ArraysAdapter.ArrayViewH
     }
 
     public void filter(String newText) {
+        List<ArrayModel> oldList = new ArrayList<>(arraysList);
         arraysList.clear();
-
         for (ArrayModel array : originalList) {
             if (array.getArrayName().toLowerCase().contains(newText)) {
                 arraysList.add(array);
             }
         }
-
-        notifyDataSetChanged();
+        List<ArrayModel> newList = new ArrayList<>(arraysList);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return newList.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldList.get(op).getArrayName(), newList.get(np).getArrayName());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) { return true; }
+        }).dispatchUpdatesTo(this);
     }
 
     public class ArrayViewHolder extends RecyclerView.ViewHolder {
