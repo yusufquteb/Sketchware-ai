@@ -440,14 +440,24 @@ public class Jx {
                 }
                 if (extraSettings.isWindowInsetsHandling() && !isJava7build(sc_id)) {
                     if (projectFileBean.hasActivityOption(ProjectFileBean.OPTION_ACTIVITY_TOOLBAR)) {
+                        // _coordinator is created by the toolbar template, safe to use directly
                         sb.append("ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id._coordinator), (v, insets) -> {").append(EOL);
+                        sb.append("Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());").append(EOL);
+                        sb.append("v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);").append(EOL);
+                        sb.append("return insets;").append(EOL);
+                        sb.append("});").append(EOL);
                     } else {
-                        sb.append("ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id._main), (v, insets) -> {").append(EOL);
+                        // _main may not exist in every layout; fall back to android.R.id.content
+                        sb.append("{").append(EOL);
+                        sb.append("android.view.View _insetTarget = findViewById(R.id._main);").append(EOL);
+                        sb.append("if (_insetTarget == null) _insetTarget = findViewById(android.R.id.content);").append(EOL);
+                        sb.append("if (_insetTarget != null) ViewCompat.setOnApplyWindowInsetsListener(_insetTarget, (v, insets) -> {").append(EOL);
+                        sb.append("Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());").append(EOL);
+                        sb.append("v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);").append(EOL);
+                        sb.append("return insets;").append(EOL);
+                        sb.append("});").append(EOL);
+                        sb.append("}").append(EOL);
                     }
-                    sb.append("Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());").append(EOL);
-                    sb.append("v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);").append(EOL);
-                    sb.append("return insets;").append(EOL);
-                    sb.append("});").append(EOL);
                 }
             } else {
                 if (isViewBindingEnabled) {
