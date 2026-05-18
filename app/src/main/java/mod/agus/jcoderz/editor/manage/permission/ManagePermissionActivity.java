@@ -1,6 +1,8 @@
 package mod.agus.jcoderz.editor.manage.permission;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -29,6 +31,8 @@ import pro.sketchware.utility.FileResConfig;
 import pro.sketchware.utility.FileUtil;
 
 public class ManagePermissionActivity extends BaseAppCompatActivity {
+    private final Handler searchDebounceHandler = new Handler(Looper.getMainLooper());
+    private Runnable pendingSearch;
     private PermissionsAdapter adapter;
     private ArrayList<String> arrayList;
     private ArrayList<String> filteredList;
@@ -75,7 +79,10 @@ public class ManagePermissionActivity extends BaseAppCompatActivity {
         binding.searchInput.addTextChangedListener(new BaseTextWatcher() {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filterList(s.toString());
+                if (pendingSearch != null) searchDebounceHandler.removeCallbacks(pendingSearch);
+                String query = s.toString();
+                pendingSearch = () -> filterList(query);
+                searchDebounceHandler.postDelayed(pendingSearch, 150);
             }
         });
 

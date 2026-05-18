@@ -16,6 +16,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -243,8 +244,10 @@ public class PropertyResourceItem extends RelativeLayout implements View.OnClick
             holder.binding.layoutImg.addView(imageView);
 
             holder.binding.transparentOverlay.setOnClickListener(v -> {
+                int prevPos = filteredImages.indexOf(selectedImage);
                 selectedImage = image;
-                notifyDataSetChanged();
+                if (prevPos >= 0) notifyItemChanged(prevPos);
+                notifyItemChanged(holder.getBindingAdapterPosition());
             });
         }
 
@@ -254,13 +257,23 @@ public class PropertyResourceItem extends RelativeLayout implements View.OnClick
         }
 
         public void filter(String query) {
+            ArrayList<String> oldList = new ArrayList<>(filteredImages);
             filteredImages.clear();
             for (String s : allImages) {
                 if (s.toLowerCase().contains(query)) {
                     filteredImages.add(s);
                 }
             }
-            notifyDataSetChanged();
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldList.size(); }
+                @Override public int getNewListSize() { return filteredImages.size(); }
+                @Override public boolean areItemsTheSame(int oldPos, int newPos) {
+                    return oldList.get(oldPos).equals(filteredImages.get(newPos));
+                }
+                @Override public boolean areContentsTheSame(int oldPos, int newPos) {
+                    return areItemsTheSame(oldPos, newPos);
+                }
+            }).dispatchUpdatesTo(this);
         }
 
         public String getSelected() {
