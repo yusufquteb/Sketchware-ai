@@ -13,6 +13,7 @@ import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
 import android.os.Vibrator;
 import android.text.Editable;
@@ -45,6 +46,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -139,7 +141,7 @@ import pro.sketchware.utility.SvgUtils;
 @SuppressLint({"ClickableViewAccessibility", "RtlHardcoded", "SetTextI18n", "DefaultLocale"})
 public class LogicEditorActivity extends BaseAppCompatActivity implements View.OnClickListener, Vs, View.OnTouchListener, MoreblockImporterDialog.CallBack {
 
-    private final Handler handler = new Handler();
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private final int[] v = new int[2];
     public ProjectFileBean M;
     public PaletteBlock m;
@@ -2694,9 +2696,11 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
 
             holder.binding.transparentOverlay.setOnClickListener(v -> {
                 if (!image.equals(selectedImage)) {
+                    int prevPos = filteredImages.indexOf(selectedImage);
                     selectedImage = image;
                     listener.onImageSelected(image);
-                    notifyDataSetChanged();
+                    if (prevPos >= 0) notifyItemChanged(prevPos);
+                    notifyItemChanged(holder.getBindingAdapterPosition());
                 }
             });
         }
@@ -2707,6 +2711,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         }
 
         public void filter(String query) {
+            ArrayList<String> oldList = new ArrayList<>(filteredImages);
             filteredImages.clear();
             if (query.isEmpty()) {
                 filteredImages.addAll(images);
@@ -2717,7 +2722,16 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
                     }
                 }
             }
-            notifyDataSetChanged();
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldList.size(); }
+                @Override public int getNewListSize() { return filteredImages.size(); }
+                @Override public boolean areItemsTheSame(int oldPos, int newPos) {
+                    return oldList.get(oldPos).equals(filteredImages.get(newPos));
+                }
+                @Override public boolean areContentsTheSame(int oldPos, int newPos) {
+                    return areItemsTheSame(oldPos, newPos);
+                }
+            }).dispatchUpdatesTo(this);
         }
 
         public interface OnImageSelectedListener {

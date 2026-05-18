@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.view.View;
 import android.view.animation.AnimationUtils;
@@ -209,7 +210,7 @@ public class AddImageCollectionActivity extends BaseDialogActivity implements Vi
 
     private void save() {
         if (a(imageNameValidator)) {
-            new Handler().postDelayed(() -> {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 k();
                 new SaveAsyncTask(this).execute();
             }, 500L);

@@ -359,7 +359,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
 
     private void runLoadLocalLibrariesTask() {
         k();
-        new Handler().postDelayed(() -> new LoadLocalLibrariesTask(this).execute(), 500L);
+        new Handler(android.os.Looper.getMainLooper()).postDelayed(() -> new LoadLocalLibrariesTask(this).execute(), 500L);
     }
 
     private List<LocalLibrary> getAdapterLocalLibraries() {
@@ -805,7 +805,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             .setSingleChoiceItems(options, sortMode, (d, which) -> {
                 sortMode = which;
                 d.dismiss();
-                new android.os.Handler().post(() -> applySortAndPublish(true));
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> applySortAndPublish(true));
             })
             .show();
     }
@@ -936,7 +936,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                     .setPositiveButton("Backup, then proceed", (d, w) -> {
                         backupAllLibraries();
                         // Execute after brief delay to let backup start
-                        new android.os.Handler().postDelayed(() -> runOnUiThread(() -> {
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> runOnUiThread(() -> {
                             switch (key) {
                                 case "update_all": batchUpdateAvailableLibraries(); break;
                                 case "clean_unused": showRemoveUnusedLibrariesDialog(); break;
@@ -1017,7 +1017,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         if (requestCode == REQUEST_IMPORT_ZIP && resultCode == RESULT_OK && data != null) {
             android.net.Uri uri = data.getData();
             if (uri == null) return;
-            java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     String localLibsPath = pro.sketchware.utility.FileUtil.getExternalStorageDir()
                             + "/.sketchware/libs/local_libs/";
@@ -1103,7 +1103,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         if (libs.isEmpty()) { SketchwareUtil.toast("لا توجد مكتبات للتصدير"); return; }
         SketchwareUtil.toast("⏳ جارٍ تحضير الـ ZIP…");
 
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 String localLibsPath = pro.sketchware.utility.FileUtil.getExternalStorageDir()
                         + "/.sketchware/libs/local_libs/";
@@ -1150,7 +1150,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                     + "Saved to:\n" + backupDir)
             .setPositiveButton("Backup Now", (d, w) -> {
                 SketchwareUtil.toast("⏳ Creating backup…");
-                java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+                backgroundExecutor.execute(() -> {
                     try {
                         java.io.File out = new java.io.File(backupDir);
                         out.mkdirs();
@@ -1231,7 +1231,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                             + "Libraries NOT in the backup will remain untouched.")
                     .setPositiveButton("Restore", (d2, w2) -> {
                         SketchwareUtil.toast("⏳ Restoring…");
-                        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+                        backgroundExecutor.execute(() -> {
                             try {
                                 String localLibsPath = pro.sketchware.utility.FileUtil
                                         .getExternalStorageDir()
@@ -1312,7 +1312,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             SketchwareUtil.toast("No version history yet. Update a library to start recording.");
             return;
         }
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 String raw = pro.sketchware.utility.FileUtil.readFile(f.getAbsolutePath());
                 java.util.List<java.util.Map<String, String>> history =
@@ -1352,7 +1352,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
     // 🗑 Delete Old Unused Libraries (90+ days)
     // ══════════════════════════════════════════════════════════════════════
     private void showDeleteOldUnusedDialog() {
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             java.util.Map<String, Integer> usageMap = buildUsageMap();
             String localLibsPath = pro.sketchware.utility.FileUtil.getExternalStorageDir()
                     + "/.sketchware/libs/local_libs/";
@@ -1469,7 +1469,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 + "/.sketchware/libs/local_libs/";
         List<LocalLibrary> snapshot = new ArrayList<>(allLibraries);
 
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             int found = 0, skipped = 0;
             for (int i = 0; i < snapshot.size(); i++) {
                 LocalLibrary lib = snapshot.get(i);
@@ -1657,7 +1657,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         binding.progressRefreshAll.setIndeterminate(false);
         binding.progressRefreshAll.setMax(libs.size());
         final int[] done = {0};
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             for (LocalLibrary lib : libs) {
                 if (lib.getDependency() == null || lib.getLatestVersion() == null) continue;
                 String[] parts = lib.getDependency().split(":");
@@ -1753,7 +1753,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         binding.progressRefreshAll.setVisibility(android.view.View.VISIBLE);
 
         // Run sequentially on background thread
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             for (int i = 0; i < checkable.size(); i++) {
                 if (!isRefreshRunning) break;
                 final LocalLibrary lib = checkable.get(i);
@@ -1925,7 +1925,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             .setCancelable(false)
             .create();
         progress.show();
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             String localLibsRoot = pro.sketchware.utility.FileUtil.getExternalStorageDir()
                     + "/.sketchware/libs/local_libs/";
             // Map: packageName → list of library names that declare it
@@ -2106,7 +2106,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
 
     private void showLinkedProjectsDialog(String libName) {
         // Run on background thread — reading disk
-        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+        backgroundExecutor.execute(() -> {
             List<String> projectIds = getProjectsUsingLib(libName);
             java.util.Map<String, String> nameMap = buildProjectNameMap();
 
