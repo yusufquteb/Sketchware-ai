@@ -15,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
@@ -220,9 +221,6 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
                 binding.eventList.setVisibility(View.VISIBLE);
             }
         }
-        if (eventAdapter != null) {
-            eventAdapter.notifyDataSetChanged();
-        }
     }
 
     @Override
@@ -234,12 +232,14 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
                 if (!eventsToAdd.isEmpty() || !moreBlockView.a()) {
                     if (!moreBlockView.a()) {
                         if (!moreBlockView.b()) {
+                            int prevCat = categoryAdapter.lastSelectedCategory;
                             eventAdapter.setEvents(categories.get(4));
                             categoryAdapter.lastSelectedCategory = 4;
                             binding.tvCategory.setText(rs.a(getApplicationContext(), 4));
                             binding.emptyMessage.setVisibility(View.GONE);
                             binding.moreblockLayout.setVisibility(View.VISIBLE);
-                            categoryAdapter.notifyDataSetChanged();
+                            if (prevCat >= 0) categoryAdapter.notifyItemChanged(prevCat);
+                            categoryAdapter.notifyItemChanged(4);
                             finished = true;
                         } else {
                             Pair<String, String> blockInformation = moreBlockView.getBlockInformation();
@@ -404,15 +404,22 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
             return events.size();
         }
 
-        private void setEvents(ArrayList<EventBean> events) {
-            if (events.isEmpty()) {
-                binding.emptyMessage.setVisibility(View.VISIBLE);
-            } else {
-                binding.emptyMessage.setVisibility(View.GONE);
-                binding.eventList.setVisibility(View.VISIBLE);
-            }
+        private void setEvents(ArrayList<EventBean> newEvents) {
+            binding.emptyMessage.setVisibility(newEvents.isEmpty() ? View.VISIBLE : View.GONE);
+            if (!newEvents.isEmpty()) binding.eventList.setVisibility(View.VISIBLE);
+            ArrayList<EventBean> oldEvents = new ArrayList<>(this.events);
             this.events.clear();
-            this.events.addAll(events);
+            this.events.addAll(newEvents);
+            DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldEvents.size(); }
+                @Override public int getNewListSize() { return newEvents.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    EventBean o = oldEvents.get(op), n = newEvents.get(np);
+                    return java.util.Objects.equals(o.targetId, n.targetId)
+                        && java.util.Objects.equals(o.eventName, n.eventName);
+                }
+                @Override public boolean areContentsTheSame(int op, int np) { return true; }
+            }).dispatchUpdatesTo(this);
         }
 
         private class ViewHolder extends RecyclerView.ViewHolder {
@@ -526,8 +533,10 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
                 if (getLayoutPosition() != -1) {
                     int layoutPosition = getLayoutPosition();
                     if (layoutPosition != lastSelectedCategory) {
-                        lastSelectedCategory = getLayoutPosition();
-                        notifyDataSetChanged();
+                        int prev = lastSelectedCategory;
+                        lastSelectedCategory = layoutPosition;
+                        if (prev >= 0) notifyItemChanged(prev);
+                        notifyItemChanged(lastSelectedCategory);
                         binding.tvCategory.setText(rs.a(getApplicationContext(), lastSelectedCategory));
                         if (lastSelectedCategory == 4) {
                             binding.moreblockLayout.setVisibility(View.VISIBLE);
@@ -535,7 +544,6 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
                         } else {
                             binding.moreblockLayout.setVisibility(View.GONE);
                             eventAdapter.setEvents(categories.get(lastSelectedCategory));
-                            eventAdapter.notifyDataSetChanged();
                         }
                     }
                 }

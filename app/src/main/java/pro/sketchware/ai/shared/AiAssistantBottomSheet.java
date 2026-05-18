@@ -152,8 +152,9 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
                 startActivity(new Intent(getContext(), AiSettingsActivity.class));
         });
         binding.aiSheetBtnClearReal.setOnClickListener(v -> {
+            int oldSize = chatHistory.size();
             chatHistory.clear();
-            chatAdapter.notifyDataSetChanged();
+            chatAdapter.notifyItemRangeRemoved(0, oldSize);
             showEmpty(true);
         });
         binding.aiSheetBtnClose.setOnClickListener(v -> dismiss());
