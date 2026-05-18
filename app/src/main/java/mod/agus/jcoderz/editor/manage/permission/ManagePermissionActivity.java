@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -109,9 +110,7 @@ public class ManagePermissionActivity extends BaseAppCompatActivity {
     private void loadAndSortData() {
         arrayList = ListPermission.getPermissions();
         sortList(arrayList);
-        filteredList.clear();
-        filteredList.addAll(arrayList);
-        adapter.notifyDataSetChanged();
+        applyFilteredList(arrayList);
     }
 
     private void sortList(ArrayList<String> list) {
@@ -129,10 +128,21 @@ public class ManagePermissionActivity extends BaseAppCompatActivity {
             }
         }
         sortList(filtered);
+        applyFilteredList(filtered);
+    }
 
+    private void applyFilteredList(ArrayList<String> newList) {
+        ArrayList<String> oldList = new ArrayList<>(filteredList);
         filteredList.clear();
-        filteredList.addAll(filtered);
-        adapter.notifyDataSetChanged();
+        filteredList.addAll(newList);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return newList.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return oldList.get(op).equals(newList.get(np));
+            }
+            @Override public boolean areContentsTheSame(int op, int np) { return true; }
+        }).dispatchUpdatesTo(adapter);
     }
 
     private void showResetDialog() {
