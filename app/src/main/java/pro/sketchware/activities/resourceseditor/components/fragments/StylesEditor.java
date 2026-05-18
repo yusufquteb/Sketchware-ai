@@ -284,7 +284,6 @@ public class StylesEditor extends Fragment {
 
             style.addAttribute(attribute, value);
             attributesAdapter.submitList(new ArrayList<>(style.getAttributes().keySet()));
-            attributesAdapter.notifyDataSetChanged();
             hasUnsavedChanges = true;
         });
 
