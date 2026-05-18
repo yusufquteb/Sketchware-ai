@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
@@ -77,6 +78,14 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
 
     // ── Sort ──────────────────────────────────────────────────────────────
     private int sortMode = 3; // 0=name A-Z, 1=name Z-A, 2=size, 3=enabled-first+A-Z (default)
+
+    // ── Shared background executor (avoids thread-pool spam on each click) ──
+    private final java.util.concurrent.ExecutorService backgroundExecutor =
+            Executors.newSingleThreadExecutor();
+
+    // ── Search debounce (250 ms) ──────────────────────────────────────────
+    private final Handler searchDebounceHandler = new Handler(android.os.Looper.getMainLooper());
+    private Runnable pendingSearch;
 
 
     @Override
@@ -196,13 +205,14 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 return true;
             } else if (id == R.id.action_delete_selected_local_libraries) {
                 k();
-                Executors.newSingleThreadExecutor().execute(() -> {
+                backgroundExecutor.execute(() -> {
                     deleteSelectedLocalLibraries(scId, adapter.getLocalLibraries(), projectUsedLibs);
                     runOnUiThread(() -> {
+                        if (isDestroyed() || isFinishing()) return;
                         h();
                         SketchwareUtil.toast("Deleted successfully");
                         adapter.isSelectionModeEnabled = false;
-                        adapter.notifyDataSetChanged();
+                        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                         collapseContextualToolbar();
                     });
                 });
@@ -264,7 +274,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 return true;
             } else if (id == R.id.action_select) {
                 adapter.isSelectionModeEnabled = true;
-                adapter.notifyDataSetChanged();
+                adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                 expandContextualToolbar();
                 binding.contextualToolbar.setTitle("0");
                 return true;
@@ -301,7 +311,9 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {
                 String value = s.toString().trim();
-                searchAdapter.filter(getAdapterLocalLibraries(), value);
+                if (pendingSearch != null) searchDebounceHandler.removeCallbacks(pendingSearch);
+                pendingSearch = () -> searchAdapter.filter(getAdapterLocalLibraries(), value);
+                searchDebounceHandler.postDelayed(pendingSearch, 250);
             }
 
             @Override
@@ -338,6 +350,13 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         });
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        backgroundExecutor.shutdownNow();
+        if (pendingSearch != null) searchDebounceHandler.removeCallbacks(pendingSearch);
+    }
+
     private void runLoadLocalLibrariesTask() {
         k();
         new Handler().postDelayed(() -> new LoadLocalLibrariesTask(this).execute(), 500L);
@@ -359,7 +378,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         for (LocalLibrary library : getAdapterLocalLibraries()) {
             library.setSelected(selected);
         }
-        adapter.notifyDataSetChanged();
+        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
     }
 
     private void expandContextualToolbar() {
@@ -647,9 +666,10 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 androidx.appcompat.app.AlertDialog progress = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle("Cleaning up…").setMessage("Please wait…").setCancelable(false).create();
                 progress.show();
-                Executors.newSingleThreadExecutor().execute(() -> {
+                backgroundExecutor.execute(() -> {
                     int moved = 0; /* ToolCore.cleanupLocalLib: handled by Pro library system */
                     runOnUiThread(() -> {
+                        if (isDestroyed() || isFinishing()) return;
                         progress.dismiss();
                         String msg = moved > 0
                             ? "✅ Moved " + moved + " unused librar" + (moved == 1 ? "y" : "ies") + " to recycle bin."
@@ -762,13 +782,14 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 for (LocalLibrary lib : getAdapterLocalLibraries()) {
                     lib.setSelected(toDelete.contains(lib.getName()));
                 }
-                Executors.newSingleThreadExecutor().execute(() -> {
+                backgroundExecutor.execute(() -> {
                     deleteSelectedLocalLibraries(scId, adapter.getLocalLibraries(), projectUsedLibs);
                     runOnUiThread(() -> {
+                        if (isDestroyed() || isFinishing()) return;
                         h();
                         SketchwareUtil.toast("Deleted " + toDelete.size() + " librar" + (toDelete.size()==1?"y":"ies"));
                         adapter.isSelectionModeEnabled = false;
-                        adapter.notifyDataSetChanged();
+                        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
                     });
                 });
             })
@@ -2327,9 +2348,10 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                 .setMessage(getString(R.string.dialog_orphan_libs_body) + "\n\n" + names.toString().trim())
                 .setPositiveButton(R.string.common_word_delete, (d, w) -> {
                     k();
-                    Executors.newSingleThreadExecutor().execute(() -> {
+                    backgroundExecutor.execute(() -> {
                         deleteSelectedLocalLibraries(scId, new ArrayList<>(orphans), projectUsedLibs);
                         runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing()) return;
                             h();
                             runLoadLocalLibrariesTask();
                             SketchwareUtil.toast("Orphaned libraries removed");
@@ -2658,10 +2680,24 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
             return localLibraries;
         }
 
-        public void setLocalLibraries(List<LocalLibrary> localLibraries) {
-            this.localLibraries.clear();
-            this.localLibraries.addAll(localLibraries);
-            notifyDataSetChanged();
+        public void setLocalLibraries(List<LocalLibrary> newList) {
+            List<LocalLibrary> oldList = new ArrayList<>(localLibraries);
+            DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldList.size(); }
+                @Override public int getNewListSize() { return newList.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    return oldList.get(op).getName().equals(newList.get(np).getName());
+                }
+                @Override public boolean areContentsTheSame(int op, int np) {
+                    LocalLibrary o = oldList.get(op), n = newList.get(np);
+                    return o.isSelected() == n.isSelected()
+                            && Objects.equals(o.getSize(), n.getSize())
+                            && Objects.equals(o.getLatestVersion(), n.getLatestVersion());
+                }
+            });
+            localLibraries.clear();
+            localLibraries.addAll(newList);
+            diff.dispatchUpdatesTo(this);
         }
 
         public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -2756,24 +2792,34 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
         }
 
         public void filter(List<LocalLibrary> localLibraries, String query) {
-            filteredLocalLibraries.clear();
+            List<LocalLibrary> newFiltered = new ArrayList<>();
             if (query.isEmpty()) {
-                filteredLocalLibraries.addAll(localLibraries);
+                newFiltered.addAll(localLibraries);
             } else {
+                String lq = query.toLowerCase();
                 for (LocalLibrary library : localLibraries) {
-                    if (library.getName().toLowerCase().contains(query.toLowerCase())) {
-                        filteredLocalLibraries.add(library);
+                    if (library.getName().toLowerCase().contains(lq)) {
+                        newFiltered.add(library);
                     }
                 }
             }
-            // Sorts the filtered search results to ensure enabled libraries still appear at the top.
-            filteredLocalLibraries.sort((lib1, lib2) -> {
-                boolean isEnabled1 = isUsedLibrary(lib1.getName());
-                boolean isEnabled2 = isUsedLibrary(lib2.getName());
-                return Boolean.compare(isEnabled2, isEnabled1);
-            });
+            newFiltered.sort((lib1, lib2) -> Boolean.compare(
+                    isUsedLibrary(lib2.getName()), isUsedLibrary(lib1.getName())));
 
-            notifyDataSetChanged();
+            List<LocalLibrary> oldFiltered = new ArrayList<>(filteredLocalLibraries);
+            DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override public int getOldListSize() { return oldFiltered.size(); }
+                @Override public int getNewListSize() { return newFiltered.size(); }
+                @Override public boolean areItemsTheSame(int op, int np) {
+                    return oldFiltered.get(op).getName().equals(newFiltered.get(np).getName());
+                }
+                @Override public boolean areContentsTheSame(int op, int np) {
+                    return oldFiltered.get(op).getName().equals(newFiltered.get(np).getName());
+                }
+            });
+            filteredLocalLibraries.clear();
+            filteredLocalLibraries.addAll(newFiltered);
+            diff.dispatchUpdatesTo(this);
         }
 
         public static class ViewHolder extends RecyclerView.ViewHolder {
