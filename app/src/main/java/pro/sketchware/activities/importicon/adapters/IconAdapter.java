@@ -68,7 +68,7 @@ public class IconAdapter extends ListAdapter<Pair<String, String>, IconAdapter.V
 
     public void clearSelection() {
         selectedItems.clear();
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     public Set<Pair<String, String>> getSelectedItems() {

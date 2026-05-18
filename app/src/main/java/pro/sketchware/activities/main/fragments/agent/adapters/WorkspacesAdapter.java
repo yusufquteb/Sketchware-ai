@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -26,9 +27,21 @@ public class WorkspacesAdapter extends RecyclerView.Adapter<WorkspacesAdapter.Vi
         this.listener = listener;
     }
 
-    public void setWorkspaces(@NonNull List<Workspace> workspaces) {
-        this.workspaces = new ArrayList<>(workspaces);
-        notifyDataSetChanged();
+    public void setWorkspaces(@NonNull List<Workspace> newWorkspaces) {
+        List<Workspace> oldWorkspaces = this.workspaces;
+        this.workspaces = new ArrayList<>(newWorkspaces);
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldWorkspaces.size(); }
+            @Override public int getNewListSize() { return newWorkspaces.size(); }
+            @Override public boolean areItemsTheSame(int op, int np) {
+                return java.util.Objects.equals(oldWorkspaces.get(op).getId(), newWorkspaces.get(np).getId());
+            }
+            @Override public boolean areContentsTheSame(int op, int np) {
+                Workspace o = oldWorkspaces.get(op), n = newWorkspaces.get(np);
+                return java.util.Objects.equals(o.getName(), n.getName())
+                    && java.util.Objects.equals(o.getDescription(), n.getDescription());
+            }
+        }).dispatchUpdatesTo(this);
     }
 
     @NonNull

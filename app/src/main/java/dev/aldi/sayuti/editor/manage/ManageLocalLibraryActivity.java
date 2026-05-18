@@ -1514,8 +1514,7 @@ public class ManageLocalLibraryActivity extends BaseAppCompatActivity {
                     .setPositiveButton("Check Updates", (d, w) -> checkAllLibrariesSequentially())
                     .setNeutralButton("OK", null)
                     .show();
-                // Refresh the list to show updated coordinates
-                adapter.notifyDataSetChanged();
+                adapter.notifyItemRangeChanged(0, adapter.getItemCount());
             });
         });
     }
