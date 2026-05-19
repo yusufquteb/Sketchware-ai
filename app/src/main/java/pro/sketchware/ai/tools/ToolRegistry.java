@@ -86,6 +86,9 @@ public class ToolRegistry {
         // ── Smart File Search (grep-like, token-efficient) ────────────────
         registry.register(new FileSearchTools.SearchInFileTool());
 
+        // ── Project Indexer ───────────────────────────────────────────────
+        registry.register(new ProjectIndexerTool());
+
         // ── Activities / Screens ──────────────────────────────────────────
         registry.register(new ActivityTools.ListActivitiesTool());
         registry.register(new ActivityTools.GetScreenSourceTool());
