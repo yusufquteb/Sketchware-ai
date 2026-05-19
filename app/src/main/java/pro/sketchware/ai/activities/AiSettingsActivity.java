@@ -614,7 +614,6 @@ public class AiSettingsActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        saveLocalLlmConfig();
         saveSystemPrompt();
         // Keys are saved immediately via AiProviderAdapter.onKeyChanged callbacks
     }
