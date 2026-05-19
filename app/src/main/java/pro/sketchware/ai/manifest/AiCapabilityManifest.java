@@ -136,8 +136,9 @@ public final class AiCapabilityManifest {
         libs.add(new ToolEntry("detach_local_library",  "Detach a local library",                     CAT_LIBRARIES, "ic_mtrl_link_off"));
         libs.add(new ToolEntry("download_dependency",   "Download a Maven dependency",                CAT_LIBRARIES, "ic_mtrl_download"));
         libs.add(new ToolEntry("validate_libraries",    "Check for library conflicts",                 CAT_LIBRARIES, "ic_mtrl_verify"));
-        libs.add(new ToolEntry("search_maven",          "Search Maven Central for a library",         CAT_LIBRARIES, "ic_mtrl_search"));
-        libs.add(new ToolEntry("scan_dependencies",     "Scan project dependencies for issues",       CAT_LIBRARIES, "ic_mtrl_manage_search"));
+        libs.add(new ToolEntry("search_maven",              "Search Maven Central for a library",        CAT_LIBRARIES, "ic_mtrl_search"));
+        libs.add(new ToolEntry("scan_dependencies",         "Scan project dependencies for issues",      CAT_LIBRARIES, "ic_mtrl_manage_search"));
+        libs.add(new ToolEntry("validate_gradle_dependency","Validate a Maven coordinate before adding", CAT_LIBRARIES, "ic_mtrl_verify"));
         REGISTRY.put(CAT_LIBRARIES, libs);
 
         // ── Build & Compile ────────────────────────────────────────────────────

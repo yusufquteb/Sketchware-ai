@@ -127,6 +127,8 @@ public class ToolRegistry {
         // ── Library Discovery (search + dependency scan) ──────────────────
         registry.register(new LibraryDiscoveryTools.SearchMavenTool());
         registry.register(new LibraryDiscoveryTools.DependencyScanTool());
+        // Phase 3: Gradle injection validation
+        registry.register(new LibraryDiscoveryTools.ValidateGradleDependencyTool());
 
         // ── Export ────────────────────────────────────────────────────────
         registry.register(new ExportToAndroidStudioTool());
@@ -240,6 +242,8 @@ public class ToolRegistry {
         // ── Library Discovery ─────────────────────────────────────────────
         registry.register(new LibraryDiscoveryTools.SearchMavenTool());
         registry.register(new LibraryDiscoveryTools.DependencyScanTool());
+        // Phase 3: Gradle injection validation
+        registry.register(new LibraryDiscoveryTools.ValidateGradleDependencyTool());
 
         // ── Code Analysis & Quality ───────────────────────────────────────
         registry.register(new CodeAnalysisTools.AnalyzeCodeTool());
