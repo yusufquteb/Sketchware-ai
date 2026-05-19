@@ -189,7 +189,6 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         List<String> labels = new ArrayList<>();
         List<AiProvider> enabledProviders = new ArrayList<>();
         for (AiProvider p : allProviders) {
-            if (p == AiProvider.LOCAL_LLM) continue;
             boolean enabled = preferences.prefs().getBoolean("provider_enabled_" + p.name(), false);
             if (!enabled) continue;
             boolean hasKey = !p.requiresApiKey() || preferences.getApiKey(p) != null && !preferences.getApiKey(p).isEmpty();
@@ -206,13 +205,13 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         int current = enabledProviders.indexOf(currentProvider);
 
         new MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Select Provider")
+            .setTitle(pro.sketchware.R.string.ai_select_provider_title)
             .setSingleChoiceItems(labels.toArray(new String[0]), current, (d, which) -> {
                 d.dismiss();
                 AiProvider selected = enabledProviders.get(which);
                 showModelSubPicker(selected);
             })
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(pro.sketchware.R.string.common_word_cancel, null)
             .show();
     }
 
@@ -234,7 +233,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
                     .apply();
                 updateProviderLabel();
             })
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(pro.sketchware.R.string.common_word_cancel, null)
             .show();
     }
 

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import pro.sketchware.R;
 import pro.sketchware.ai.activities.ChatActivity;
 import pro.sketchware.ai.adapters.ConversationsAdapter;
 import pro.sketchware.ai.models.Conversation;
@@ -102,13 +103,13 @@ public class WorkspaceConversationsFragment extends Fragment
     @Override
     public void onConversationLongClick(Conversation conversation) {
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Delete Conversation")
-                .setMessage("Delete \"" + conversation.getTitle() + "\"? This cannot be undone.")
-                .setPositiveButton("Delete", (dialog, which) -> {
+                .setTitle(R.string.ai_conversation_delete_title)
+                .setMessage(getString(R.string.ai_conversation_delete_message, conversation.getTitle()))
+                .setPositiveButton(R.string.common_word_delete, (dialog, which) -> {
                     conversationManager.deleteConversation(conversation.getId(), workspaceId);
                     refreshConversations();
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 }

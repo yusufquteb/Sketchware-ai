@@ -157,15 +157,17 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
 
         if (yB.a(projectMap, "custom_icon")) {
             String iconFolder = wq.e() + File.separator + scId;
-            File iconFile = new File(iconFolder, "icon.png");
-            if (iconFile.exists()) {
-                Uri uri;
-                String providerPath = activity.getPackageName() + ".provider";
-                uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
-                holder.binding.imgIcon.setImageURI(uri);
-            } else {
-                holder.binding.imgIcon.setImageResource(R.drawable.default_icon);
-            }
+            new Thread(() -> {
+                File iconFile = new File(iconFolder, "icon.png");
+                if (iconFile.exists()) {
+                    String providerPath = activity.getPackageName() + ".provider";
+                    Uri uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
+                    activity.runOnUiThread(() -> holder.binding.imgIcon.setImageURI(uri));
+                } else {
+                    activity.runOnUiThread(() ->
+                            holder.binding.imgIcon.setImageResource(R.drawable.default_icon));
+                }
+            }).start();
         }
 
         if (isPinned(projectMap)) {
@@ -254,10 +256,7 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
     private void backupProject(HashMap<String, Object> project) {
         String scId = yB.c(project, "sc_id");
         String appName = yB.c(project, "my_ws_name");
-        // FIX: Run backup on a background thread to avoid ANR — backup involves heavy file I/O
-        new Thread(() -> {
-            new BackupRestoreManager(activity).backup(scId, appName);
-        }, "project-backup-" + scId).start();
+        new BackupRestoreManager(activity).backup(scId, appName);
     }
 
     private void toExportProjectActivity(HashMap<String, Object> project) {

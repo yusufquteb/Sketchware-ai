@@ -134,12 +134,12 @@ public enum AiProvider {
             "Supports GPT-4o, Claude, Gemini Flash, Llama 4, DeepSeek V3 and more. " +
             "Ideal reliable fallback when other providers hit rate limits."),
 
-    LOCAL_LLM("Local LLM",
-            "http://localhost:11434",
-            "/v1/models", "/v1/chat/completions", false, true,
-            "Local LLM — connect to a local OpenAI-compatible server (Ollama recommended: ollama.com). " +
-            "Run Gemma 3, Llama 3, Phi-4, or Qwen models on your PC/server and access them from this device on the same Wi-Fi network. " +
-            "Ollama default: http://<your-pc-ip>:11434 | LM Studio: http://<your-pc-ip>:1234");
+    MORPH("Morph LLM",
+            "https://api.morphllm.com",
+            "/v1/models", "/v1/chat/completions", true, false,
+            "Morph LLM — specialized AI for precise code editing and XML layout refinement. " +
+            "morph-v3-fast excels at applying surgical code edits with minimal changes. " +
+            "API key: morphllm.com/dashboard/api-keys");
 
     private final String displayName;
     private final String baseUrl;

@@ -72,7 +72,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
         List<ProviderState> oldStates = new ArrayList<>(states);
         states.clear();
         for (ProviderState s : newStates) {
-            if (s.provider != AiProvider.LOCAL_LLM) states.add(s);
+            states.add(s);
         }
         List<ProviderState> filtered = new ArrayList<>(states);
         DiffUtil.calculateDiff(new DiffUtil.Callback() {
@@ -265,7 +265,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             case GOOGLE_AI_STUDIO: return R.drawable.ic_provider_google_ai_studio;
             case SAMBANOVA:        return R.drawable.ic_provider_sambanova;
             // providers without dedicated icons — use generic stack icon
-            default:               return R.drawable.ic_provider_local_llm;
+            default:               return R.drawable.ic_mtrl_code;
         }
     }
 

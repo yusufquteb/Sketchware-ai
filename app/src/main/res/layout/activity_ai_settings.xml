@@ -142,174 +142,6 @@
                     android:nestedScrollingEnabled="false"
                     android:overScrollMode="never" />
 
-                <!-- ── Local LLM Section ── -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Local LLM Configuration"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceLabelLarge"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="12dp" />
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="?attr/colorOutlineVariant"
-                    app:strokeWidth="1dp"
-                    app:cardBackgroundColor="?attr/colorSurface">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <!-- Local LLM header -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <ImageView
-                                android:layout_width="40dp"
-                                android:layout_height="40dp"
-                                android:src="@drawable/ic_provider_local_llm"
-                                android:scaleType="fitCenter"
-                                android:importantForAccessibility="no"
-                                android:contentDescription="@null" />
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:layout_marginStart="12dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Local LLM (Ollama / LM Studio)"
-                                    android:textAppearance="?attr/textAppearanceTitleSmall"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Connect to a local server on your PC over Wi-Fi"
-                                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                                    android:textColor="?attr/colorOnSurfaceVariant" />
-                            </LinearLayout>
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch_local_llm"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content" />
-                        </LinearLayout>
-
-                        <!-- Local LLM config (shown when enabled) -->
-                        <LinearLayout
-                            android:id="@+id/layout_local_llm_config"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_marginTop="12dp"
-                            android:visibility="gone">
-
-                            <!-- Network guide chip -->
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="10dp"
-                                android:padding="10dp"
-                                android:background="?attr/colorSecondaryContainer"
-                                android:textColor="?attr/colorOnSecondaryContainer"
-                                android:textAppearance="?attr/textAppearanceLabelSmall"
-                                android:text="💡 Phone and PC must be on the same Wi-Fi.\nOllama: set OLLAMA_HOST=0.0.0.0 on PC, use PC&#8217;s local IP below.\nLM Studio: enable &#8220;Local Network API&#8221; in server settings." />
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:hint="Server URL (e.g. http://192.168.1.x:11434)"
-                                android:layout_marginBottom="8dp"
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/input_local_llm_url"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:inputType="textUri"
-                                    android:imeOptions="actionNext" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:hint="Model Name (e.g. gemma3:12b, llama3.1:8b)"
-                                android:layout_marginBottom="8dp"
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/input_local_llm_model"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:imeOptions="actionDone" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <TextView
-                                android:id="@+id/local_llm_status"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
-                                android:textAppearance="?attr/textAppearanceLabelSmall" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/btn_test_local_llm"
-                                    style="?attr/borderlessButtonStyle"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="Test Connection" />
-
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/btn_refresh_local_llm"
-                                    style="?attr/borderlessButtonStyle"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="Refresh Models" />
-
-                            </LinearLayout>
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btn_setup_ollama"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
-                                android:text="Auto-Fill Ollama Defaults"
-                                app:icon="@drawable/ic_mtrl_download" />
-
-                            <!-- btn_download_mlcchat_app kept for backward-compat binding, hidden -->
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btn_download_mlcchat_app"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:visibility="gone"
-                                android:text="Download MLCChat App"
-                                app:icon="@drawable/ic_mtrl_download" />
-
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
                 <!-- ── Layout Generation Settings ── -->
                 <TextView
@@ -368,86 +200,45 @@
                             android:textColor="?attr/colorPrimary"
                             android:textAppearance="?attr/textAppearanceLabelSmall" />
 
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
-                <!-- ── Morph (MORF) Layout Refinement ── -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Layout Refinement (Morph)"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceLabelLarge"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp" />
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="1dp"
-                    app:strokeColor="?attr/colorOutlineVariant">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Morph is a specialized AI for applying code edits. When enabled, it refines AI-generated XML layouts to produce cleaner, more Sketchware-compatible output."
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textAppearance="?attr/textAppearanceLabelMedium"
-                            android:layout_marginBottom="12dp" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switch_morph_enabled"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Enable Morph"
-                            android:layout_marginBottom="8dp" />
-
+                        <!-- Morph layout refinement toggle -->
                         <LinearLayout
-                            android:id="@+id/layout_morph_config"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:visibility="gone">
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="8dp">
 
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:layout_width="match_parent"
+                            <LinearLayout
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
-                                android:hint="Morph API Key"
-                                app:endIconMode="password_toggle"
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/input_morph_api_key"
-                                    android:layout_width="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:inputType="textPassword" />
-                            </com.google.android.material.textfield.TextInputLayout>
+                                    android:text="Use Morph to refine generated layouts"
+                                    android:textAppearance="?attr/textAppearanceLabelMedium" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Morph LLM refines AI-generated XML for cleaner Sketchware output"
+                                    android:textColor="?attr/colorOnSurfaceVariant"
+                                    android:textAppearance="?attr/textAppearanceLabelSmall" />
+
+                            </LinearLayout>
 
                             <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch_morph_for_layout"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Use Morph to refine AI-generated layouts"
-                                android:layout_marginBottom="8dp" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btn_morph_get_key"
-                                style="?attr/borderlessButtonStyle"
                                 android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Get Morph API Key → morphllm.com/dashboard/api-keys" />
+                                android:layout_height="wrap_content" />
 
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
+
 
                 <!-- ── System Prompt ── -->
                 <TextView

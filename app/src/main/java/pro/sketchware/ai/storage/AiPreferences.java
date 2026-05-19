@@ -53,9 +53,6 @@ public class AiPreferences {
     public static final String DEFAULT_ANTHROPIC_MODEL  = "claude-sonnet-4-5"; // Claude Sonnet 4.5 — best for code
     public static final String DEFAULT_OPENAI_MODEL     = "gpt-4o-mini";
     public static final String DEFAULT_GEMINI_MODEL     = "gemini-2.0-flash";
-    public static final String DEFAULT_OLLAMA_URL      = "http://192.168.1.x:11434";
-    public static final String DEFAULT_OLLAMA_MODEL    = "gemma3:12b";
-
     public static final String DEFAULT_SYSTEM_PROMPT =
         "You are an expert Android developer AI agent built into Sketchware Pro "
         + "— a visual Android IDE that runs on Android devices. "
@@ -322,20 +319,28 @@ public class AiPreferences {
         prefs.edit().putBoolean(KEY_AUTO_FIX_ON_ERROR, enabled).apply();
     }
 
-    // ── Morph (MORF) Layout Refinement ─────────────────────────────────────
+    // ── Morph Layout Refinement ─────────────────────────────────────────────
 
+    /** Returns the Morph API key from standard provider storage (with legacy fallback). */
     public String getMorphApiKey() {
-        return prefs.getString(KEY_MORPH_API_KEY, "");
+        String standard = getApiKey(AiProvider.MORPH);
+        if (standard != null && !standard.isEmpty()) return standard;
+        // Legacy fallback: migrate old key to new standard storage
+        String legacy = prefs.getString(KEY_MORPH_API_KEY, "");
+        if (!legacy.isEmpty()) {
+            setApiKey(AiProvider.MORPH, legacy);
+            prefs.edit().remove(KEY_MORPH_API_KEY).apply();
+        }
+        return legacy;
     }
 
     public void setMorphApiKey(@NonNull String key) {
-        prefs.edit().putString(KEY_MORPH_API_KEY, key.trim()).apply();
+        setApiKey(AiProvider.MORPH, key.trim());
     }
 
-    /** True if Morph is enabled globally (has API key + user turned it on). */
+    /** True if Morph is enabled (provider enabled + has API key). */
     public boolean isMorphEnabled() {
-        return prefs.getBoolean(KEY_MORPH_ENABLED, false)
-                && !getMorphApiKey().isEmpty();
+        return isProviderEnabled(AiProvider.MORPH) && hasApiKey(AiProvider.MORPH);
     }
 
     /** True if Morph should automatically refine AI-generated layouts. */

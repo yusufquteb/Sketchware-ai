@@ -61,6 +61,8 @@ public class ToolRegistry {
         // ── Project Management ────────────────────────────────────────────
         registry.register(new ProjectTools.ListProjectsTool());
         registry.register(new ProjectTools.GetProjectInfoTool());
+        // Phase 4: single comprehensive audit in one call
+        registry.register(new ProjectHealthTool.CheckProjectHealthTool());
         registry.register(new ProjectTools.CreateProjectTool());
         registry.register(new ProjectTools.DeleteProjectTool());
         registry.register(new ProjectTools.DuplicateProjectTool());
@@ -85,6 +87,9 @@ public class ToolRegistry {
 
         // ── Smart File Search (grep-like, token-efficient) ────────────────
         registry.register(new FileSearchTools.SearchInFileTool());
+
+        // ── Project Indexer ───────────────────────────────────────────────
+        registry.register(new ProjectIndexerTool());
 
         // ── Activities / Screens ──────────────────────────────────────────
         registry.register(new ActivityTools.ListActivitiesTool());
@@ -124,6 +129,8 @@ public class ToolRegistry {
         // ── Library Discovery (search + dependency scan) ──────────────────
         registry.register(new LibraryDiscoveryTools.SearchMavenTool());
         registry.register(new LibraryDiscoveryTools.DependencyScanTool());
+        // Phase 3: Gradle injection validation
+        registry.register(new LibraryDiscoveryTools.ValidateGradleDependencyTool());
 
         // ── Export ────────────────────────────────────────────────────────
         registry.register(new ExportToAndroidStudioTool());
@@ -140,6 +147,8 @@ public class ToolRegistry {
         // ── Block Logic API ───────────────────────────────────────────────
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetActivityEventsTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetEventBlocksTool());
+        // Phase 3: block graph serializer
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DescribeBlockLogicTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.AddBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.ModifyBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteBlockTool());
@@ -147,13 +156,14 @@ public class ToolRegistry {
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.CreateMoreBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteMoreBlockTool());
 
-        // ── UI Layout — 4 tools ONLY (describe, generate, add_xml, remove) ──────
+        // ── UI Layout — describe, generate, add_xml, batch_patch, replace_subtree ──
         registry.register(new DesignXmlEditorTool.DescribeLayoutTool());
         // Preferred: XML-based tools using ViewBeanParser (matches Sketchware-IA approach)
         registry.register(new DesignXmlEditorTool.AddViewXmlTool());
         registry.register(new DesignXmlEditorTool.GenerateLayoutTool());
-
-        // ── Live UI Drawing (ViewBean — real-time DesignActivity reload) ──
+        // Phase 3: XML Patch Engine — surgical multi-view edits in one cycle
+        registry.register(new DesignXmlEditorTool.BatchPatchViewsTool());
+        registry.register(new DesignXmlEditorTool.ReplaceSubtreeTool());
 
         // ── Developer Utilities (web search, shell, logcat, resource scan) ─
 
@@ -177,6 +187,8 @@ public class ToolRegistry {
 
         // ── Project Management ────────────────────────────────────────────
         registry.register(new ProjectTools.GetProjectInfoTool());
+        // Phase 4: single comprehensive audit in one call
+        registry.register(new ProjectHealthTool.CheckProjectHealthTool());
         registry.register(new ProjectTools.AddPermissionTool());
         registry.register(new ProjectTools.AddActivityTool());
 
@@ -221,6 +233,8 @@ public class ToolRegistry {
         // Enhanced build: R8 minification, parallel ECJ, dexer configuration
         registry.register(new AdvancedBuildTool.SetBuildCompilerTool());
         registry.register(new AdvancedBuildTool.BuildWithR8Tool());
+        // Phase 4: autonomous build repair analyzer
+        registry.register(new BuildRepairTool.AnalyzeBuildErrorTool());
 
         // ── Library Management ────────────────────────────────────────────
         registry.register(new LibraryTools.ListLibrariesTool());
@@ -234,6 +248,8 @@ public class ToolRegistry {
         // ── Library Discovery ─────────────────────────────────────────────
         registry.register(new LibraryDiscoveryTools.SearchMavenTool());
         registry.register(new LibraryDiscoveryTools.DependencyScanTool());
+        // Phase 3: Gradle injection validation
+        registry.register(new LibraryDiscoveryTools.ValidateGradleDependencyTool());
 
         // ── Code Analysis & Quality ───────────────────────────────────────
         registry.register(new CodeAnalysisTools.AnalyzeCodeTool());
@@ -243,6 +259,8 @@ public class ToolRegistry {
         // ── Block Logic API ───────────────────────────────────────────────
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetActivityEventsTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetEventBlocksTool());
+        // Phase 3: block graph serializer
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DescribeBlockLogicTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.AddBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.ModifyBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteBlockTool());
@@ -250,11 +268,13 @@ public class ToolRegistry {
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.CreateMoreBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteMoreBlockTool());
 
-        // ── UI Layout — 4 tools ONLY (describe, generate, add_xml, remove) ──────
+        // ── UI Layout — describe, generate, add_xml, batch_patch, replace_subtree ──
         registry.register(new DesignXmlEditorTool.DescribeLayoutTool());
-        // Preferred: XML-based tools using ViewBeanParser (matches Sketchware-IA approach)
         registry.register(new DesignXmlEditorTool.AddViewXmlTool());
         registry.register(new DesignXmlEditorTool.GenerateLayoutTool());
+        // Phase 3: XML Patch Engine
+        registry.register(new DesignXmlEditorTool.BatchPatchViewsTool());
+        registry.register(new DesignXmlEditorTool.ReplaceSubtreeTool());
 
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());

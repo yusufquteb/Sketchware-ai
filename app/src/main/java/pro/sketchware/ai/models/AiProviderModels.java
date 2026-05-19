@@ -39,18 +39,7 @@ public final class AiProviderModels {
             case CEREBRAS:         return Arrays.asList("llama-3.3-70b","llama-3.1-8b","qwen-3-32b");
             case GOOGLE_AI_STUDIO: return Arrays.asList("gemini-2.0-flash","gemini-2.0-flash-lite","gemma-3-27b-it","gemma-3-12b-it");
             case SAMBANOVA:        return Arrays.asList("Meta-Llama-3.3-70B-Instruct","Llama-4-Scout-17B-16E-Instruct","DeepSeek-R1-Distill-Llama-70B","Qwen2.5-72B-Instruct");
-            case LOCAL_LLM:        return Arrays.asList(
-                    "gemma3:27b",
-                    "gemma3:12b",
-                    "gemma3:4b",
-                    "llama3.3:70b",
-                    "llama3.1:8b",
-                    "qwen2.5-coder:32b",
-                    "qwen2.5-coder:7b",
-                    "phi4:latest",
-                    "deepseek-r1:14b",
-                    "mistral:7b",
-                    "local-model");
+            case MORPH:            return Arrays.asList("morph-v3-fast", "morph-v3");
 
             // ── New providers added in v7 ─────────────────────────────────────
             case KLUSTER:          return Arrays.asList(

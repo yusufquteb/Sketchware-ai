@@ -64,49 +64,70 @@ public class CompileTools {
                 return new ToolResult("", false, null, "Failed to read compile logs");
             }
 
-            // Summarize repeated errors to avoid overwhelming the AI
-            content = summarizeErrors(content);
-
-            if (content.length() > 15000) {
-                content = "... (truncated)\n" + content.substring(content.length() - 15000);
-            }
-
-            return new ToolResult("", true, content, null);
+            String result = extractRootCause(content);
+            return new ToolResult("", true, result, null);
         }
 
-        private String summarizeErrors(String log) {
-            if (log == null || log.isEmpty()) return log;
+        /**
+         * Extracts actionable root-cause errors from a Sketchware build log.
+         * Returns a compact report: root cause section + truncated full log.
+         */
+        private String extractRootCause(String log) {
+            if (log == null || log.isEmpty()) return "(empty log)";
+
             String[] lines = log.split("\n");
-            if (lines.length < 50) return log;
+            java.util.List<String> errors   = new java.util.ArrayList<>();
+            java.util.List<String> warnings = new java.util.ArrayList<>();
 
-            StringBuilder sb = new StringBuilder();
-            java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
-            
             for (String line : lines) {
-                String key = line.replaceAll(":[0-9]+:", ":line:"); // Normalize line numbers
-                key = key.replaceAll("@[0-9a-f]+", "@addr"); // Normalize addresses
-                counts.put(key, counts.getOrDefault(key, 0) + 1);
-            }
-
-            int totalLines = lines.length;
-            int uniqueLines = counts.size();
-            
-            if (uniqueLines > totalLines * 0.8) return log; // Not much repetition
-
-            sb.append("--- COMPILE LOG SUMMARY (Total lines: ").append(totalLines).append(") ---\n");
-            for (java.util.Map.Entry<String, Integer> entry : counts.entrySet()) {
-                if (entry.getValue() > 5) {
-                    sb.append("[Repeated ").append(entry.getValue()).append(" times]: ").append(entry.getKey()).append("\n");
-                } else {
-                    // Find original line for non-repeated or low-repeat
-                    for (String original : lines) {
-                        if (original.replaceAll(":[0-9]+:", ":line:").replaceAll("@[0-9a-f]+", "@addr").equals(entry.getKey())) {
-                            sb.append(original).append("\n");
-                            break;
-                        }
-                    }
+                String trimmed = line.trim();
+                // Java compiler errors: "Foo.java:12: error: ..."
+                // AAPT2 errors:         "error: ..."
+                // Kotlin errors:        "e: .../Foo.kt: (12, 5): ..."
+                if (trimmed.matches(".*\\berror:\\b.*") ||
+                    trimmed.startsWith("e: ") ||
+                    trimmed.matches(".*\\.java:[0-9]+: error.*") ||
+                    trimmed.matches(".*\\.kt:\\s*\\([0-9]+.*\\):.*") ||
+                    trimmed.startsWith("FAILED:") ||
+                    trimmed.startsWith("BUILD FAILED")) {
+                    errors.add(line);
+                } else if (trimmed.contains("warning:") || trimmed.startsWith("w: ")) {
+                    warnings.add(line);
                 }
             }
+
+            StringBuilder sb = new StringBuilder();
+
+            if (!errors.isEmpty()) {
+                sb.append("━━━ ROOT CAUSE (").append(errors.size()).append(" error(s)) ━━━\n");
+                // Deduplicate and cap at 20 unique errors
+                java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
+                for (String e : errors) {
+                    seen.add(e.trim());
+                    if (seen.size() >= 20) break;
+                }
+                for (String e : seen) sb.append(e).append("\n");
+                sb.append("\n");
+            } else {
+                sb.append("━━━ No explicit error lines found ━━━\n\n");
+            }
+
+            if (!warnings.isEmpty()) {
+                int shown = Math.min(warnings.size(), 5);
+                sb.append("━━━ First ").append(shown).append(" warning(s) (of ").append(warnings.size()).append(") ━━━\n");
+                for (int i = 0; i < shown; i++) sb.append(warnings.get(i)).append("\n");
+                sb.append("\n");
+            }
+
+            // Append tail of full log (most recent context)
+            int maxTailChars = 6000;
+            sb.append("━━━ Full log (last ").append(maxTailChars).append(" chars) ━━━\n");
+            if (log.length() <= maxTailChars) {
+                sb.append(log);
+            } else {
+                sb.append("... (truncated)\n").append(log, log.length() - maxTailChars, log.length());
+            }
+
             return sb.toString();
         }
     }

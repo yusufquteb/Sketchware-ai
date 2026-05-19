@@ -72,10 +72,8 @@ public class AiSettingsActivity extends AppCompatActivity {
     private static final String URL_NOVITA           = "https://novita.ai/settings/key-management";
     private static final String URL_AIRFORCE         = "https://api.airforce";
 
-    private static final String PREF_ENABLED     = "provider_enabled_";
-    private static final String PREF_LOCAL_URL   = "ai_local_llm_url";
-    private static final String PREF_LOCAL_MODEL = "ai_local_llm_model";
-    private static final String PREF_AI_PROFILE  = "ai_profile";
+    private static final String PREF_ENABLED    = "provider_enabled_";
+    private static final String PREF_AI_PROFILE = "ai_profile";
     private static final String PROFILE_QUICK    = "QUICK";
     private static final String PROFILE_DEEP     = "DEEP";
 
@@ -108,13 +106,12 @@ public class AiSettingsActivity extends AppCompatActivity {
         preferences         = AiPreferences.getInstance(this);
         defaultSystemPrompt = preferences.getSystemPrompt();
 
-        // Task 2: Silently migrate saved LOCAL_LLM provider → GROQ on startup
+        // Migrate legacy provider settings on startup
         migrateLegacyProviderIfNeeded();
 
         binding.toolbar.setNavigationOnClickListener(v -> finish());
 
         setupProvidersRecyclerView();
-        setupLocalLlm();
         setupAiProfiles();
         setupFailoverBanner();
         setupLayoutGenerationSettings();
@@ -123,36 +120,16 @@ public class AiSettingsActivity extends AppCompatActivity {
         handleIncomingIntent();
     }
 
-    // ── Task 2: LOCAL_LLM migration + Task 1: model validation ───────────────
+    // ── Provider migration + model validation ────────────────────────────────
 
     private void migrateLegacyProviderIfNeeded() {
         AiProvider saved = preferences.getSelectedProvider();
-        if (saved == AiProvider.LOCAL_LLM) {
-            preferences.setSelectedProvider(AiProvider.GROQ);
-            preferences.setSelectedModel(AiProvider.GROQ,
-                    pro.sketchware.ai.models.AiProviderModels.getDefaultModel(AiProvider.GROQ));
-            if (pro.sketchware.BuildConfig.DEBUG) {
-                android.util.Log.d("AiSettings",
-                        "Migrated LOCAL_LLM → GROQ/" +
-                        pro.sketchware.ai.models.AiProviderModels.getDefaultModel(AiProvider.GROQ));
-            }
-        } else {
-            validateAndResetModelIfNeeded(saved);
-        }
-    }
-
-    private void validateAndResetModelIfNeeded(AiProvider provider) {
-        if (provider == null || provider == AiProvider.LOCAL_LLM) return;
-        String saved   = preferences.getSelectedModel(provider);
-        String defModel = pro.sketchware.ai.models.AiProviderModels.getDefaultModel(provider);
-        if (!pro.sketchware.ai.models.AiProviderModels.isModelValidForProvider(provider, saved)
+        if (saved == null) return;
+        String savedModel = preferences.getSelectedModel(saved);
+        String defModel   = pro.sketchware.ai.models.AiProviderModels.getDefaultModel(saved);
+        if (!pro.sketchware.ai.models.AiProviderModels.isModelValidForProvider(saved, savedModel)
                 && !defModel.isEmpty()) {
-            preferences.setSelectedModel(provider, defModel);
-            if (pro.sketchware.BuildConfig.DEBUG) {
-                android.util.Log.w("AiSettings",
-                        "Invalid saved model '" + saved + "' for " + provider.name()
-                        + " — reset to " + defModel);
-            }
+            preferences.setSelectedModel(saved, defModel);
         }
     }
 
@@ -161,7 +138,6 @@ public class AiSettingsActivity extends AppCompatActivity {
     private void setupProvidersRecyclerView() {
         List<AiProviderAdapter.ProviderState> states = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            if (p == AiProvider.LOCAL_LLM) continue;
             // Default-enabled: original defaults + new free-no-key providers
             boolean defaultEnabled = (p == AiProvider.GOOGLE_AI_STUDIO
                     || p == AiProvider.SAMBANOVA
@@ -221,10 +197,6 @@ public class AiSettingsActivity extends AppCompatActivity {
     // ── Fetch models ──────────────────────────────────────────────────────────
 
     private void fetchModels(AiProvider provider) {
-        if (provider == AiProvider.LOCAL_LLM) {
-            testLocalLlmConnection();
-            return;
-        }
         if (provider.requiresApiKey()) {
             String key = preferences.getApiKey(provider);
             if (key == null || key.isEmpty()) {
@@ -371,96 +343,6 @@ public class AiSettingsActivity extends AppCompatActivity {
         catch (Exception ignored) {}
     }
 
-    // ── Local LLM ─────────────────────────────────────────────────────────────
-
-    private void setupLocalLlm() {
-        String savedUrl   = preferences.prefs().getString(PREF_LOCAL_URL,   "http://192.168.1.x:11434");
-        String savedModel = preferences.prefs().getString(PREF_LOCAL_MODEL, "gemma3:12b");
-        binding.inputLocalLlmUrl.setText(savedUrl);
-        binding.inputLocalLlmModel.setText(savedModel);
-
-        boolean enabled = preferences.prefs()
-                .getBoolean(PREF_ENABLED + AiProvider.LOCAL_LLM.name(), false);
-        binding.switchLocalLlm.setChecked(enabled);
-        binding.layoutLocalLlmConfig.setVisibility(enabled ? View.VISIBLE : View.GONE);
-
-        binding.switchLocalLlm.setOnCheckedChangeListener((btn, checked) -> {
-            preferences.prefs().edit()
-                    .putBoolean(PREF_ENABLED + AiProvider.LOCAL_LLM.name(), checked).apply();
-            binding.layoutLocalLlmConfig.setVisibility(checked ? View.VISIBLE : View.GONE);
-            if (checked) saveLocalLlmConfig();
-        });
-
-        binding.inputLocalLlmUrl.setOnFocusChangeListener((v, f) -> { if (!f) saveLocalLlmConfig(); });
-        binding.inputLocalLlmModel.setOnFocusChangeListener((v, f) -> { if (!f) saveLocalLlmConfig(); });
-
-        binding.btnTestLocalLlm.setOnClickListener(v -> testLocalLlmConnection());
-        binding.btnRefreshLocalLlm.setOnClickListener(v -> {
-            saveLocalLlmConfig();
-            fetchModels(AiProvider.LOCAL_LLM);
-        });
-
-        binding.btnDownloadMlcchatApp.setOnClickListener(v ->
-                openUrl("https://github.com/mlc-ai/mlc-llm/releases"));
-
-        binding.btnSetupOllama.setOnClickListener(v -> {
-            autoConfigLocalLlm(AiPreferences.DEFAULT_OLLAMA_URL, AiPreferences.DEFAULT_OLLAMA_MODEL);
-            Toast.makeText(this, "\u2705 Ollama Configured!", Toast.LENGTH_LONG).show();
-        });
-    }
-
-    private void autoConfigLocalLlm(String url, String model) {
-        binding.inputLocalLlmUrl.setText(url);
-        binding.inputLocalLlmModel.setText(model);
-        binding.switchLocalLlm.setChecked(true);
-        saveLocalLlmConfig();
-        preferences.prefs().edit()
-                .putString("selected_provider", AiProvider.LOCAL_LLM.name()).apply();
-    }
-
-    private void saveLocalLlmConfig() {
-        String url   = t(binding.inputLocalLlmUrl);
-        String model = t(binding.inputLocalLlmModel);
-        if (url.isEmpty())   url   = "http://192.168.1.x:11434";
-        if (model.isEmpty()) model = "gemma3:12b";
-        preferences.prefs().edit()
-                .putString(PREF_LOCAL_URL,   url)
-                .putString(PREF_LOCAL_MODEL, model)
-                .apply();
-    }
-
-    private void testLocalLlmConnection() {
-        saveLocalLlmConfig();
-        String url   = preferences.prefs().getString(PREF_LOCAL_URL,   "http://192.168.1.x:11434");
-        String model = preferences.prefs().getString(PREF_LOCAL_MODEL, "gemma3:12b");
-        binding.localLlmStatus.setText("Testing connection\u2026");
-        binding.btnTestLocalLlm.setEnabled(false);
-        executor.execute(() -> {
-            try {
-                pro.sketchware.ai.api.LocalLlmApiClient client =
-                        new pro.sketchware.ai.api.LocalLlmApiClient(url, model);
-                List<ModelInfo> models = client.fetchModels();
-                client.shutdown();
-                runOnUiThread(() -> {
-                    binding.btnTestLocalLlm.setEnabled(true);
-                    if (models != null && !models.isEmpty()) {
-                        binding.localLlmStatus.setText(
-                                "\u2705 Connected \u2014 " + models.size() + " model(s) available");
-                        preferences.setCachedModels(AiProvider.LOCAL_LLM, models);
-                    } else {
-                        binding.localLlmStatus.setText("\u26a0\ufe0f Connected but no models found");
-                    }
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    binding.btnTestLocalLlm.setEnabled(true);
-                    binding.localLlmStatus.setText("\u274c " +
-                            (e.getMessage() != null ? e.getMessage() : "Unknown error"));
-                });
-            }
-        });
-    }
-
     // ── AI Performance Profiles ───────────────────────────────────────────────
 
     private void setupAiProfiles() {
@@ -537,7 +419,7 @@ public class AiSettingsActivity extends AppCompatActivity {
         new MaterialAlertDialogBuilder(this)
                 .setTitle(title)
                 .setView(layout)
-                .setPositiveButton("Save", (d, w) -> {
+                .setPositiveButton(R.string.common_word_save, (d, w) -> {
                     try {
                         float t = Float.parseFloat(tempInput.getText().toString().trim());
                         int   k = Integer.parseInt(tokensInput.getText().toString().trim());
@@ -550,7 +432,7 @@ public class AiSettingsActivity extends AppCompatActivity {
                         Toast.makeText(this, "Invalid value", Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 
@@ -645,50 +527,15 @@ public class AiSettingsActivity extends AppCompatActivity {
         }
     }
 
-    // ── Morph (MORF) Layout Refinement ───────────────────────────────────────
+    // ── Morph Layout Refinement ─────────────────────────────────────────────
 
     private void setupMorphSettings() {
-        boolean morphOn = preferences.prefs().getBoolean(
-                AiPreferences.KEY_MORPH_ENABLED, false);
-        binding.switchMorphEnabled.setChecked(morphOn);
-        binding.layoutMorphConfig.setVisibility(morphOn ? View.VISIBLE : View.GONE);
-
-        String savedKey = preferences.getMorphApiKey();
-        if (!savedKey.isEmpty()) binding.inputMorphApiKey.setText(savedKey);
-
         binding.switchMorphForLayout.setChecked(
                 preferences.prefs().getBoolean(AiPreferences.KEY_MORPH_FOR_LAYOUT, false));
-
-        binding.switchMorphEnabled.setOnCheckedChangeListener((btn, checked) -> {
-            preferences.prefs().edit()
-                    .putBoolean(AiPreferences.KEY_MORPH_ENABLED, checked)
-                    .apply();
-            binding.layoutMorphConfig.setVisibility(checked ? View.VISIBLE : View.GONE);
-        });
-
-        binding.inputMorphApiKey.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
-            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
-            @Override
-            public void afterTextChanged(Editable s) {
-                preferences.setMorphApiKey(s.toString());
-            }
-        });
-
         binding.switchMorphForLayout.setOnCheckedChangeListener((btn, checked) ->
                 preferences.prefs().edit()
                         .putBoolean(AiPreferences.KEY_MORPH_FOR_LAYOUT, checked)
                         .apply());
-
-        binding.btnMorphGetKey.setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://www.morphllm.com/dashboard/api-keys")));
-            } catch (Exception ignored) {
-                Toast.makeText(this, "Visit morphllm.com/dashboard/api-keys to get an API key",
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
     private void setupSystemPrompt() {
@@ -746,10 +593,7 @@ public class AiSettingsActivity extends AppCompatActivity {
                             Toast.makeText(AiSettingsActivity.this,
                                     "\u2705 Download complete: " + modelName,
                                     Toast.LENGTH_LONG).show();
-                            preferences.prefs().edit()
-                                    .putString(PREF_LOCAL_MODEL, modelId).apply();
-                            preferences.setSelectedProvider(AiProvider.LOCAL_LLM);
-                            preferences.setSelectedModel(AiProvider.LOCAL_LLM, modelId);
+
                         });
                     }
                     @Override
@@ -769,7 +613,6 @@ public class AiSettingsActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        saveLocalLlmConfig();
         saveSystemPrompt();
         // Keys are saved immediately via AiProviderAdapter.onKeyChanged callbacks
     }

@@ -21,7 +21,6 @@ import com.google.gson.JsonParseException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import a.a.a.Rs;
@@ -56,7 +55,7 @@ public class CustomBlocksDialog {
                 .setView(dialogBinding.getRoot())
                 .show();
 
-        Executors.newSingleThreadExecutor().execute(() -> {
+        new Thread(() -> {
             customBlocksManager = new CustomBlocksManager(context, sc_id);
             customBlocks = customBlocksManager.getUsedBlocks();
 
@@ -118,7 +117,7 @@ public class CustomBlocksDialog {
                 });
             }
 
-        });
+        }).start();
     }
 
     private void importAll(Context context, CustomBlocksManager customBlocksManager, ArrayList<BlockBean> list) {

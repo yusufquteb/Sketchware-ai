@@ -47,7 +47,7 @@ public class br extends qA implements View.OnClickListener {
     public void refreshData() {
         if (projectFile != null && adapter != null) {
             components = jC.a(sc_id).e(projectFile.getJavaName());
-            adapter.notifyDataSetChanged();
+            adapter.notifyDataSetChanged(); // full reload — count may change
         }
     }
 
@@ -82,7 +82,7 @@ public class br extends qA implements View.OnClickListener {
             for (ComponentBean component : jC.a(sc_id).e(projectFile.getJavaName())) {
                 component.initValue();
             }
-            adapter.notifyDataSetChanged();
+            adapter.notifyItemRangeChanged(0, components.size());
         }
     }
 

@@ -85,7 +85,7 @@ public class ViewEvents extends LinearLayout {
             }
         }
 
-        eventAdapter.notifyDataSetChanged();
+        eventAdapter.notifyItemRangeChanged(0, events.size());
     }
 
     private void createEvent(int eventPosition) {
@@ -141,13 +141,13 @@ public class ViewEvents extends LinearLayout {
                     binding.container.setOnLongClickListener(v -> {
                         MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(itemView.getContext());
                         dialog.setIcon(R.drawable.delete_96);
-                        dialog.setTitle("Confirm Delete");
-                        dialog.setMessage("Click on Confirm to delete the selected Event.");
+                        dialog.setTitle(R.string.event_confirm_delete_title);
+                        dialog.setMessage(R.string.event_confirm_delete_message);
 
                         dialog.setPositiveButton(Helper.getResString(R.string.common_word_delete), (view, which) -> {
                             view.dismiss();
                             EventBean.deleteEvent(sc_id, event, projectFileBean);
-                            bB.a(getContext(), getContext().getString(R.string.common_message_complete_delete), 0).show();
+                            bB.a(itemView.getContext(), itemView.getContext().getString(R.string.common_message_complete_delete), 0).show();
                             event.isSelected = false;
                             eventAdapter.notifyItemChanged(position);
                         });

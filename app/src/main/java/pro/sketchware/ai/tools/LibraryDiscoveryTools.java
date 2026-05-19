@@ -236,4 +236,163 @@ public final class LibraryDiscoveryTools {
             return ok(out.toString());
         }
     }
+
+    // ── Phase 3: validate_gradle_dependency ───────────────────────────────────
+
+    /**
+     * Validates a Maven dependency coordinate before the AI injects it into a project.
+     * Prevents broken builds caused by malformed coordinates, snapshot versions in
+     * production, obvious duplicates, or known Android-incompatible artifacts.
+     *
+     * Input:  coordinate (group:artifact:version), optional sc_id for duplicate check
+     * Output: VALID | INVALID | WARNING with detailed reason
+     */
+    public static class ValidateGradleDependencyTool implements AgentTool {
+        @Override public String getName() { return "validate_gradle_dependency"; }
+
+        @Override public String getDescription() {
+            return "Validates a Maven dependency coordinate before adding it to a project. "
+                 + "Checks: format (group:artifact:version), version validity (not empty/snapshot "
+                 + "in release builds), known Android incompatibilities, and duplicate group IDs. "
+                 + "Call this before download_dependency or add_library to catch problems early. "
+                 + "Parameters: coordinate (e.g. 'com.squareup.okhttp3:okhttp:4.12.0'), "
+                 + "sc_id (optional, for checking existing project dependencies).";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            addProp(props, "coordinate", "string",
+                "Maven coordinate in group:artifact:version format");
+            addProp(props, "sc_id", "string",
+                "Project ID for checking existing dependencies (optional)");
+            schema.add("properties", props);
+            JsonArray req = new JsonArray();
+            req.add("coordinate");
+            schema.add("required", req);
+            return schema;
+        }
+
+        // Known artifacts that don't work on Android / cause issues
+        private static final Set<String> KNOWN_INCOMPATIBLE = new HashSet<>(java.util.Arrays.asList(
+            "org.slf4j:slf4j-simple",
+            "org.slf4j:slf4j-log4j12",
+            "log4j:log4j",
+            "commons-logging:commons-logging",
+            "javax.servlet:javax.servlet-api",
+            "javax.servlet:servlet-api",
+            "org.springframework:spring-core",
+            "org.springframework:spring-context"
+        ));
+
+        // Groups that are provided by Android SDK — adding them causes conflicts
+        private static final Set<String> ANDROID_PROVIDED = new HashSet<>(java.util.Arrays.asList(
+            "com.google.android",
+            "android.arch",
+            "com.android.support"  // superseded by AndroidX
+        ));
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String coord = args.has("coordinate") ? args.get("coordinate").getAsString().trim() : null;
+            if (coord == null || coord.isEmpty()) return ok("❌ INVALID: coordinate is required");
+
+            String[] parts = coord.split(":");
+            if (parts.length < 3) {
+                return ok("❌ INVALID: coordinate must be in group:artifact:version format. "
+                        + "Got: '" + coord + "'. "
+                        + "Example: 'com.squareup.okhttp3:okhttp:4.12.0'");
+            }
+
+            String group    = parts[0].trim();
+            String artifact = parts[1].trim();
+            String version  = parts[2].trim();
+
+            List<String> errors   = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
+
+            // ── Format checks ──────────────────────────────────────────────
+            if (!group.matches("[a-zA-Z0-9._\\-]+"))
+                errors.add("Group ID '" + group + "' contains invalid characters");
+            if (!artifact.matches("[a-zA-Z0-9._\\-]+"))
+                errors.add("Artifact ID '" + artifact + "' contains invalid characters");
+            if (version.isEmpty())
+                errors.add("Version must not be empty");
+
+            // ── Version quality checks ────────────────────────────────────
+            if (version.endsWith("-SNAPSHOT"))
+                warnings.add("SNAPSHOT version detected — only use in development, not production builds");
+            if (version.equals("+") || version.equals("latest.release") || version.equals("latest.integration"))
+                warnings.add("Dynamic version '" + version + "' makes builds non-reproducible — use a fixed version");
+
+            // ── Compatibility checks ──────────────────────────────────────
+            String groupArtifact = group + ":" + artifact;
+            if (KNOWN_INCOMPATIBLE.contains(groupArtifact))
+                errors.add("'" + groupArtifact + "' is known to be incompatible with Android");
+
+            for (String provided : ANDROID_PROVIDED) {
+                if (group.startsWith(provided))
+                    warnings.add("Group '" + group + "' may conflict with Android SDK or AndroidX. "
+                            + "Prefer the AndroidX equivalent (androidx.*)");
+            }
+
+            // Check for AndroidX migration: old support library
+            if (group.equals("com.android.support"))
+                errors.add("'com.android.support' is deprecated. Use the AndroidX equivalent instead. "
+                        + "Example: 'androidx.appcompat:appcompat'");
+
+            // ── Duplicate check (if sc_id provided) ──────────────────────
+            if (args.has("sc_id") && !args.get("sc_id").isJsonNull()) {
+                String scId = args.get("sc_id").getAsString();
+                if (ctx.isProjectAllowed(scId)) {
+                    // Look for existing downloaded libs with same group:artifact
+                    File libDir = new File(ctx.getSketchwareDir(),
+                            "mysc/" + scId + "/local_libs");
+                    if (libDir.exists()) {
+                        File[] libs = libDir.listFiles();
+                        if (libs != null) {
+                            for (File lib : libs) {
+                                String name = lib.getName();
+                                // Simple heuristic: artifact name in filename
+                                if (name.contains(artifact) && !name.contains(version)) {
+                                    warnings.add("Found existing file '" + name + "' that may be a different "
+                                            + "version of this artifact — check for version conflict");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Build result ──────────────────────────────────────────────
+            if (!errors.isEmpty()) {
+                StringBuilder sb = new StringBuilder("❌ INVALID: " + coord + "\n\nErrors:\n");
+                for (String e : errors) sb.append("  • ").append(e).append("\n");
+                if (!warnings.isEmpty()) {
+                    sb.append("\nWarnings:\n");
+                    for (String w : warnings) sb.append("  ⚠ ").append(w).append("\n");
+                }
+                return ok(sb.toString());
+            }
+
+            if (!warnings.isEmpty()) {
+                StringBuilder sb = new StringBuilder("⚠️ VALID WITH WARNINGS: " + coord + "\n\nWarnings:\n");
+                for (String w : warnings) sb.append("  • ").append(w).append("\n");
+                sb.append("\nThe coordinate is valid but review the warnings before proceeding.");
+                return ok(sb.toString());
+            }
+
+            return ok("✅ VALID: " + coord
+                    + "\nGroup: " + group + " | Artifact: " + artifact + " | Version: " + version
+                    + "\nReady to use with download_dependency.");
+        }
+
+        private static void addProp(JsonObject props, String key, String type, String desc) {
+            JsonObject p = new JsonObject();
+            p.addProperty("type", type);
+            p.addProperty("description", desc);
+            props.add(key, p);
+        }
+    }
 }

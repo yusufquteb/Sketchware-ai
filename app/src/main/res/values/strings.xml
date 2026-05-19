@@ -2352,4 +2352,28 @@ Please try again later"</string>
         <item quantity="one">Used in %d project</item>
         <item quantity="other">Used in %d projects</item>
     </plurals>
+
+    <!-- ViewEvents delete dialog -->
+    <string name="event_confirm_delete_title">Confirm Delete</string>
+    <string name="event_confirm_delete_message">Click on Confirm to delete the selected Event.</string>
+
+    <!-- AI module dialogs -->
+    <string name="ai_select_provider_title">Select Provider</string>
+    <string name="ai_new_chat">New Chat</string>
+    <string name="ai_add_project">Add Project</string>
+    <string name="ai_workspace_add_projects_title">Add Projects</string>
+    <string name="ai_workspace_edit_title">Edit Workspace</string>
+    <string name="ai_workspace_delete_title">Delete Workspace</string>
+    <string name="ai_workspace_delete_message">This will permanently delete this workspace and all its conversations. This action cannot be undone.</string>
+    <string name="ai_conversation_delete_title">Delete Conversation</string>
+    <string name="ai_conversation_delete_message">Delete \"%s\"? This cannot be undone.</string>
+    <string name="ai_chat_clear_title">Clear conversation</string>
+    <string name="ai_chat_clear_message">This will delete all messages in this conversation. This cannot be undone.</string>
+    <string name="ai_chat_clear_button">Clear</string>
+    <string name="ai_chat_exit_title">Exit conversation</string>
+    <string name="ai_chat_exit_message">Your conversation is saved automatically.\nDo you want to keep it?</string>
+    <string name="ai_chat_keep_exit">Keep &amp; Exit</string>
+    <string name="ai_chat_delete_exit">Delete &amp; Exit</string>
+    <string name="ai_plan_title">⚡ AI Plan</string>
+    <string name="ai_plan_continue">Continue ▶</string>
 </resources>
