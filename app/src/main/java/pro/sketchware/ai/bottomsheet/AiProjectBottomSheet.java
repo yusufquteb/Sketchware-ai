@@ -1491,7 +1491,7 @@ public class AiProjectBottomSheet
         List<ModelInfo> all = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
             if (!preferences.prefs().getBoolean("provider_enabled_" + p.name(), true)) continue;
-            if (p.requiresApiKey() && !preferences.hasApiKey(p)
+            if (p.requiresApiKey() && !preferences.hasApiKey(p)) continue;
 
             // Task 1: Use cached models first; fall back to static list so selector
             // is never empty even before the user has fetched models from the network.
