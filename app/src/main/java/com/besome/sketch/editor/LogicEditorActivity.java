@@ -114,7 +114,6 @@ import a.a.a.xB;
 import a.a.a.yq;
 import dev.aldi.sayuti.block.ExtraPaletteBlock;
 import mod.bobur.VectorDrawableLoader;
-import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 import mod.hey.studios.editor.view.IdGenerator;
 import mod.hey.studios.moreblock.ReturnMoreblockManager;
 import mod.hey.studios.moreblock.importer.MoreblockImporterDialog;
@@ -1996,8 +1995,6 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
             editGeneratedJava();
         } else if (itemId == R.id.menu_logic_reset_generated_java) {
             resetGeneratedJavaOverride();
-        } else if (itemId == R.id.menu_logic_ask_ai) {
-            openAiForCurrentScreen();
         }
 
         return super.onOptionsItemSelected(menuItem);
@@ -2040,15 +2037,6 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
                 })
                 .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
-    }
-
-    private void openAiForCurrentScreen() {
-        if (M == null) {
-            return;
-        }
-        String projectName = AiProjectIntegrationHelper.resolveProjectName(scId, null);
-        String prompt = "Review the Sketchware logic and generated source for screen '" + M.fileName + "' and help me improve blocks, events, components, and generated Java without breaking Sketchware compatibility.";
-        AiProjectIntegrationHelper.openProjectChat(this, scId, projectName, "AI • " + M.fileName, prompt);
     }
 
     private void editGeneratedJava() {

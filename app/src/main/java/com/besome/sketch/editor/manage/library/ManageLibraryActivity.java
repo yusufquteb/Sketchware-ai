@@ -5,7 +5,6 @@ import static android.text.TextUtils.isEmpty;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 import android.view.View;
 import android.widget.LinearLayout;
 
@@ -557,28 +556,4 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
             }
         }
     }
-    @Override
-    public boolean onCreateOptionsMenu(android.view.Menu menu) {
-        menu.add(android.view.Menu.NONE, 9001, 0, "AI Assistant")
-                .setIcon(androidx.appcompat.content.res.AppCompatResources.getDrawable(
-                        this, pro.sketchware.R.drawable.ic_agent))
-                .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(android.view.MenuItem item) {
-        if (item.getItemId() == 9001) {
-            String scId = getIntent().getStringExtra("sc_id");
-            String name = AiProjectIntegrationHelper.resolveProjectName(scId, null);
-            AiProjectIntegrationHelper.openProjectChatWithContext(
-                    this, scId, name, "AI • Libraries",
-                    "Help me manage built-in libraries (AppCompat, Material, Firebase, etc.) "
-                    + "in this project. Check dependencies and suggest improvements.",
-                    "libraries");
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
 }

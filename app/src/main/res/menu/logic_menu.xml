@@ -42,8 +42,4 @@
         android:title="Reset generated Java override"
         app:showAsAction="never" />
 
-    <item
-        android:id="@+id/menu_logic_ask_ai"
-        android:title="Ask AI about this screen"
-        app:showAsAction="never" />
 </menu>
