@@ -513,12 +513,35 @@ public final class DesignXmlEditorTool {
     }
 
     /**
+     * Validates a ViewBean list before writing to disk.
+     * Returns null if valid, or an error message describing the first problem found.
+     */
+    static String validateViewBeans(ArrayList<ViewBean> beans) {
+        if (beans == null || beans.isEmpty()) return "View list is empty";
+        java.util.Set<String> seenIds = new java.util.HashSet<>();
+        for (ViewBean b : beans) {
+            if (b == null) return "Null ViewBean in list";
+            if (b.id == null || b.id.trim().isEmpty()) return "ViewBean has null or empty id";
+            // Valid Android ID characters: letters, digits, underscore
+            if (!b.id.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+                return "Invalid view id '" + b.id + "': must start with a letter and contain only letters, digits, underscores";
+            }
+            if (!seenIds.add(b.id)) return "Duplicate view id: " + b.id;
+            // type must be a known non-negative value (0–999)
+            if (b.type < 0 || b.type > 999) return "Invalid view type " + b.type + " for id " + b.id;
+        }
+        return null;
+    }
+
+    /**
      * Saves a flat ViewBean list to the view file using Gson — the exact format that
      * eC (Sketchware's view data manager) reads from disk.
      * Format: [{id:"main.xml", data:[...flat ViewBeans serialized by Gson...]}]
      */
     private static void saveViewBeans(File viewFile, String activityName,
                                       ArrayList<ViewBean> beans) throws IOException {
+        String validationError = validateViewBeans(beans);
+        if (validationError != null) throw new IOException("XML Validator: " + validationError);
         com.google.gson.Gson gson = GsonUtils.getGson();
         JsonArray fileArray = readViewArray(viewFile); // reuse existing helper
 
