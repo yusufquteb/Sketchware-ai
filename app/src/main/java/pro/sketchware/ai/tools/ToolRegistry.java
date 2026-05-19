@@ -229,6 +229,8 @@ public class ToolRegistry {
         // Enhanced build: R8 minification, parallel ECJ, dexer configuration
         registry.register(new AdvancedBuildTool.SetBuildCompilerTool());
         registry.register(new AdvancedBuildTool.BuildWithR8Tool());
+        // Phase 4: autonomous build repair analyzer
+        registry.register(new BuildRepairTool.AnalyzeBuildErrorTool());
 
         // ── Library Management ────────────────────────────────────────────
         registry.register(new LibraryTools.ListLibrariesTool());
