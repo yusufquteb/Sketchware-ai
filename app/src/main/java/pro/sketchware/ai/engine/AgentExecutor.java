@@ -50,7 +50,7 @@ public class AgentExecutor {
     private static final int  SAFETY_TOOL_ITERATION_LIMIT = 200;
     private static final long STREAM_TIMEOUT_MS   = 120_000L;  // 120s per request
     /** After how many tool iterations we pause and show Continue/Cancel. */
-    private static final int  PULSE_STEPS         = 2;  // every 2 tool calls
+    private static final int  PULSE_STEPS         = 6;  // every 6 tool calls — less interruption for complex tasks
     /** Countdown seconds before Continue is auto-selected. */
     private static final int  PULSE_AUTO_SECS     = 10;
     /** Ordered failover providers (tried in sequence on timeout/error). */
@@ -857,6 +857,46 @@ public class AgentExecutor {
                     sb.append("    lib conflict     → validate_libraries → remove_library/add_library\n");
                     sb.append("  CALL build_project(sc_id) after all fixes.\n");
                     sb.append("  FORBIDDEN: write_file for strings/colors. Never guess values.\n");
+                    break;
+                case "workspace_chat":
+                case "workspace":
+                    sb.append("Launched from: AI Workspace (general chat)\n");
+                    sb.append("The user may ask to CREATE A COMPLETE APP from a description.\n\n");
+                    sb.append("╔══════════════════════════════════════════════════════════════╗\n");
+                    sb.append("║        FULL APP CREATION PIPELINE (Follow Exactly)          ║\n");
+                    sb.append("╚══════════════════════════════════════════════════════════════╝\n\n");
+                    sb.append("When user says 'create an app' or describes an app idea:\n\n");
+                    sb.append("STEP 1 — PROJECT SETUP:\n");
+                    sb.append("  create_project(name, package, app_name)\n");
+                    sb.append("  Capture sc_id from the result — use it for ALL subsequent calls.\n\n");
+                    sb.append("STEP 2 — SCREENS (one create_activity per screen):\n");
+                    sb.append("  create_activity(sc_id, activity_name=\"main\")   ← always lowercase, no 'Activity' suffix\n");
+                    sb.append("  create_activity(sc_id, activity_name=\"settings\") ← etc.\n\n");
+                    sb.append("STEP 3 — RESOURCES (strings, colors, drawables):\n");
+                    sb.append("  add_string_resource for every text label and message\n");
+                    sb.append("  add_color_resource for every color used in the UI\n");
+                    sb.append("  create_drawable for buttons, backgrounds, icons (use templates)\n\n");
+                    sb.append("STEP 4 — LAYOUTS (one generate_layout per screen):\n");
+                    sb.append("  generate_layout(sc_id, activity_name, description=\"full UI description\")\n");
+                    sb.append("  Use @string/xxx and @color/xxx — NOT hardcoded values.\n");
+                    sb.append("  Use @drawable/xxx for backgrounds and button shapes.\n\n");
+                    sb.append("STEP 5 — LOGIC (events + blocks per screen):\n");
+                    sb.append("  get_activity_events → add_block for each user interaction\n");
+                    sb.append("  Typical pattern per screen:\n");
+                    sb.append("    add_block(event=onCreate) → initialize variables\n");
+                    sb.append("    add_block(event=onClick_btnX) → action code\n\n");
+                    sb.append("STEP 6 — BUILD + FIX LOOP:\n");
+                    sb.append("  build_project(sc_id)\n");
+                    sb.append("  IF fails → analyze_build_error(sc_id) → apply ALL fixes → build_project again\n");
+                    sb.append("  Repeat until build succeeds.\n\n");
+                    sb.append("RULES:\n");
+                    sb.append("  ✅ DO all steps in order — never skip steps\n");
+                    sb.append("  ✅ After layout → verify R.id references exist\n");
+                    sb.append("  ✅ After adding strings → do NOT add same key again\n");
+                    sb.append("  ✅ After adding events → add matching Java logic\n");
+                    sb.append("  ❌ NEVER use hardcoded strings in layouts — always @string/\n");
+                    sb.append("  ❌ NEVER use R.attr.colorX — use com.google.android.material.R.attr.colorX\n");
+                    sb.append("  ❌ NEVER name activity 'MainActivity' — pass 'main' to create_activity\n");
                     break;
                 default:
                     sb.append("Launch context: ").append(pageContext.trim()).append("\n");
