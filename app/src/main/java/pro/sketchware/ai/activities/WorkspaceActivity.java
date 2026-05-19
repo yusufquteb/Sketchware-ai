@@ -58,7 +58,7 @@ public class WorkspaceActivity extends AppCompatActivity {
                 public void onPageSelected(int position) {
                     binding.fabAction.setImageResource(R.drawable.ic_mtrl_add);
                     binding.fabAction.setContentDescription(
-                            position == 0 ? "New Chat" : "Add Project");
+                            position == 0 ? getString(R.string.ai_new_chat) : getString(R.string.ai_add_project));
                 }
             };
 
@@ -195,7 +195,7 @@ public class WorkspaceActivity extends AppCompatActivity {
 
         Conversation conversation = new Conversation(
                 workspaceId,
-                "New Chat",
+                getString(R.string.ai_new_chat),
                 modelId != null ? modelId : "",
                 provider.name()
         );
@@ -240,9 +240,9 @@ public class WorkspaceActivity extends AppCompatActivity {
         dialogBinding.projectsList.setAdapter(selectAdapter);
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Add Projects")
+                .setTitle(R.string.ai_workspace_add_projects_title)
                 .setView(dialogBinding.getRoot())
-                .setPositiveButton("Add", (dialog, which) -> {
+                .setPositiveButton(R.string.common_word_add, (dialog, which) -> {
                     Set<String> selectedIds = selectAdapter.getSelectedProjectIds();
                     if (!selectedIds.isEmpty()) {
                         for (String scId : selectedIds) {
@@ -251,7 +251,7 @@ public class WorkspaceActivity extends AppCompatActivity {
                         workspaceManager.updateWorkspace(workspace);
                     }
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 
@@ -265,9 +265,9 @@ public class WorkspaceActivity extends AppCompatActivity {
         dialogBinding.inputDescription.setText(workspace.getDescription());
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Edit Workspace")
+                .setTitle(R.string.ai_workspace_edit_title)
                 .setView(dialogBinding.getRoot())
-                .setPositiveButton("Save", (dialog, which) -> {
+                .setPositiveButton(R.string.common_word_save, (dialog, which) -> {
                     String name = dialogBinding.inputName.getText() != null
                             ? dialogBinding.inputName.getText().toString().trim() : "";
                     String description = dialogBinding.inputDescription.getText() != null
@@ -280,19 +280,19 @@ public class WorkspaceActivity extends AppCompatActivity {
                     workspaceManager.updateWorkspace(workspace);
                     binding.collapsingToolbar.setTitle(name);
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 
     private void showDeleteConfirmation() {
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Delete Workspace")
-                .setMessage("This will permanently delete this workspace and all its conversations. This action cannot be undone.")
-                .setPositiveButton("Delete", (dialog, which) -> {
+                .setTitle(R.string.ai_workspace_delete_title)
+                .setMessage(R.string.ai_workspace_delete_message)
+                .setPositiveButton(R.string.common_word_delete, (dialog, which) -> {
                     workspaceManager.deleteWorkspace(workspaceId);
                     finish();
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 }

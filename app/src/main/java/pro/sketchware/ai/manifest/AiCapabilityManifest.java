@@ -56,8 +56,10 @@ public final class AiCapabilityManifest {
 
         // ── Project Management ─────────────────────────────────────────────────
         List<ToolEntry> projects = new ArrayList<>();
-        projects.add(new ToolEntry("list_projects",       "List all projects in the workspace",              CAT_PROJECT,    "ic_mtrl_folder_open"));
+        projects.add(new ToolEntry("list_projects",         "List all projects in the workspace",              CAT_PROJECT, "ic_mtrl_folder_open"));
+        projects.add(new ToolEntry("check_project_health", "Comprehensive project audit in one call",         CAT_PROJECT, "ic_mtrl_health_and_safety"));
         projects.add(new ToolEntry("get_project_info",    "Get a project's name, package, and version",      CAT_PROJECT,    "ic_mtrl_info"));
+        projects.add(new ToolEntry("index_project",       "Build a compact symbol index (views, vars, events, components)", CAT_PROJECT, "ic_mtrl_account_tree"));
         projects.add(new ToolEntry("create_project",      "Create a brand-new Sketchware project",           CAT_PROJECT,    "ic_mtrl_add_circle"));
         projects.add(new ToolEntry("delete_project",      "Delete a project (requires confirmation)",        CAT_PROJECT,    "ic_mtrl_delete"));
         projects.add(new ToolEntry("duplicate_project",   "Clone an existing project",                       CAT_PROJECT,    "ic_mtrl_file_copy"));
@@ -98,6 +100,8 @@ public final class AiCapabilityManifest {
         ui.add(new ToolEntry("remove_view",          "Remove a View from the layout",                 CAT_UI, "ic_mtrl_delete"));
         ui.add(new ToolEntry("add_view_xml",         "Add a View using raw XML fragment",             CAT_UI, "ic_mtrl_code"));
         ui.add(new ToolEntry("generate_layout",      "Generate a complete layout from description",   CAT_UI, "ic_mtrl_auto_fix_high"));
+        ui.add(new ToolEntry("batch_patch_views",    "Patch multiple views' properties in one call",  CAT_UI, "ic_mtrl_tune"));
+        ui.add(new ToolEntry("replace_subtree",      "Replace a container's children with new XML",   CAT_UI, "ic_mtrl_deployed_code"));
         ui.add(new ToolEntry("text_to_layout_ai",    "Full AI pipeline: text → complete layout XML",  CAT_AI_TOOLS, "ic_ai_robot"));
         ui.add(new ToolEntry("read_raw_resource_file",  "Read a raw resource file",                   CAT_UI, "ic_mtrl_description"));
         ui.add(new ToolEntry("write_raw_resource_file", "Write a raw resource file",                  CAT_UI, "ic_mtrl_edit_document"));
@@ -106,8 +110,9 @@ public final class AiCapabilityManifest {
 
         // ── Block Logic ────────────────────────────────────────────────────────
         List<ToolEntry> logic = new ArrayList<>();
-        logic.add(new ToolEntry("get_activity_events",  "List all events in an activity",             CAT_LOGIC, "ic_mtrl_event_note"));
-        logic.add(new ToolEntry("get_event_blocks",     "Get all blocks in an event",                 CAT_LOGIC, "ic_mtrl_code_blocks"));
+        logic.add(new ToolEntry("get_activity_events",   "List all events in an activity",             CAT_LOGIC, "ic_mtrl_event_note"));
+        logic.add(new ToolEntry("get_event_blocks",      "Get all blocks in an event (raw JSON)",      CAT_LOGIC, "ic_mtrl_code_blocks"));
+        logic.add(new ToolEntry("describe_block_logic",  "Show block logic as readable pseudocode",    CAT_LOGIC, "ic_mtrl_description"));
         logic.add(new ToolEntry("add_block",            "Add a block to an event",                    CAT_LOGIC, "ic_mtrl_add_box"));
         logic.add(new ToolEntry("modify_block",         "Modify an existing block",                   CAT_LOGIC, "ic_mtrl_tune"));
         logic.add(new ToolEntry("delete_block",         "Delete a block from an event",               CAT_LOGIC, "ic_mtrl_delete"));
@@ -132,8 +137,9 @@ public final class AiCapabilityManifest {
         libs.add(new ToolEntry("detach_local_library",  "Detach a local library",                     CAT_LIBRARIES, "ic_mtrl_link_off"));
         libs.add(new ToolEntry("download_dependency",   "Download a Maven dependency",                CAT_LIBRARIES, "ic_mtrl_download"));
         libs.add(new ToolEntry("validate_libraries",    "Check for library conflicts",                 CAT_LIBRARIES, "ic_mtrl_verify"));
-        libs.add(new ToolEntry("search_maven",          "Search Maven Central for a library",         CAT_LIBRARIES, "ic_mtrl_search"));
-        libs.add(new ToolEntry("scan_dependencies",     "Scan project dependencies for issues",       CAT_LIBRARIES, "ic_mtrl_manage_search"));
+        libs.add(new ToolEntry("search_maven",              "Search Maven Central for a library",        CAT_LIBRARIES, "ic_mtrl_search"));
+        libs.add(new ToolEntry("scan_dependencies",         "Scan project dependencies for issues",      CAT_LIBRARIES, "ic_mtrl_manage_search"));
+        libs.add(new ToolEntry("validate_gradle_dependency","Validate a Maven coordinate before adding", CAT_LIBRARIES, "ic_mtrl_verify"));
         REGISTRY.put(CAT_LIBRARIES, libs);
 
         // ── Build & Compile ────────────────────────────────────────────────────
@@ -142,6 +148,7 @@ public final class AiCapabilityManifest {
         build.add(new ToolEntry("build_with_r8",        "Build with R8 shrink+minify (smaller APK)",  CAT_BUILD, "ic_mtrl_compress"));
         build.add(new ToolEntry("set_build_compiler",   "Set dexer (R8/D8/Dx), Java version, ECJ",    CAT_BUILD, "ic_mtrl_settings"));
         build.add(new ToolEntry("get_compile_logs",     "Get the latest compilation logs",             CAT_BUILD, "ic_mtrl_log"));
+        build.add(new ToolEntry("analyze_build_error",  "Classify build errors + generate repair plan", CAT_BUILD, "ic_mtrl_troubleshoot"));
         build.add(new ToolEntry("get_project_structure","Show the project file/folder structure",      CAT_BUILD, "ic_mtrl_account_tree"));
         REGISTRY.put(CAT_BUILD, build);
 

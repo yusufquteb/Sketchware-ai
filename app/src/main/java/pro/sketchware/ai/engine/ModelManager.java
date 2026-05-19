@@ -354,6 +354,6 @@ public final class ModelManager {
 
     /** Returns true for providers that work without an API key. */
     private boolean isNoKeyProvider(AiProvider p) {
-        return p == AiProvider.LOCAL_LLM;
+        return p == AiProvider.CHUTES;
     }
 }

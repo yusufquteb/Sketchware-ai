@@ -130,28 +130,148 @@ public final class TokenOptimizer {
     }
 
     /**
-     * Builds a concise summary of the older messages so the model understands
-     * what was already discussed and decided.
+     * Builds a smart project-state-aware summary of older messages.
+     *
+     * Instead of truncating every message to 200 chars (lossy), this method:
+     *  1. Extracts structured signals from tool calls and results (files written,
+     *     libraries added, activities created, build status)
+     *  2. Reconstructs a compact project state block
+     *  3. Appends short snippets of user requests for intent continuity
+     *
+     * This gives the model a much more useful compressed context than raw snippets.
      */
     private static String buildSummaryText(List<ChatMessage> older) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[CONVERSATION SUMMARY — ").append(older.size())
-          .append(" earlier messages compressed to save tokens]\n\n");
+        // ── Signal extraction ──────────────────────────────────────────────────
+        java.util.List<String> filesWritten    = new java.util.ArrayList<>();
+        java.util.List<String> activitiesAdded = new java.util.ArrayList<>();
+        java.util.List<String> libsAdded       = new java.util.ArrayList<>();
+        java.util.List<String> userRequests    = new java.util.ArrayList<>();
+        String lastBuildStatus = null;
+        String lastBuildError  = null;
 
-        int idx = 1;
         for (ChatMessage m : older) {
-            String role = m.getRole();
-            if (!"user".equals(role) && !"assistant".equals(role)) continue;
+            String role    = m.getRole();
             String content = m.getContent();
-            if (content == null || content.trim().isEmpty()) continue;
-            // Keep only first 200 chars of each old message in the summary
-            String snippet = content.length() > 200
-                    ? content.substring(0, 200) + "…"
-                    : content;
-            sb.append(idx++).append(". [").append(role).append("] ").append(snippet).append("\n");
+            if (content == null || content.isEmpty()) continue;
+
+            if ("user".equals(role)) {
+                // Keep first 120 chars of user messages for intent continuity
+                String req = content.trim();
+                if (req.length() > 120) req = req.substring(0, 120) + "…";
+                userRequests.add(req);
+
+            } else if ("tool".equals(role)) {
+                // Extract signals from tool results
+                String lower = content.toLowerCase();
+                if (lower.contains("written") || lower.contains("file saved")
+                        || lower.contains("write_file") || lower.contains("patch_file")) {
+                    extractFileRef(content, filesWritten);
+                }
+                if (lower.contains("activity") && (lower.contains("created") || lower.contains("added"))) {
+                    extractActivityRef(content, activitiesAdded);
+                }
+                if (lower.contains("library") && (lower.contains("added") || lower.contains("downloaded")
+                        || lower.contains("attached"))) {
+                    extractLibRef(content, libsAdded);
+                }
+                if (lower.contains("build") && lower.contains("success")) {
+                    lastBuildStatus = "✅ Build succeeded";
+                } else if (lower.contains("build") && (lower.contains("failed") || lower.contains("error:"))) {
+                    lastBuildStatus = "❌ Build failed";
+                    // Extract first error line
+                    for (String line : content.split("\n")) {
+                        if (line.trim().contains("error:")) {
+                            lastBuildError = line.trim().length() > 200
+                                    ? line.trim().substring(0, 200) : line.trim();
+                            break;
+                        }
+                    }
+                }
+
+            } else if ("assistant".equals(role)) {
+                // Extract tool call intents from assistant messages (tool_calls embedded in content)
+                if (content.contains("write_file") || content.contains("patch_file")) {
+                    extractFileRef(content, filesWritten);
+                }
+            }
         }
-        sb.append("\n[End of summary — full conversation continues below]");
+
+        // ── Build summary text ─────────────────────────────────────────────────
+        StringBuilder sb = new StringBuilder();
+        sb.append("╔══ CONVERSATION SUMMARY ").append(older.size())
+          .append(" messages compressed ══╗\n\n");
+
+        // Project state block
+        if (!filesWritten.isEmpty() || !activitiesAdded.isEmpty() || !libsAdded.isEmpty()
+                || lastBuildStatus != null) {
+            sb.append("## Project State (from earlier in session)\n");
+            if (!activitiesAdded.isEmpty()) {
+                sb.append("  Activities created/modified: ").append(dedup(activitiesAdded)).append("\n");
+            }
+            if (!filesWritten.isEmpty()) {
+                sb.append("  Files written/patched: ").append(dedup(filesWritten)).append("\n");
+            }
+            if (!libsAdded.isEmpty()) {
+                sb.append("  Libraries added: ").append(dedup(libsAdded)).append("\n");
+            }
+            if (lastBuildStatus != null) {
+                sb.append("  Last build: ").append(lastBuildStatus).append("\n");
+                if (lastBuildError != null)
+                    sb.append("  Last error: ").append(lastBuildError).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        // User intent history (last 5 requests)
+        if (!userRequests.isEmpty()) {
+            sb.append("## Earlier User Requests\n");
+            int start = Math.max(0, userRequests.size() - 5);
+            for (int i = start; i < userRequests.size(); i++) {
+                sb.append("  ").append(i + 1).append(". ").append(userRequests.get(i)).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        sb.append("╚══ Full conversation continues below ══╝\n");
         return sb.toString();
+    }
+
+    private static void extractFileRef(String content, java.util.List<String> out) {
+        // Look for path-like strings: anything with / or ending in .java/.xml/.json
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([\\w/]+\\.(?:java|xml|json|kt|gradle|properties))")
+                .matcher(content);
+        while (m.find() && out.size() < 10) out.add(m.group(1));
+    }
+
+    private static void extractActivityRef(String content, java.util.List<String> out) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("activity[\\s'\"]*[:\\s]+([\\w]+Activity|[\\w]+Fragment)",
+                         java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(content);
+        while (m.find() && out.size() < 5) out.add(m.group(1));
+    }
+
+    private static void extractLibRef(String content, java.util.List<String> out) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([a-z][a-z0-9_]+\\.[a-z][a-z0-9_.]+:[a-z][a-z0-9_\\-]+:[0-9][0-9.]+)")
+                .matcher(content);
+        while (m.find() && out.size() < 5) out.add(m.group(1));
+        // Also extract simple library names
+        m = java.util.regex.Pattern
+                .compile("(?:library|lib)\\s+['\"]([^'\"]+)['\"]",
+                         java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(content);
+        while (m.find() && out.size() < 5) out.add(m.group(1));
+    }
+
+    private static String dedup(java.util.List<String> list) {
+        java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>(list);
+        java.util.List<String> unique = new java.util.ArrayList<>(seen);
+        if (unique.size() > 8) {
+            return String.join(", ", unique.subList(0, 8)) + " (+" + (unique.size() - 8) + " more)";
+        }
+        return String.join(", ", unique);
     }
 
     // ── 3. Tool Result Truncation ─────────────────────────────────────────────

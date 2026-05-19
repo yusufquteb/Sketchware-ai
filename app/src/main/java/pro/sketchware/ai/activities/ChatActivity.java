@@ -275,15 +275,15 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     private void confirmClearConversation() {
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Clear conversation")
-                .setMessage("This will delete all messages in this conversation. This cannot be undone.")
-                .setPositiveButton("Clear", (d, w) -> {
+                .setTitle(R.string.ai_chat_clear_title)
+                .setMessage(R.string.ai_chat_clear_message)
+                .setPositiveButton(R.string.ai_chat_clear_button, (d, w) -> {
                     conversationManager.deleteMessages(conversationId);
                     chatAdapter.setMessages(new ArrayList<>());
                     updateEmptyState();
                     // Toast removed: "Conversation cleared."
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.common_word_cancel, null)
                 .show();
     }
 
@@ -314,17 +314,17 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
             return;
         }
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Exit conversation")
-                .setMessage("Your conversation is saved automatically.\nDo you want to keep it?")
-                .setPositiveButton("Keep & Exit", (d, w) -> finish())
-                .setNegativeButton("Delete & Exit", (d, w) -> {
+                .setTitle(R.string.ai_chat_exit_title)
+                .setMessage(R.string.ai_chat_exit_message)
+                .setPositiveButton(R.string.ai_chat_keep_exit, (d, w) -> finish())
+                .setNegativeButton(R.string.ai_chat_delete_exit, (d, w) -> {
                     // Delete this conversation from storage then exit
                     if (conversationManager != null && conversationId != null && workspaceId != null) {
                         conversationManager.deleteConversation(conversationId, workspaceId);
                     }
                     finish();
                 })
-                .setNeutralButton("Cancel", null)
+                .setNeutralButton(R.string.common_word_cancel, null)
                 .show();
     }
 
@@ -409,11 +409,11 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         final boolean[] decided = {false};
         androidx.appcompat.app.AlertDialog dialog =
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle("⚡ AI Plan")
+                        .setTitle(R.string.ai_plan_title)
                         .setView(view)
                         .setCancelable(false)
-                        .setPositiveButton("Continue ▶", (d, w) -> { decided[0] = true; onContinue.run(); })
-                        .setNegativeButton("Cancel", (d, w) -> { decided[0] = true; onCancel.run(); })
+                        .setPositiveButton(R.string.ai_plan_continue, (d, w) -> { decided[0] = true; onContinue.run(); })
+                        .setNegativeButton(R.string.common_word_cancel, (d, w) -> { decided[0] = true; onCancel.run(); })
                         .create();
         dialog.show();
 
@@ -644,10 +644,8 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         dialog.setContentView(dialogBinding.getRoot());
 
         // Only providers that are ENABLED in AI Settings AND ready (key or free)
-        // LOCAL_LLM is excluded — it's configured separately in AI Settings
         List<AiProvider> availableProviders = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            if (p == AiProvider.LOCAL_LLM) continue;  // handled separately
             // Default-enabled mirrors AiSettingsActivity defaults
             boolean defaultEnabled = (p == AiProvider.GOOGLE_AI_STUDIO
                     || p == AiProvider.SAMBANOVA

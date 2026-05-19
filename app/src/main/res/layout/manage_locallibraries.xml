@@ -127,13 +127,6 @@
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_download_empty"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/local_library_manager_download"
-            app:icon="@drawable/ic_mtrl_download" />
-
     </LinearLayout>
 
     <com.google.android.material.progressindicator.LinearProgressIndicator

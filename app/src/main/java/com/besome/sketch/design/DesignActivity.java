@@ -781,6 +781,7 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
     @Override
     public void onDestroy() {
         super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
         try { if (liveLayoutReceiver != null) unregisterReceiver(liveLayoutReceiver); } catch (Exception ignored) {}
         unregisterReceiver(buildCancelReceiver);
         unregisterReceiver(layoutChangedReceiver);
