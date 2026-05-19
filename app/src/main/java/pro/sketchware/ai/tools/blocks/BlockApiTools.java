@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import pro.sketchware.ai.models.ToolResult;
@@ -551,6 +552,156 @@ public final class BlockApiTools {
             if (err != null) return error(err);
             flushLogicCache(scId);
             return success("Moreblock '" + mbName + "' deleted from activity '" + actName + "'");
+        }
+    }
+
+    // ── Phase 3: describe_block_logic ─────────────────────────────────────────
+
+    /**
+     * Converts a raw block chain into human-readable pseudocode the AI can reason about.
+     * Much easier to understand than raw block JSON with nextBlock/subStack1 link IDs.
+     *
+     * Output example:
+     *   [onCreate]
+     *   1: setVariable(count, 0)
+     *   2: if (count > 0) {
+     *   3:   showToast("Hello")
+     *      } else {
+     *   4:   showToast("World")
+     *      }
+     *   5: button1.setText("Click me")
+     */
+    public static class DescribeBlockLogicTool implements AgentTool {
+        @Override public String getName() { return "describe_block_logic"; }
+
+        @Override public String getDescription() {
+            return "Converts a Sketchware event's block chain into readable pseudocode. "
+                 + "Shows the logical structure with if/else branches and subStacks clearly. "
+                 + "Far easier to understand than the raw block JSON returned by get_event_blocks. "
+                 + "Use this to audit or plan modifications to existing logic before using add_block/modify_block. "
+                 + "Parameters: sc_id, activity_name, event_name. "
+                 + "Set event_name to '*' to describe ALL events in the activity.";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = blockSchema();
+            JsonObject props = schema.getAsJsonObject("properties");
+            JsonObject evP = new JsonObject();
+            evP.addProperty("type", "string");
+            evP.addProperty("description",
+                "Event name (e.g. 'onCreate', 'onClick_button1') or '*' for all events");
+            props.add("event_name", evP);
+            JsonArray req = schema.getAsJsonArray("required");
+            req.add("event_name");
+            return schema;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId      = requireString(args, "sc_id");
+            String actName   = requireString(args, "activity_name");
+            String eventName = requireString(args, "event_name");
+            if (scId == null || actName == null || eventName == null)
+                return error("sc_id, activity_name, and event_name are required");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: project " + scId);
+
+            ctx.reportProgress("Describing block logic…", -1, true);
+            BlockLogicReader.LogicFile lf = BlockLogicReader.read(logicFile(ctx, scId), scId);
+            if (lf == null) return error("Could not parse logic file");
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("# Block Logic: ").append(actName).append("\n\n");
+
+            List<BlockLogicReader.EventEntry> targets;
+            if ("*".equals(eventName)) {
+                targets = lf.eventsForActivity(actName);
+                if (targets.isEmpty())
+                    return error("No events found for activity: " + actName);
+            } else {
+                String fullName = actName + ".java_" + eventName;
+                BlockLogicReader.EventEntry ev = lf.findEvent(fullName);
+                if (ev == null)
+                    return error("Event not found: " + fullName
+                            + ". Available: " + lf.eventsForActivity(actName).stream()
+                                .map(e -> e.eventName)
+                                .collect(java.util.stream.Collectors.joining(", ")));
+                targets = java.util.Arrays.asList(ev);
+            }
+
+            for (BlockLogicReader.EventEntry ev : targets) {
+                sb.append("## [").append(ev.eventName).append("]\n");
+                if (ev.blocksById.isEmpty()) {
+                    sb.append("  (empty — no blocks)\n\n");
+                    continue;
+                }
+                renderChain(ev, ev.orderedBlocks(), sb, "  ", ev.blocksById);
+                sb.append("\n");
+            }
+
+            return success(sb.toString().trim());
+        }
+
+        private void renderChain(BlockLogicReader.EventEntry ev,
+                                  List<BlockLogicReader.BlockEntry> chain,
+                                  StringBuilder sb, String indent,
+                                  java.util.Map<Integer, BlockLogicReader.BlockEntry> byId) {
+            for (BlockLogicReader.BlockEntry b : chain) {
+                String line = fillSpec(b);
+                sb.append(indent).append("[").append(b.id).append("] ").append(line).append("\n");
+
+                // Render subStack1 branch (if / first branch)
+                if (b.subStack1 != -1 && byId.containsKey(b.subStack1)) {
+                    sb.append(indent).append("  {\n");
+                    renderChain(ev, collectChain(b.subStack1, byId), sb, indent + "    ", byId);
+                    sb.append(indent).append("  }\n");
+                }
+
+                // Render subStack2 branch (else / second branch)
+                if (b.subStack2 != -1 && byId.containsKey(b.subStack2)) {
+                    sb.append(indent).append("  else {\n");
+                    renderChain(ev, collectChain(b.subStack2, byId), sb, indent + "    ", byId);
+                    sb.append(indent).append("  }\n");
+                }
+            }
+        }
+
+        /** Follows nextBlock links starting from startId, returns the ordered chain. */
+        private List<BlockLogicReader.BlockEntry> collectChain(
+                int startId, java.util.Map<Integer, BlockLogicReader.BlockEntry> byId) {
+            List<BlockLogicReader.BlockEntry> chain = new ArrayList<>();
+            java.util.Set<Integer> visited = new java.util.HashSet<>();
+            int cur = startId;
+            while (cur != -1 && byId.containsKey(cur) && visited.add(cur)) {
+                BlockLogicReader.BlockEntry b = byId.get(cur);
+                chain.add(b);
+                cur = b.nextBlock;
+            }
+            return chain;
+        }
+
+        /** Substitutes %s / %d / %b placeholders in the block spec with actual parameters. */
+        private String fillSpec(BlockLogicReader.BlockEntry b) {
+            String spec = b.spec;
+            if (spec == null || spec.isEmpty()) spec = b.opCode;
+            // Remove Sketchware type suffixes like %s.inputOnly, %d.inputOnly
+            spec = spec.replaceAll("%[sdb]\\.\\S+", "%p");
+            spec = spec.replaceAll("%[sdb]", "%p");
+            List<String> params = b.parameters;
+            if (params.isEmpty()) return spec;
+            StringBuilder res = new StringBuilder();
+            int pi = 0;
+            int i = 0;
+            while (i < spec.length()) {
+                if (i + 1 < spec.length() && spec.charAt(i) == '%' && spec.charAt(i + 1) == 'p') {
+                    res.append(pi < params.size() ? params.get(pi++) : "?");
+                    i += 2;
+                } else {
+                    res.append(spec.charAt(i++));
+                }
+            }
+            // Append remaining params if any
+            while (pi < params.size()) res.append(" ").append(params.get(pi++));
+            return res.toString();
         }
     }
 

@@ -1319,4 +1319,203 @@ public final class DesignXmlEditorTool {
         p.addProperty("description", desc);
         props.add(key, p);
     }
+
+    // ── Phase 3: batch_patch_views ────────────────────────────────────────────
+
+    /**
+     * Applies surgical property patches to multiple views in a single read-write cycle.
+     * Much more efficient than calling modify_view N times for the same layout.
+     *
+     * Input:  sc_id, activity_name, patches=[{view_id, props:{key:value,...}}, ...]
+     * Output: summary of patched views
+     */
+    public static class BatchPatchViewsTool implements AgentTool {
+        @Override public String getName() { return "batch_patch_views"; }
+
+        @Override public String getDescription() {
+            return "Applies property patches to multiple views in one operation. "
+                 + "Faster than calling modify_view repeatedly. "
+                 + "Each patch entry is {view_id, props:{key:value,...}}. "
+                 + "Supported props: text, textColor, textSize, textStyle, padding, "
+                 + "backgroundColor, visibility, enabled, clickable, layout:{width,height,gravity,"
+                 + "layoutGravity,marginTop,marginBottom,marginLeft,marginRight}. "
+                 + "Only the specified keys are updated; other properties are preserved. "
+                 + "After patching, DesignActivity canvas reloads automatically.";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            addP(props, "sc_id",         "string", "Project ID");
+            addP(props, "activity_name", "string", "Activity name without .java");
+            JsonObject patches = new JsonObject();
+            patches.addProperty("type", "array");
+            patches.addProperty("description",
+                "Array of patch ops: [{view_id:\"id\", props:{key:value,...}}, ...]");
+            JsonObject item = new JsonObject();
+            item.addProperty("type", "object");
+            patches.add("items", item);
+            props.add("patches", patches);
+            schema.add("properties", props);
+            JsonArray req = new JsonArray();
+            req.add("sc_id"); req.add("activity_name"); req.add("patches");
+            schema.add("required", req);
+            return schema;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId    = requireString(args, "sc_id");
+            String actName = requireString(args, "activity_name");
+            if (scId == null || actName == null)
+                return error("sc_id and activity_name are required");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: project " + scId);
+            if (!args.has("patches") || !args.get("patches").isJsonArray())
+                return error("patches must be a JSON array");
+
+            JsonArray patches = args.getAsJsonArray("patches");
+            if (patches.size() == 0) return error("patches array is empty");
+
+            ctx.reportProgress("Batch-patching " + patches.size() + " view(s) in " + actName + "…", -1, true);
+            File viewFile = new File(ctx.getProjectDataDir(scId), "view");
+            try {
+                JsonArray arr    = readViewArray(viewFile);
+                JsonObject entry = findEntry(arr, actName);
+                if (entry == null) return error("Activity layout not found: " + actName);
+
+                JsonArray data = entry.getAsJsonArray("data");
+                List<String> applied  = new ArrayList<>();
+                List<String> missing  = new ArrayList<>();
+
+                for (JsonElement patchEl : patches) {
+                    if (!patchEl.isJsonObject()) continue;
+                    JsonObject patch  = patchEl.getAsJsonObject();
+                    String viewId     = patch.has("view_id") ? patch.get("view_id").getAsString() : null;
+                    JsonObject pProps = patch.has("props") && patch.get("props").isJsonObject()
+                                       ? patch.getAsJsonObject("props") : null;
+                    if (viewId == null || pProps == null) continue;
+
+                    Object[] found = findViewById(data, viewId);
+                    if (found == null) { missing.add(viewId); continue; }
+
+                    JsonObject view = (JsonObject) found[2];
+                    String[] scalars = {"text","textColor","textSize","textStyle","padding",
+                                        "backgroundColor","visibility","enabled","clickable"};
+                    for (String k : scalars) {
+                        if (pProps.has(k)) view.add(k, pProps.get(k));
+                    }
+                    if (pProps.has("layout") && pProps.get("layout").isJsonObject()) {
+                        JsonObject lp = pProps.getAsJsonObject("layout");
+                        if (!view.has("layout")) view.add("layout", new JsonObject());
+                        JsonObject layout = view.getAsJsonObject("layout");
+                        for (String lk : new ArrayList<>(lp.keySet())) {
+                            layout.add(lk, lp.get(lk));
+                        }
+                    }
+                    applied.add(viewId);
+                }
+
+                if (applied.isEmpty()) return error("No views were patched. IDs not found: " + missing);
+
+                writeFile(viewFile, jsonArrayToSections(arr));
+                notifyChange(ctx.getAppContext(), scId, actName);
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("Patched ").append(applied.size()).append(" view(s): ").append(applied);
+                if (!missing.isEmpty()) sb.append("\nNot found: ").append(missing);
+                return success(sb.toString());
+            } catch (IOException | JsonSyntaxException e) {
+                return error("Patch failed: " + e.getMessage());
+            }
+        }
+    }
+
+    // ── Phase 3: replace_subtree ──────────────────────────────────────────────
+
+    /**
+     * Replaces the children of a container view with a new XML subtree.
+     * Preserves the container itself (its ID, layout props, type) and only swaps its children.
+     * Safer than generate_layout for editing sections of an existing layout.
+     *
+     * Input:  sc_id, activity_name, container_id, xml (children XML fragment)
+     * Output: summary of replaced subtree
+     */
+    public static class ReplaceSubtreeTool implements AgentTool {
+        @Override public String getName() { return "replace_subtree"; }
+
+        @Override public String getDescription() {
+            return "Replaces the children of a specific container (by id) with a new XML subtree. "
+                 + "The container itself (LinearLayout, CardView, etc.) is preserved with its "
+                 + "existing id and properties — only its children are swapped. "
+                 + "xml parameter: provide the children as an XML fragment (without a wrapping root). "
+                 + "Use this for targeted section rewrites instead of regenerating the whole layout. "
+                 + "After replacing, DesignActivity canvas reloads automatically.";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            addP(props, "sc_id",          "string", "Project ID");
+            addP(props, "activity_name",  "string", "Activity name without .java");
+            addP(props, "container_id",   "string", "ID of the container whose children will be replaced");
+            addP(props, "xml",            "string",
+                 "XML fragment for the new children (wrap in a temporary LinearLayout root). "
+               + "Example: <LinearLayout xmlns:android=...><TextView .../><Button .../></LinearLayout>");
+            schema.add("properties", props);
+            JsonArray req = new JsonArray();
+            req.add("sc_id"); req.add("activity_name"); req.add("container_id"); req.add("xml");
+            schema.add("required", req);
+            return schema;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId       = requireString(args, "sc_id");
+            String actName    = requireString(args, "activity_name");
+            String containerId = requireString(args, "container_id");
+            String xml        = requireString(args, "xml");
+            if (scId == null || actName == null || containerId == null || xml == null)
+                return error("sc_id, activity_name, container_id and xml are required");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: project " + scId);
+
+            ctx.reportProgress("Replacing subtree of '" + containerId + "' in " + actName + "…", -1, true);
+            File viewFile = new File(ctx.getProjectDataDir(scId), "view");
+            try {
+                JsonArray arr    = readViewArray(viewFile);
+                JsonObject entry = findEntry(arr, actName);
+                if (entry == null) return error("Activity layout not found: " + actName);
+
+                JsonArray data = entry.getAsJsonArray("data");
+                Object[] found = findViewById(data, containerId);
+                if (found == null) return error("Container view not found: " + containerId);
+
+                JsonObject container = (JsonObject) found[2];
+
+                // Parse the XML fragment — treat the outermost tag as a wrapper, use its children
+                String[] errHolder = {null};
+                ArrayList<ViewBean> newBeans = xmlToViewBeans(xml, true, errHolder);
+                if (newBeans == null)
+                    return error("XML parse failed: " + (errHolder[0] != null ? errHolder[0] : "unknown"));
+
+                // Convert parsed ViewBeans back to JsonObject children
+                // We use the Gson-based flat list but need hierarchical children here.
+                // Strategy: serialise flat beans back to JSON array via Gson and re-attach as children.
+                com.google.gson.Gson gson = GsonUtils.getGson();
+                JsonArray newChildren = new JsonArray();
+                for (ViewBean b : newBeans) {
+                    newChildren.add(gson.toJsonTree(b));
+                }
+                container.add("children", newChildren);
+
+                writeFile(viewFile, jsonArrayToSections(arr));
+                notifyChange(ctx.getAppContext(), scId, actName);
+                return success("Replaced children of '" + containerId + "' with "
+                        + newBeans.size() + " new view(s) in '" + actName + "'.");
+            } catch (IOException | JsonSyntaxException e) {
+                return error("Replace subtree failed: " + e.getMessage());
+            }
+        }
+    }
 }
