@@ -147,6 +147,7 @@ public final class AiCapabilityManifest {
         build.add(new ToolEntry("build_with_r8",        "Build with R8 shrink+minify (smaller APK)",  CAT_BUILD, "ic_mtrl_compress"));
         build.add(new ToolEntry("set_build_compiler",   "Set dexer (R8/D8/Dx), Java version, ECJ",    CAT_BUILD, "ic_mtrl_settings"));
         build.add(new ToolEntry("get_compile_logs",     "Get the latest compilation logs",             CAT_BUILD, "ic_mtrl_log"));
+        build.add(new ToolEntry("analyze_build_error",  "Classify build errors + generate repair plan", CAT_BUILD, "ic_mtrl_troubleshoot"));
         build.add(new ToolEntry("get_project_structure","Show the project file/folder structure",      CAT_BUILD, "ic_mtrl_account_tree"));
         REGISTRY.put(CAT_BUILD, build);
 
