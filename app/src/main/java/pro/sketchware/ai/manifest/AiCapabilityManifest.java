@@ -94,6 +94,7 @@ public final class AiCapabilityManifest {
         // ── UI Layout & Design ─────────────────────────────────────────────────
         List<ToolEntry> ui = new ArrayList<>();
         ui.add(new ToolEntry("describe_layout",      "Describe the current layout structure",         CAT_UI, "ic_mtrl_text_fields"));
+        ui.add(new ToolEntry("get_layout",           "Read the raw layout XML for an activity",       CAT_UI, "ic_mtrl_description"));
         ui.add(new ToolEntry("edit_layout",          "Rewrite an entire layout XML",                  CAT_UI, "ic_mtrl_edit"));
         ui.add(new ToolEntry("add_view",             "Add a View to the layout (ViewBean format)",    CAT_UI, "ic_mtrl_add_box"));
         ui.add(new ToolEntry("modify_view",          "Modify an existing View's properties",          CAT_UI, "ic_mtrl_tune"));
@@ -123,9 +124,14 @@ public final class AiCapabilityManifest {
 
         // ── Resources ──────────────────────────────────────────────────────────
         List<ToolEntry> resources = new ArrayList<>();
-        resources.add(new ToolEntry("add_string_resource", "Add a string resource",                   CAT_RESOURCES, "ic_mtrl_string"));
-        resources.add(new ToolEntry("add_color_resource",  "Add a color resource",                    CAT_RESOURCES, "ic_mtrl_palette"));
-        resources.add(new ToolEntry("list_resources",      "List all resources",                      CAT_RESOURCES, "ic_mtrl_folder_open"));
+        resources.add(new ToolEntry("add_string_resource",  "Add a string resource",                               CAT_RESOURCES, "ic_mtrl_string"));
+        resources.add(new ToolEntry("add_color_resource",   "Add a color resource",                                CAT_RESOURCES, "ic_mtrl_palette"));
+        resources.add(new ToolEntry("list_resources",       "List all resources",                                  CAT_RESOURCES, "ic_mtrl_folder_open"));
+        resources.add(new ToolEntry("create_drawable",      "Create a drawable XML (shapes, selectors, gradients)",CAT_RESOURCES, "ic_mtrl_style"));
+        resources.add(new ToolEntry("extract_strings",      "Scan layouts & Java, move hardcoded text to strings.xml", CAT_RESOURCES, "ic_mtrl_search"));
+        resources.add(new ToolEntry("create_locale_strings","Create translated strings.xml for a locale",          CAT_RESOURCES, "ic_round_language_24"));
+        resources.add(new ToolEntry("scan_unused_resources","Find unused string/color/drawable resources",         CAT_RESOURCES, "ic_mtrl_analytics"));
+        resources.add(new ToolEntry("delete_unused_resources","Delete unused resources after scanning",            CAT_RESOURCES, "ic_mtrl_delete"));
         REGISTRY.put(CAT_RESOURCES, resources);
 
         // ── Library Management ─────────────────────────────────────────────────

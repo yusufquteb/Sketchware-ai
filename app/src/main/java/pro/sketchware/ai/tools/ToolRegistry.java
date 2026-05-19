@@ -98,6 +98,11 @@ public class ToolRegistry {
         registry.register(new ActivityTools.DeleteActivityTool());
 
         // ── UI Layout ─────────────────────────────────────────────────────
+        registry.register(new DesignXmlEditorTool.AddViewTool());
+        registry.register(new DesignXmlEditorTool.ModifyViewTool());
+        registry.register(new DesignXmlEditorTool.RemoveViewTool());
+        registry.register(new LayoutTools.GetLayoutTool());
+        registry.register(new LayoutTools.EditLayoutTool());
 
         // ── Resources ────────────────────────────────────────────────────
         registry.register(new ResourceTools.AddStringResourceTool());
@@ -105,9 +110,13 @@ public class ToolRegistry {
         registry.register(new ResourceTools.ListResourcesTool());
         registry.register(new ResourceTools.ReadRawResourceFileTool());
         registry.register(new ResourceTools.WriteRawResourceFileTool());
+        registry.register(new ResourceTools.ExtractStringsTool());
+        registry.register(new ResourceTools.CreateLocaleStringsTool());
         // Unused resource scanner + cleaner
         registry.register(new UnusedResourcesTool.ScanUnusedResourcesTool());
         registry.register(new UnusedResourcesTool.DeleteUnusedResourcesTool());
+        // Drawable creation
+        registry.register(new DrawableTools.CreateDrawableTool());
 
         // ── Build & Compile ───────────────────────────────────────────────
         registry.register(new CompileTools.GetCompileLogsTool());
@@ -116,6 +125,7 @@ public class ToolRegistry {
         // Enhanced build: R8 minification, parallel ECJ, dexer configuration
         registry.register(new AdvancedBuildTool.SetBuildCompilerTool());
         registry.register(new AdvancedBuildTool.BuildWithR8Tool());
+        registry.register(new BuildRepairTool.AnalyzeBuildErrorTool());
 
         // ── Library Management ────────────────────────────────────────────
         registry.register(new LibraryTools.ListLibrariesTool());
@@ -218,6 +228,11 @@ public class ToolRegistry {
         registry.register(new ActivityTools.DeleteActivityTool());
 
         // ── UI Layout ─────────────────────────────────────────────────────
+        registry.register(new DesignXmlEditorTool.AddViewTool());
+        registry.register(new DesignXmlEditorTool.ModifyViewTool());
+        registry.register(new DesignXmlEditorTool.RemoveViewTool());
+        registry.register(new LayoutTools.GetLayoutTool());
+        registry.register(new LayoutTools.EditLayoutTool());
 
         // ── Resources ────────────────────────────────────────────────────
         registry.register(new ResourceTools.AddStringResourceTool());
@@ -225,6 +240,13 @@ public class ToolRegistry {
         registry.register(new ResourceTools.ListResourcesTool());
         registry.register(new ResourceTools.ReadRawResourceFileTool());
         registry.register(new ResourceTools.WriteRawResourceFileTool());
+        registry.register(new ResourceTools.ExtractStringsTool());
+        registry.register(new ResourceTools.CreateLocaleStringsTool());
+        // Unused resource scanner + cleaner
+        registry.register(new UnusedResourcesTool.ScanUnusedResourcesTool());
+        registry.register(new UnusedResourcesTool.DeleteUnusedResourcesTool());
+        // Drawable creation
+        registry.register(new DrawableTools.CreateDrawableTool());
 
         // ── Build & Compile ───────────────────────────────────────────────
         registry.register(new CompileTools.GetCompileLogsTool());
@@ -233,7 +255,6 @@ public class ToolRegistry {
         // Enhanced build: R8 minification, parallel ECJ, dexer configuration
         registry.register(new AdvancedBuildTool.SetBuildCompilerTool());
         registry.register(new AdvancedBuildTool.BuildWithR8Tool());
-        // Phase 4: autonomous build repair analyzer
         registry.register(new BuildRepairTool.AnalyzeBuildErrorTool());
 
         // ── Library Management ────────────────────────────────────────────

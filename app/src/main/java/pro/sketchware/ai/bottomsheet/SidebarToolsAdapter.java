@@ -293,6 +293,10 @@ public class SidebarToolsAdapter
                             "Read Layout",      R.drawable.ic_mtrl_visibility,  true),
                     new ToolEntry("add_view_xml",
                             "Add View XML",     R.drawable.ic_mtrl_add_circle,  true),
+                    new ToolEntry("add_view",
+                            "Add View",         R.drawable.ic_mtrl_add,         true),
+                    new ToolEntry("modify_view",
+                            "Modify View",      R.drawable.ic_mtrl_edit,        true),
                     new ToolEntry("edit_ui",
                             "Edit Layout",      R.drawable.ic_mtrl_edit,        true),
                     new ToolEntry("remove_view",
@@ -361,6 +365,12 @@ public class SidebarToolsAdapter
                             "Add String",      R.drawable.ic_mtrl_label,          false),
                     new ToolEntry("add_color_resource",
                             "Add Color",       R.drawable.ic_mtrl_palette,        false),
+                    new ToolEntry("create_drawable",
+                            "Create Drawable", R.drawable.ic_mtrl_image,          false),
+                    new ToolEntry("extract_strings",
+                            "Extract Strings", R.drawable.ic_mtrl_search,         true),
+                    new ToolEntry("create_locale_strings",
+                            "Translate App",   R.drawable.ic_round_language_24,   false),
                     new ToolEntry("read_raw_resource_file",
                             "Read Raw File",   R.drawable.ic_mtrl_visibility,     false),
                     new ToolEntry("write_raw_resource_file",
@@ -405,15 +415,19 @@ public class SidebarToolsAdapter
         cats.add(new CategoryEntry("Build", R.drawable.ic_mtrl_sprint,
                 Arrays.asList(
                     new ToolEntry("build_project",
-                            "Build",           R.drawable.ic_mtrl_sprint,          false),
+                            "Build",            R.drawable.ic_mtrl_sprint,          false),
+                    new ToolEntry("analyze_build_error",
+                            "Fix Build Errors", R.drawable.ic_mtrl_terminal,       false),
                     new ToolEntry("get_compile_logs",
-                            "Compile Logs",    R.drawable.ic_mtrl_terminal,       false),
+                            "Compile Logs",     R.drawable.ic_mtrl_terminal,       false),
                     new ToolEntry("analyze_code",
-                            "Analyze Code",    R.drawable.ic_mtrl_code,      false),
+                            "Analyze Code",     R.drawable.ic_mtrl_code,      false),
                     new ToolEntry("review_source_code",
-                            "Review Code",     R.drawable.ic_mtrl_preview,    false),
+                            "Review Code",      R.drawable.ic_mtrl_preview,    false),
+                    new ToolEntry("check_project_health",
+                            "Health Check",     R.drawable.ic_mtrl_info,       false),
                     new ToolEntry("export_to_android_studio",
-                            "Export to AS",    R.drawable.ic_mtrl_export,    false)
+                            "Export to AS",     R.drawable.ic_mtrl_export,    false)
                 )));
 
         return cats;
