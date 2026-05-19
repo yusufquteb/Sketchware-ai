@@ -135,6 +135,7 @@ import mod.hey.studios.code.SrcCodeEditor;
 import pro.sketchware.utility.FilePathUtil;
 import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.CrashlyticsBridge;
+import pro.sketchware.utility.EditorStateManager;
 import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.utility.SvgUtils;
 
@@ -1610,6 +1611,7 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
     @Override
     public void finish() {
         bC.d(scId).b(s());
+        EditorStateManager.clear(this);
         super.finish();
     }
 
@@ -1933,6 +1935,9 @@ public class LogicEditorActivity extends BaseAppCompatActivity implements View.O
         }
         isViewBindingEnabled = new ProjectSettings(scId).getValue(ProjectSettings.SETTING_ENABLE_VIEWBINDING, "false").equals("true");
         M = (ProjectFileBean) parcelable;
+        EditorStateManager.save(this, scId,
+                M != null ? M.getJavaName() : "",
+                id + "_" + eventName);
         T = (int) wB.a(getContext(), (float) T);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
