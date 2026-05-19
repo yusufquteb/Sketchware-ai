@@ -197,7 +197,6 @@ public class AiSettingsActivity extends AppCompatActivity {
     // ── Fetch models ──────────────────────────────────────────────────────────
 
     private void fetchModels(AiProvider provider) {
-        }
         if (provider.requiresApiKey()) {
             String key = preferences.getApiKey(provider);
             if (key == null || key.isEmpty()) {
