@@ -56,7 +56,8 @@ public final class AiCapabilityManifest {
 
         // ── Project Management ─────────────────────────────────────────────────
         List<ToolEntry> projects = new ArrayList<>();
-        projects.add(new ToolEntry("list_projects",       "List all projects in the workspace",              CAT_PROJECT,    "ic_mtrl_folder_open"));
+        projects.add(new ToolEntry("list_projects",         "List all projects in the workspace",              CAT_PROJECT, "ic_mtrl_folder_open"));
+        projects.add(new ToolEntry("check_project_health", "Comprehensive project audit in one call",         CAT_PROJECT, "ic_mtrl_health_and_safety"));
         projects.add(new ToolEntry("get_project_info",    "Get a project's name, package, and version",      CAT_PROJECT,    "ic_mtrl_info"));
         projects.add(new ToolEntry("index_project",       "Build a compact symbol index (views, vars, events, components)", CAT_PROJECT, "ic_mtrl_account_tree"));
         projects.add(new ToolEntry("create_project",      "Create a brand-new Sketchware project",           CAT_PROJECT,    "ic_mtrl_add_circle"));

@@ -61,6 +61,8 @@ public class ToolRegistry {
         // ── Project Management ────────────────────────────────────────────
         registry.register(new ProjectTools.ListProjectsTool());
         registry.register(new ProjectTools.GetProjectInfoTool());
+        // Phase 4: single comprehensive audit in one call
+        registry.register(new ProjectHealthTool.CheckProjectHealthTool());
         registry.register(new ProjectTools.CreateProjectTool());
         registry.register(new ProjectTools.DeleteProjectTool());
         registry.register(new ProjectTools.DuplicateProjectTool());
@@ -185,6 +187,8 @@ public class ToolRegistry {
 
         // ── Project Management ────────────────────────────────────────────
         registry.register(new ProjectTools.GetProjectInfoTool());
+        // Phase 4: single comprehensive audit in one call
+        registry.register(new ProjectHealthTool.CheckProjectHealthTool());
         registry.register(new ProjectTools.AddPermissionTool());
         registry.register(new ProjectTools.AddActivityTool());
 
