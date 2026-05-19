@@ -437,6 +437,10 @@ public class AiProjectBottomSheet
                 return "Describe the current layout of the '" + actName + "' screen";
             case "add_view_xml":
                 return "Add the following view to the '" + actName + "' screen: ";
+            case "add_view":
+                return "Add a new view to the '" + actName + "' screen. View type: , id: , text: ";
+            case "modify_view":
+                return "Modify the view with id '' on the '" + actName + "' screen. Change: ";
             case "edit_layout":
                 return "Edit the layout of the '" + actName + "' screen: ";
             case "remove_view":
@@ -451,10 +455,20 @@ public class AiProjectBottomSheet
                 return "Build the project and fix any errors";
             case "build_project_clean":
                 return "Build the project with a clean cache (use when there are unexplained build errors)";
+            case "analyze_build_error":
+                return "Analyze the build errors and fix all of them automatically";
             case "get_compile_logs":
                 return "Show the latest compile logs and fix any errors";
+            case "check_project_health":
+                return "Run a full health check on this project and fix any issues found";
             case "analyze_code":
                 return "Analyze the code quality and suggest improvements";
+            case "create_drawable":
+                return "Create a drawable resource. Name: , template: rounded_button, fill_color: #";
+            case "extract_strings":
+                return "Scan the '" + actName + "' screen for hardcoded strings and move them all to strings.xml";
+            case "create_locale_strings":
+                return "Translate the app strings to Arabic (ar) — read all strings first, then translate and create values-ar/strings.xml";
             default:
                 return "Use " + tool.name + " to help me: ";
         }

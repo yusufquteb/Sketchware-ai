@@ -19,6 +19,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import pro.sketchware.activities.projecttools.ProjectToolPaths;
 import pro.sketchware.ai.models.ToolResult;
@@ -810,6 +815,355 @@ public final class ResourceTools {
                 return success("SUCCESS: Resource file '" + fileName + "' written (" + content.length() + " bytes)");
             } catch (IOException e) {
                 return error("Failed to write file: " + e.getMessage());
+            }
+        }
+    }
+
+    // ══ extract_strings ═══════════════════════════════════════════════════════
+
+    /**
+     * Scans layout XML files and Java source for hardcoded strings, extracts them
+     * to strings.xml, and patches the source files to use @string/xxx / R.string.xxx.
+     */
+    public static class ExtractStringsTool implements AgentTool {
+
+        // XML attributes that contain translatable text
+        private static final String[] XML_TEXT_ATTRS = {
+            "android:text", "android:hint", "android:contentDescription",
+            "android:title", "android:summary", "android:label",
+            "android:description", "android:prompt"
+        };
+
+        // Pattern: android:text="some text" (not @string/ and not @+id/)
+        private static final Pattern XML_HARDCODED = Pattern.compile(
+            "(android:(?:text|hint|contentDescription|title|summary|label|description|prompt))=\"([^@\"][^\"]+)\"");
+
+        // Pattern: .setText("some text")  .setHint("...") etc.
+        private static final Pattern JAVA_HARDCODED = Pattern.compile(
+            "\\.set(?:Text|Hint|Title|Message|Label)\\(\"([^\"]{2,})\"\\)");
+
+        @Override public String getName() { return "extract_strings"; }
+
+        @Override public String getDescription() {
+            return "Scans layout XML files and Java source files for hardcoded strings "
+                 + "(android:text=\"...\", setText(\"...\") etc.) and extracts them to strings.xml. "
+                 + "Patches the source files to use @string/xxx (in XML) or R.string.xxx (in Java). "
+                 + "Parameters: sc_id (required), activity_name (optional — scan one activity, "
+                 + "default scans all), dry_run (boolean, default false — set true to preview without changes).";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject props = new JsonObject();
+            JsonObject scId = new JsonObject(); scId.addProperty("type","string");
+            scId.addProperty("description","Project SC ID"); props.add("sc_id", scId);
+            JsonObject act = new JsonObject(); act.addProperty("type","string");
+            act.addProperty("description","Activity base name (e.g. 'main'). Omit to scan all.");
+            props.add("activity_name", act);
+            JsonObject dry = new JsonObject(); dry.addProperty("type","boolean");
+            dry.addProperty("description","If true, report what would change without writing files");
+            props.add("dry_run", dry);
+            JsonArray req = new JsonArray(); req.add("sc_id");
+            JsonObject s = new JsonObject(); s.addProperty("type","object");
+            s.add("properties", props); s.add("required", req);
+            return s;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId = args.has("sc_id") ? args.get("sc_id").getAsString() : null;
+            if (scId == null || scId.isEmpty()) return error("sc_id is required");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: " + scId);
+
+            boolean dryRun = args.has("dry_run") && args.get("dry_run").getAsBoolean();
+            String actFilter = args.has("activity_name") && !args.get("activity_name").isJsonNull()
+                    ? args.get("activity_name").getAsString().trim() : null;
+
+            File resDir  = ProjectToolPaths.getProjectEditableResDir(scId);
+            File strFile = new File(resDir, "values/strings.xml");
+            File dataDir = new File(ctx.getSketchwareDir(), "data/" + scId);
+
+            // Load existing string keys to avoid duplicates
+            java.util.Set<String> existingKeys = loadExistingStringKeys(strFile);
+
+            // Discovered: key → value
+            Map<String, String> discovered = new LinkedHashMap<>();
+            // Patches: [file, old_text, new_text]
+            java.util.List<String[]> patches = new ArrayList<>();
+
+            // ── Scan layout files (view data file) ─────────────────────────
+            File viewFile = new File(dataDir, "view");
+            if (viewFile.exists()) {
+                try {
+                    String content = readRaw(viewFile);
+                    scanXmlContent(content, actFilter, discovered, patches, existingKeys);
+                } catch (IOException ignored) {}
+            }
+
+            // ── Scan editable XML layouts ───────────────────────────────────
+            File layoutDir = new File(resDir, "layout");
+            if (layoutDir.exists()) {
+                File[] xmlFiles = layoutDir.listFiles((d, n) -> n.endsWith(".xml"));
+                if (xmlFiles != null) {
+                    for (File f : xmlFiles) {
+                        if (actFilter != null && !f.getName().startsWith(actFilter)) continue;
+                        try {
+                            String content = readRaw(f);
+                            scanXmlInline(f.getAbsolutePath(), content, discovered, patches, existingKeys);
+                        } catch (IOException ignored) {}
+                    }
+                }
+            }
+
+            // ── Scan Java source files ──────────────────────────────────────
+            File javaDir = new File(ctx.getSketchwareDir(), "mysc/" + scId + "/java");
+            if (javaDir.exists()) {
+                for (File jf : findJavaFiles(javaDir, actFilter)) {
+                    try {
+                        String content = readRaw(jf);
+                        scanJava(jf.getAbsolutePath(), content, discovered, patches, existingKeys);
+                    } catch (IOException ignored) {}
+                }
+            }
+
+            if (discovered.isEmpty()) {
+                return success("No hardcoded strings found" + (actFilter != null ? " in '" + actFilter + "'" : "") + ". All text already uses @string/ or R.string.xxx.");
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("Found ").append(discovered.size()).append(" hardcoded string(s) to extract.\n\n");
+
+            if (dryRun) {
+                sb.append("DRY RUN — no files modified.\n\n");
+                sb.append("Strings that would be added to strings.xml:\n");
+                for (Map.Entry<String, String> e : discovered.entrySet())
+                    sb.append("  <string name=\"").append(e.getKey()).append("\">").append(e.getValue()).append("</string>\n");
+                sb.append("\nPatches that would be applied:\n");
+                for (String[] p : patches)
+                    sb.append("  ").append(p[0]).append(": \"").append(p[1]).append("\" → \"").append(p[2]).append("\"\n");
+                return success(sb.toString());
+            }
+
+            // ── Apply: add strings to strings.xml ──────────────────────────
+            try {
+                appendStringsToFile(strFile, discovered);
+                sb.append("✅ Added ").append(discovered.size()).append(" string(s) to strings.xml.\n");
+            } catch (IOException e) {
+                return error("Failed to write strings.xml: " + e.getMessage());
+            }
+
+            // ── Apply: patch source files ───────────────────────────────────
+            int patched = 0;
+            for (String[] p : patches) {
+                try {
+                    File f = new File(p[0]);
+                    String content = readRaw(f);
+                    String newContent = content.replace(p[1], p[2]);
+                    if (!newContent.equals(content)) {
+                        writeRaw(f, newContent);
+                        patched++;
+                    }
+                } catch (IOException ignored) {}
+            }
+            sb.append("✅ Patched ").append(patched).append(" file(s).\n\n");
+            sb.append("Extracted strings:\n");
+            for (Map.Entry<String, String> e : discovered.entrySet())
+                sb.append("  @string/").append(e.getKey()).append(" = \"").append(e.getValue()).append("\"\n");
+
+            return success(sb.toString());
+        }
+
+        private void scanXmlContent(String content, String actFilter,
+                Map<String, String> out, java.util.List<String[]> patches,
+                java.util.Set<String> existing) {
+            Matcher m = XML_HARDCODED.matcher(content);
+            while (m.find()) {
+                String attr = m.group(1);
+                String val  = m.group(2).trim();
+                if (val.isEmpty() || val.startsWith("@") || val.startsWith("?")) continue;
+                String key = toResourceKey(val);
+                if (existing.contains(key)) continue;
+                out.put(key, val);
+                existing.add(key);
+            }
+        }
+
+        private void scanXmlInline(String filePath, String content,
+                Map<String, String> out, java.util.List<String[]> patches,
+                java.util.Set<String> existing) {
+            Matcher m = XML_HARDCODED.matcher(content);
+            while (m.find()) {
+                String attr = m.group(1);
+                String val  = m.group(2).trim();
+                if (val.isEmpty() || val.startsWith("@") || val.startsWith("?")) continue;
+                String key = toResourceKey(val);
+                if (!existing.contains(key)) {
+                    out.put(key, val);
+                    existing.add(key);
+                }
+                patches.add(new String[]{filePath,
+                        attr + "=\"" + val + "\"",
+                        attr + "=\"@string/" + key + "\""});
+            }
+        }
+
+        private void scanJava(String filePath, String content,
+                Map<String, String> out, java.util.List<String[]> patches,
+                java.util.Set<String> existing) {
+            Matcher m = JAVA_HARDCODED.matcher(content);
+            while (m.find()) {
+                String val = m.group(1).trim();
+                if (val.isEmpty()) continue;
+                String key = toResourceKey(val);
+                if (!existing.contains(key)) {
+                    out.put(key, val);
+                    existing.add(key);
+                }
+                String methodCall = m.group(0);
+                String replaced   = methodCall.replace("\"" + val + "\"",
+                        "getString(R.string." + key + ")");
+                patches.add(new String[]{filePath, methodCall, replaced});
+            }
+        }
+
+        private static String toResourceKey(String value) {
+            return value.toLowerCase()
+                    .replaceAll("[^a-z0-9]+", "_")
+                    .replaceAll("^_+|_+$", "")
+                    .replaceAll("_+", "_");
+        }
+
+        private java.util.Set<String> loadExistingStringKeys(File strFile) {
+            java.util.Set<String> keys = new java.util.HashSet<>();
+            if (!strFile.exists()) return keys;
+            try {
+                String content = readRaw(strFile);
+                Matcher m = Pattern.compile("name=\"([^\"]+)\"").matcher(content);
+                while (m.find()) keys.add(m.group(1));
+            } catch (IOException ignored) {}
+            return keys;
+        }
+
+        private void appendStringsToFile(File f, Map<String, String> strings) throws IOException {
+            f.getParentFile().mkdirs();
+            String existing = f.exists() ? readRaw(f) : "<resources>\n</resources>";
+            StringBuilder entries = new StringBuilder();
+            for (Map.Entry<String, String> e : strings.entrySet()) {
+                String escaped = e.getValue()
+                        .replace("&", "&amp;").replace("<", "&lt;")
+                        .replace(">", "&gt;").replace("'", "\\'")
+                        .replace("\"", "\\\"");
+                entries.append("    <string name=\"").append(e.getKey()).append("\">")
+                       .append(escaped).append("</string>\n");
+            }
+            String updated = existing.contains("</resources>")
+                    ? existing.replace("</resources>", entries + "</resources>")
+                    : existing + "\n" + entries;
+            writeRaw(f, updated);
+        }
+
+        private java.util.List<File> findJavaFiles(File dir, String actFilter) {
+            java.util.List<File> result = new ArrayList<>();
+            File[] files = dir.listFiles();
+            if (files == null) return result;
+            for (File f : files) {
+                if (f.isDirectory()) result.addAll(findJavaFiles(f, actFilter));
+                else if (f.getName().endsWith(".java")) {
+                    if (actFilter == null || f.getName().toLowerCase().contains(actFilter.toLowerCase()))
+                        result.add(f);
+                }
+            }
+            return result;
+        }
+
+        private static String readRaw(File f) throws IOException {
+            StringBuilder sb = new StringBuilder();
+            try (BufferedReader r = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = r.readLine()) != null) sb.append(line).append("\n");
+            }
+            return sb.toString();
+        }
+
+        private static void writeRaw(File f, String content) throws IOException {
+            f.getParentFile().mkdirs();
+            try (FileWriter w = new FileWriter(f, false)) { w.write(content); }
+        }
+    }
+
+    // ══ create_locale_strings ═════════════════════════════════════════════════
+
+    /**
+     * Creates or updates a locale-specific strings.xml (values-XX/strings.xml).
+     * The AI provides the translations as a JSON key→value map.
+     */
+    public static class CreateLocaleStringsTool implements AgentTool {
+
+        @Override public String getName() { return "create_locale_strings"; }
+
+        @Override public String getDescription() {
+            return "Creates or updates a locale-specific strings.xml file for app translation. "
+                 + "Usage flow: (1) call list_resources to get all string keys and values, "
+                 + "(2) translate the values in your response, "
+                 + "(3) call this tool with the translations map to write values-XX/strings.xml. "
+                 + "Supported locales: ar (Arabic), fr (French), es (Spanish), de (German), "
+                 + "zh (Chinese), ru (Russian), tr (Turkish), pt (Portuguese), etc. "
+                 + "Pass 'translations' as a JSON object: {\"key\": \"translated_value\", ...}";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject props = new JsonObject();
+            JsonObject scId = new JsonObject(); scId.addProperty("type","string");
+            scId.addProperty("description","Project SC ID"); props.add("sc_id", scId);
+            JsonObject locale = new JsonObject(); locale.addProperty("type","string");
+            locale.addProperty("description","BCP-47 locale code: ar, fr, es, de, zh, ru, tr, pt, ja, ko, hi, etc.");
+            props.add("locale", locale);
+            JsonObject trans = new JsonObject(); trans.addProperty("type","object");
+            trans.addProperty("description","JSON object of {\"string_key\": \"translated_value\", ...}");
+            props.add("translations", trans);
+            JsonArray req = new JsonArray(); req.add("sc_id"); req.add("locale"); req.add("translations");
+            JsonObject s = new JsonObject(); s.addProperty("type","object");
+            s.add("properties", props); s.add("required", req);
+            return s;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId   = args.has("sc_id")   ? args.get("sc_id").getAsString()   : null;
+            String locale = args.has("locale")  ? args.get("locale").getAsString()  : null;
+            if (scId == null || scId.isEmpty())   return error("sc_id is required");
+            if (locale == null || locale.isEmpty()) return error("locale is required (e.g. 'ar', 'fr')");
+            if (!args.has("translations") || args.get("translations").isJsonNull())
+                return error("translations is required — pass a JSON object of {key: value}");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: " + scId);
+
+            JsonObject trans = args.get("translations").getAsJsonObject();
+            if (trans.size() == 0) return error("translations map is empty");
+
+            File resDir  = ProjectToolPaths.getProjectEditableResDir(scId);
+            File valDir  = new File(resDir, "values-" + locale);
+            File strFile = new File(valDir, "strings.xml");
+
+            StringBuilder xml = new StringBuilder();
+            xml.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+            xml.append("<resources>\n");
+            for (Map.Entry<String, com.google.gson.JsonElement> e : trans.entrySet()) {
+                String key = e.getKey();
+                String val = e.getValue().isJsonNull() ? "" : e.getValue().getAsString();
+                String escaped = val.replace("&","&amp;").replace("<","&lt;")
+                        .replace(">","&gt;").replace("'","\\'").replace("\"","\\\"");
+                xml.append("    <string name=\"").append(key).append("\">")
+                   .append(escaped).append("</string>\n");
+            }
+            xml.append("</resources>\n");
+
+            try {
+                valDir.mkdirs();
+                try (FileWriter w = new FileWriter(strFile, false)) { w.write(xml.toString()); }
+                return success("Created values-" + locale + "/strings.xml with "
+                        + trans.size() + " translation(s).\nPath: " + strFile.getAbsolutePath());
+            } catch (IOException e) {
+                return error("Failed to write: " + e.getMessage());
             }
         }
     }
