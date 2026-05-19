@@ -285,7 +285,10 @@ public final class ActivityTools {
 
             JsonObject nameProp = new JsonObject();
             nameProp.addProperty("type", "string");
-            nameProp.addProperty("description", "Activity name (e.g., \"main\", \"settings\", \"about\")");
+            nameProp.addProperty("description",
+                    "Activity base name WITHOUT the 'Activity' suffix — Sketchware appends it automatically. "
+                    + "Pass \"main\", \"settings\", \"about\" — NOT \"MainActivity\", \"SettingsActivity\". "
+                    + "The resulting Java class will be e.g. MainActivity, the XML layout main.xml.");
             properties.add("activity_name", nameProp);
 
             JsonObject orientProp = new JsonObject();
@@ -341,11 +344,16 @@ public final class ActivityTools {
             String scId = arguments.get("sc_id").getAsString();
             String activityName = arguments.get("activity_name").getAsString().trim();
 
+            // Sketchware appends "Activity" automatically — strip it if the AI included it.
+            if (activityName.endsWith("Activity") && activityName.length() > "Activity".length()) {
+                activityName = activityName.substring(0, activityName.length() - "Activity".length());
+            }
+
             if (!context.isProjectAllowed(scId)) {
                 return error("Access denied: project " + scId + " is not in the current workspace");
             }
             if (!activityName.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
-                return error("Invalid activity name: must start with a letter and contain only letters, digits, and underscores");
+                return error("Invalid activity name '" + activityName + "': must start with a letter and contain only letters, digits, and underscores. Do NOT include 'Activity' suffix.");
             }
 
             int orientation = arguments.has("orientation") && !arguments.get("orientation").isJsonNull()

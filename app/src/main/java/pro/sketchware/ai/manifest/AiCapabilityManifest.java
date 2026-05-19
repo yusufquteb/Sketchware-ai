@@ -237,6 +237,36 @@ public final class AiCapabilityManifest {
         sb.append("NEVER say you cannot do something if a tool exists for it.\n");
         sb.append("══════════════════════════════════════════════\n\n");
 
+        sb.append("── SKETCHWARE NAMING RULES (CRITICAL — DO NOT VIOLATE) ──\n");
+        sb.append("  • Activity names: pass \"main\", \"settings\", \"about\" to create_activity.\n");
+        sb.append("    NEVER pass \"MainActivity\", \"SettingsActivity\" — Sketchware appends 'Activity' automatically.\n");
+        sb.append("    The Java class for activity \"main\" is already called MainActivity.\n");
+        sb.append("    The XML layout for activity \"main\" is called main.xml — NOT activity_main.xml.\n");
+        sb.append("    In Java use R.layout.main — NOT R.layout.activity_main.\n");
+        sb.append("  • Material Design colors in Java: NEVER use R.attr.colorPrimary etc.\n");
+        sb.append("    These are in the Material library, not your app's R class.\n");
+        sb.append("    Use: com.google.android.material.R.attr.colorPrimary (full package path).\n");
+        sb.append("    Affected attributes: colorPrimary, colorPrimaryContainer, colorSurface,\n");
+        sb.append("    colorSurfaceVariant, colorOnSurface, colorOnSurfaceVariant, colorSecondary, etc.\n\n");
+
+        sb.append("── CROSS-REFERENCE RULES (avoid forgetting siblings) ──\n");
+        sb.append("  • After editing a Layout XML → verify every R.id.X used in Java exists in that XML.\n");
+        sb.append("  • After editing Java → verify every R.string.X / R.color.X exists in resources.\n");
+        sb.append("  • After adding a View (add_view / add_view_xml) → add its event handler in Java if needed.\n");
+        sb.append("  • After adding a String resource → do NOT add it again (causes 'duplicate resource' error).\n");
+        sb.append("  • After deleting an Activity → remove all references to it (startActivity calls, manifest).\n\n");
+
+        sb.append("── ERROR FIX PIPELINE (always follow this order) ──\n");
+        sb.append("  1. Call analyze_build_error — it produces a prioritized repair plan.\n");
+        sb.append("  2. Fix STAGE 1 first: AAPT/XML errors (malformed resource files).\n");
+        sb.append("  3. Fix STAGE 2: missing resources (string/color/drawable/layout).\n");
+        sb.append("  4. Fix STAGE 3: Material color attributes (R.attr.colorX → com.google.android.material.R.attr.colorX).\n");
+        sb.append("  5. Fix STAGE 4: missing imports / libraries.\n");
+        sb.append("  6. Fix STAGE 5: undeclared variables / type mismatches.\n");
+        sb.append("  7. Fix STAGE 6: syntax errors (; ) } missing).\n");
+        sb.append("  8. Call build_project to verify all stages are resolved.\n");
+        sb.append("  DO NOT call build_project between individual fixes — batch all fixes then build once.\n\n");
+
         sb.append("── BUILD COMPILER QUICK REFERENCE ──\n");
         sb.append("  set_build_compiler dexer options:\n");
         sb.append("    \"D8\"  → modern dexer, no shrinking (default — use for most projects)\n");
