@@ -99,6 +99,8 @@ public final class AiCapabilityManifest {
         ui.add(new ToolEntry("remove_view",          "Remove a View from the layout",                 CAT_UI, "ic_mtrl_delete"));
         ui.add(new ToolEntry("add_view_xml",         "Add a View using raw XML fragment",             CAT_UI, "ic_mtrl_code"));
         ui.add(new ToolEntry("generate_layout",      "Generate a complete layout from description",   CAT_UI, "ic_mtrl_auto_fix_high"));
+        ui.add(new ToolEntry("batch_patch_views",    "Patch multiple views' properties in one call",  CAT_UI, "ic_mtrl_tune"));
+        ui.add(new ToolEntry("replace_subtree",      "Replace a container's children with new XML",   CAT_UI, "ic_mtrl_deployed_code"));
         ui.add(new ToolEntry("text_to_layout_ai",    "Full AI pipeline: text → complete layout XML",  CAT_AI_TOOLS, "ic_ai_robot"));
         ui.add(new ToolEntry("read_raw_resource_file",  "Read a raw resource file",                   CAT_UI, "ic_mtrl_description"));
         ui.add(new ToolEntry("write_raw_resource_file", "Write a raw resource file",                  CAT_UI, "ic_mtrl_edit_document"));
@@ -107,8 +109,9 @@ public final class AiCapabilityManifest {
 
         // ── Block Logic ────────────────────────────────────────────────────────
         List<ToolEntry> logic = new ArrayList<>();
-        logic.add(new ToolEntry("get_activity_events",  "List all events in an activity",             CAT_LOGIC, "ic_mtrl_event_note"));
-        logic.add(new ToolEntry("get_event_blocks",     "Get all blocks in an event",                 CAT_LOGIC, "ic_mtrl_code_blocks"));
+        logic.add(new ToolEntry("get_activity_events",   "List all events in an activity",             CAT_LOGIC, "ic_mtrl_event_note"));
+        logic.add(new ToolEntry("get_event_blocks",      "Get all blocks in an event (raw JSON)",      CAT_LOGIC, "ic_mtrl_code_blocks"));
+        logic.add(new ToolEntry("describe_block_logic",  "Show block logic as readable pseudocode",    CAT_LOGIC, "ic_mtrl_description"));
         logic.add(new ToolEntry("add_block",            "Add a block to an event",                    CAT_LOGIC, "ic_mtrl_add_box"));
         logic.add(new ToolEntry("modify_block",         "Modify an existing block",                   CAT_LOGIC, "ic_mtrl_tune"));
         logic.add(new ToolEntry("delete_block",         "Delete a block from an event",               CAT_LOGIC, "ic_mtrl_delete"));
