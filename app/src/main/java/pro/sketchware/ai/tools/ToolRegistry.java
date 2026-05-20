@@ -297,6 +297,13 @@ public class ToolRegistry {
         registry.register(new DesignXmlEditorTool.BatchPatchViewsTool());
         registry.register(new DesignXmlEditorTool.ReplaceSubtreeTool());
 
+        // ── Export ────────────────────────────────────────────────────────────
+        registry.register(new ExportToAndroidStudioTool());
+
+        // ── Project Templates ─────────────────────────────────────────────────
+        registry.register(new ProjectTemplateTools.CreateFromTemplateTool());
+        registry.register(new ProjectTemplateTools.AddLocaleStringsTool());
+
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
         registry.register(new AI_GitHub_Analyzer.GitHubSearchTool());
