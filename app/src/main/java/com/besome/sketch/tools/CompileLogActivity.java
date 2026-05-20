@@ -24,7 +24,6 @@ import mod.jbk.diagnostic.CompileErrorSaver;
 import mod.jbk.util.AddMarginOnApplyWindowInsetsListener;
 import pro.sketchware.databinding.CompileLogBinding;
 import pro.sketchware.utility.SketchwareUtil;
-import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 
 public class CompileLogActivity extends BaseAppCompatActivity {
 
@@ -158,15 +157,18 @@ public class CompileLogActivity extends BaseAppCompatActivity {
             pro.sketchware.R.drawable.ic_mtrl_bug_report,
             "Analyse these compile errors and explain each one:\n" + errors));
 
-        // ── Fix tools (DIRECT → launch ChatActivity with full agent tools) ─────
-        tools.add(pro.sketchware.ai.shared.AiPageConfig.Tool.direct("Fix First Error",
+        // ── Fix tools (AI — stays inside the bottomsheet) ─────────────────────
+        String firstError = errors.isEmpty() ? rawLog
+            : errors.split("\\n")[0];
+        tools.add(pro.sketchware.ai.shared.AiPageConfig.Tool.ai("Fix First Error",
             pro.sketchware.R.drawable.ic_mtrl_check,
-            "Fix the first error now",
-            "fix_first"));
-        tools.add(pro.sketchware.ai.shared.AiPageConfig.Tool.direct("Fix All Errors",
+            "Fix ONLY the first compile error below. Show the exact code change (before → after) "
+            + "and tell me where to apply it:\n\n" + firstError));
+        tools.add(pro.sketchware.ai.shared.AiPageConfig.Tool.ai("Fix All Errors",
             pro.sketchware.R.drawable.ic_mtrl_warning,
-            "Fix all errors now",
-            "fix_all"));
+            "Fix ALL compile errors below one by one. For each error show the exact code change "
+            + "(before → after) and where to apply it:\n\n"
+            + (errors.isEmpty() ? rawLog : errors).substring(0, Math.min(3000, (errors.isEmpty() ? rawLog : errors).length()))));
 
         // ── Code Fixes (chat) ──────────────────────────────────────────────────
         tools.add(new pro.sketchware.ai.shared.AiPageConfig.Tool("Code Fixes", pro.sketchware.R.drawable.ic_mtrl_code));
@@ -225,31 +227,6 @@ public class CompileLogActivity extends BaseAppCompatActivity {
                 + "If not, paste the new errors.'\n\n"
                 + "FORMAT: concise, exact code, rebuild reminder. Reply in user's language.")
             .tools(tools)
-            .directActions((actionKey, userInput) -> {
-                // "fix_first" and "fix_all" — launch ChatActivity with agent tools so
-                // the AI can actually apply block fixes, not just describe them.
-                // execute() is already called on a background thread by AiAssistantBottomSheet.
-                pro.sketchware.ai.fix.AiFixSupport.FixContext fixCtx =
-                    pro.sketchware.ai.fix.AiFixSupport.buildSessionAndPrompt(
-                        CompileLogActivity.this, scId, rawLog);
-
-                String agentPrompt;
-                if (fixCtx != null && fixCtx.agentPrompt != null) {
-                    agentPrompt = fixCtx.agentPrompt;
-                } else {
-                    agentPrompt = "Fix the compile error in Sketchware project " + scId + ":\n\n"
-                        + (errors.isEmpty() ? rawLog : errors).substring(
-                            0, Math.min(2000, (errors.isEmpty() ? rawLog : errors).length()));
-                }
-
-                final String prompt = agentPrompt;
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
-                    AiProjectIntegrationHelper.openProjectChatWithContext(
-                        CompileLogActivity.this, scId, null,
-                        "Error Fix", prompt, "error_log"));
-
-                return "🔧 Opening AI agent to apply the fix…";
-            })
             .build();
 
         pro.sketchware.ai.shared.AiAssistantBottomSheet.newInstance(config)
