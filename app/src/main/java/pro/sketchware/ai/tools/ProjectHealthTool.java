@@ -7,8 +7,10 @@ import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -330,7 +332,7 @@ public final class ProjectHealthTool {
         private int countLines(File file, String pattern) {
             if (!file.exists()) return 0;
             int count = 0;
-            try (BufferedReader r = new BufferedReader(new FileReader(file))) {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = r.readLine()) != null) {
                     if (line.contains(pattern)) count++;
@@ -346,7 +348,7 @@ public final class ProjectHealthTool {
 
         private String readFile(File file) {
             StringBuilder sb = new StringBuilder();
-            try (BufferedReader r = new BufferedReader(new FileReader(file))) {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = r.readLine()) != null) sb.append(line).append("\n");
             } catch (IOException ignored) {}

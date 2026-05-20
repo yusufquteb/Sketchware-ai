@@ -4,8 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,7 +39,7 @@ public final class ProjectTemplateTools {
 
     static void writeFile(File f, String content) throws IOException {
         if (f.getParentFile() != null) f.getParentFile().mkdirs();
-        try (FileWriter fw = new FileWriter(f)) { fw.write(content); }
+        try (Writer fw = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) { fw.write(content); }
     }
 
     static void addP(JsonObject props, String key, String type, String desc) {

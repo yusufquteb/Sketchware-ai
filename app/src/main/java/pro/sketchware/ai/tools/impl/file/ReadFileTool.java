@@ -8,8 +8,10 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 import pro.sketchware.ai.tools.Tool;
 
@@ -125,7 +127,7 @@ public class ReadFileTool implements Tool {
         boolean truncated = fileSize > MAX_FILE_SIZE_BYTES;
 
         StringBuilder content = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             long bytesRead = 0;
             String line;
             while ((line = reader.readLine()) != null) {

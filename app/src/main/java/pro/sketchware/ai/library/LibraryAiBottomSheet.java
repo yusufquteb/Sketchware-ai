@@ -200,7 +200,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         List<String> labels = new ArrayList<>();
         List<AiProvider> enabledProviders = new ArrayList<>();
         for (AiProvider p : allProviders) {
-            boolean enabled = preferences.prefs().getBoolean("provider_enabled_" + p.name(), false);
+            boolean enabled = preferences.prefs().getBoolean("provider_enabled_" + p.name(), true);
             if (!enabled) continue;
             boolean hasKey = !p.requiresApiKey() || preferences.getApiKey(p) != null && !preferences.getApiKey(p).isEmpty();
             if (!hasKey) continue;
