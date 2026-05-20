@@ -837,27 +837,81 @@ public class AgentExecutor {
                     sb.append("  4. When adding android:id in XML, always use @+id/ prefix\n");
                     sb.append("  5. Call build_project to verify\n");
                     break;
-                case "build_fix":
-                    sb.append("Launched from: Build Error Fix mode\n");
-                    sb.append("⚡ EXECUTE IMMEDIATELY. DO NOT DESCRIBE. DO NOT SAY \"I will\".\n");
-                    sb.append("Action:\n");
-                    sb.append("  CALL get_compile_logs(sc_id) NOW\n");
-                    sb.append("  DEDUPLICATE: strip line numbers → group identical → fix each ONCE\n");
-                    sb.append("  Route each unique error:\n");
-                    sb.append("    string not found → add_string_resource(sc_id, name, value)\n");
-                    sb.append("    color not found  → add_color_resource(sc_id, name, value)\n");
-                    sb.append("    drawable missing → write_raw_resource_file(drawable/xxx.xml)\n");
-                    sb.append("    style missing    → write_raw_resource_file(values/styles.xml)\n");
-                    sb.append("    theme missing    → write_raw_resource_file(values/themes.xml)\n");
-                    sb.append("    font missing     → write_raw_resource_file(font/xxx.xml)\n");
-                    sb.append("    cannot find symbol → patch_file (Java source)\n");
-                    sb.append("    package missing  → patch_file (fix import)\n");
-                    sb.append("    @id/ in XML      → patch_file (@id/ → @+id/)\n");
-                    sb.append("    setText(int)     → patch_file (setText(String.valueOf(x)))\n");
-                    sb.append("    lib conflict     → validate_libraries → remove_library/add_library\n");
-                    sb.append("  CALL build_project(sc_id) after all fixes.\n");
-                    sb.append("  FORBIDDEN: write_file for strings/colors. Never guess values.\n");
+                case "build_fix":  // legacy alias — fall through
+                case "error_repair": {
+                    // Parse sc_id and mode from context lines
+                    String repairScId   = null;
+                    String repairMode   = "build_fix";
+                    for (String cl : pageContext.split("\\n")) {
+                        if (cl.startsWith("sc_id:"))  repairScId  = cl.replace("sc_id:", "").trim();
+                        if (cl.startsWith("mode:"))   repairMode  = cl.replace("mode:", "").trim();
+                    }
+                    boolean isHealthCheck = "health_check".equals(repairMode);
+                    String sid = (repairScId != null && !repairScId.isEmpty()) ? repairScId : "PROJECT_SC_ID";
+
+                    sb.append("╔═══════════════════════════════════════════════════════════════╗\n");
+                    sb.append(isHealthCheck
+                            ? "║          PROJECT HEALTH CHECK MODE — MANDATORY               ║\n"
+                            : "║            BUILD ERROR REPAIR MODE — MANDATORY               ║\n");
+                    sb.append("╚═══════════════════════════════════════════════════════════════╝\n\n");
+                    sb.append("sc_id = \"").append(sid).append("\"\n\n");
+                    sb.append("⚡ YOU MUST CALL TOOLS NOW. DO NOT WRITE TEXT FIRST.\n");
+                    sb.append("⚡ EVERY LINE MUST BE A TOOL CALL OR A DIRECT RESULT OF ONE.\n\n");
+
+                    if (isHealthCheck) {
+                        sb.append("MANDATORY SEQUENCE:\n\n");
+                        sb.append("TOOL 1 → check_project_health(sc_id=\"").append(sid).append("\")\n");
+                        sb.append("  Read the health report. It lists issues by severity.\n\n");
+                        sb.append("TOOL 2..N → For each CRITICAL/HIGH issue in the report:\n");
+                        sb.append("  missing resource   → add_string_resource / add_color_resource\n");
+                        sb.append("  missing drawable   → create_drawable(sc_id, name, template)\n");
+                        sb.append("  wrong layout name  → patch_file (R.layout.activity_X → R.layout.X)\n");
+                        sb.append("  Material color     → patch_file (R.attr.colorX → com.google.android.material.R.attr.colorX)\n");
+                        sb.append("  unused resource    → scan_unused_resources then delete_unused_resources\n");
+                        sb.append("  library conflict   → validate_libraries → remove_library\n\n");
+                        sb.append("FINAL TOOL → build_project(sc_id=\"").append(sid).append("\")\n");
+                        sb.append("  If fails → run analyze_build_error(sc_id=\"").append(sid).append("\") and fix each step.\n\n");
+                    } else {
+                        sb.append("MANDATORY SEQUENCE — EXECUTE IN THIS EXACT ORDER:\n\n");
+                        sb.append("TOOL 1 → analyze_build_error(sc_id=\"").append(sid).append("\")\n");
+                        sb.append("  This returns a prioritized repair plan (Stage 1 first).\n");
+                        sb.append("  READ EVERY STEP IN THE PLAN.\n\n");
+                        sb.append("TOOL 2..N → Apply EACH step in the plan using the EXACT tool listed:\n\n");
+                        sb.append("  STAGE 1 — AAPT/XML error:\n");
+                        sb.append("    read_file(sc_id, path) → inspect XML → patch_file to fix malformed attribute\n\n");
+                        sb.append("  STAGE 2 — Missing resource:\n");
+                        sb.append("    missing string   → add_string_resource(sc_id=\"").append(sid).append("\", name=\"NAME\", value=\"VALUE\")\n");
+                        sb.append("    missing color    → add_color_resource(sc_id=\"").append(sid).append("\", name=\"NAME\", value=\"#RRGGBB\")\n");
+                        sb.append("    missing drawable → create_drawable(sc_id=\"").append(sid).append("\", name=\"NAME\", template=\"rounded_button\")\n");
+                        sb.append("    wrong layout ref → patch_file(sc_id, path, old=\"R.layout.activity_X\", new=\"R.layout.X\")\n\n");
+                        sb.append("  STAGE 3 — Material color attr:\n");
+                        sb.append("    patch_file(sc_id=\"").append(sid).append("\", path=\"...\",\n");
+                        sb.append("               old=\"R.attr.colorPrimary\", new=\"com.google.android.material.R.attr.colorPrimary\")\n");
+                        sb.append("    (repeat for each colorX variable shown in plan)\n\n");
+                        sb.append("  STAGE 4 — Missing import:\n");
+                        sb.append("    search_maven(query=\"ClassName\") → download_dependency if found\n");
+                        sb.append("    OR patch_file to add the import line\n\n");
+                        sb.append("  STAGE 5 — Undeclared variable:\n");
+                        sb.append("    read_file_range(sc_id, path, start, end) → patch_file to add declaration\n\n");
+                        sb.append("  STAGE 6 — Syntax error:\n");
+                        sb.append("    read_file_range → patch_file to add missing ) ; or }\n\n");
+                        sb.append("FINAL TOOL → build_project(sc_id=\"").append(sid).append("\")\n");
+                        sb.append("  If STILL FAILS → call analyze_build_error again and repeat.\n");
+                        sb.append("  If SUCCEEDS    → reply with: ✅ Build successful — all errors fixed.\n\n");
+                    }
+
+                    sb.append("ABSOLUTE RULES (non-negotiable):\n");
+                    sb.append("  ✅ Call analyze_build_error or check_project_health FIRST — every time\n");
+                    sb.append("  ✅ Fix ALL stages before calling build_project (batch fixes, one build)\n");
+                    sb.append("  ✅ For Java file edits, use patch_file (search+replace) not write_file\n");
+                    sb.append("  ✅ read_file_range before patching if you're unsure of exact content\n");
+                    sb.append("  ❌ NEVER write text like \"I will now...\" or \"Let me...\" without calling a tool\n");
+                    sb.append("  ❌ NEVER call build_project between individual stage fixes\n");
+                    sb.append("  ❌ NEVER use write_file to add strings/colors (use add_string_resource / add_color_resource)\n");
+                    sb.append("  ❌ NEVER use R.attr.colorX — always com.google.android.material.R.attr.colorX\n");
+                    sb.append("  ❌ NEVER use R.layout.activity_X — Sketchware uses R.layout.X (no 'activity_' prefix)\n");
                     break;
+                }
                 case "workspace_chat":
                 case "workspace":
                     sb.append("Launched from: AI Workspace (general chat)\n");
