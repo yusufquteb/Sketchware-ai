@@ -398,7 +398,12 @@ public class AiProjectBottomSheet
         sidebarAdapter = new SidebarToolsAdapter(context, cats);
         sidebarAdapter.setSidebarExpanded(true);  // labels visible from the start
         sidebarAdapter.setOnToolClickListener(tool -> {
-            // Build a smart prompt for the chosen tool
+            // Auto-trigger tools bypass the input field and run immediately
+            if ("analyze_build_error".equals(tool.name) || "check_project_health".equals(tool.name)) {
+                triggerErrorRepairMode("analyze_build_error".equals(tool.name));
+                return;
+            }
+            // All other tools: fill input field so user can review before sending
             String prompt = buildToolPrompt(tool);
             if (prompt != null && inputView != null) {
                 inputView.setText(prompt);
@@ -456,11 +461,11 @@ public class AiProjectBottomSheet
             case "build_project_clean":
                 return "Build the project with a clean cache (use when there are unexplained build errors)";
             case "analyze_build_error":
-                return "Analyze the build errors and fix all of them automatically";
+                return null;  // handled by triggerErrorRepairMode()
             case "get_compile_logs":
                 return "Show the latest compile logs and fix any errors";
             case "check_project_health":
-                return "Run a full health check on this project and fix any issues found";
+                return null;  // handled by triggerErrorRepairMode()
             case "analyze_code":
                 return "Analyze the code quality and suggest improvements";
             case "create_drawable":
@@ -1146,6 +1151,62 @@ public class AiProjectBottomSheet
         agentExecutor = new AgentExecutor(context, projectIds, workspaceId,
                 AgentExecutor.SCOPE_PROJECT, scId);
         // Wire pulse: after every N tool steps, show Continue/Cancel with 10s countdown
+        agentExecutor.setPulseCallback((stepSummary, onContinue, onCancel) ->
+                showPulseConfirmation(stepSummary, onContinue, onCancel));
+        agentExecutor.execute(history, currentModelId, currentProvider,
+                preferences.getSystemPrompt(), projectIds, workspaceId, pageCtx, this);
+    }
+
+    /**
+     * Directly triggers the AI agent in error-repair mode without requiring user input.
+     * The agent receives an "error_repair" page context with mandatory tool-execution
+     * instructions — it will call analyze_build_error → patch tools → build_project
+     * automatically, with pulse checkpoints between stages.
+     *
+     * @param isBuildFix true = fix build errors; false = run project health check
+     */
+    private void triggerErrorRepairMode(boolean isBuildFix) {
+        if (isAgentRunning) return;
+        if (currentModelId == null || currentModelId.isEmpty()) {
+            showModelSelector();
+            return;
+        }
+        String apiKey = preferences.getApiKey(currentProvider);
+        if (currentProvider.requiresApiKey() && (apiKey == null || apiKey.isEmpty())) {
+            context.startActivity(new Intent(context, AiSettingsActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return;
+        }
+
+        if (currentState == STATE_HIDDEN) animateTo(STATE_HALF);
+        if (inputView != null) inputView.setText("");
+        if (emptyState != null) emptyState.setVisibility(View.GONE);
+
+        String userText = isBuildFix
+                ? "Fix all build errors automatically"
+                : "Run a full health check and fix all issues";
+
+        ChatMessage userMsg = new ChatMessage(conversationId, userText);
+        conversationManager.saveMessage(conversationId, userMsg);
+        chatAdapter.addUserMessage(userMsg);
+
+        ChatMessage placeholder = new ChatMessage(conversationId, "");
+        placeholder.setStreaming(true);
+        chatAdapter.addAssistantMessage(placeholder);
+        scrollToBottom();
+
+        setAgentRunning(true);
+
+        List<ChatMessage> history   = conversationManager.getMessages(conversationId);
+        List<String>      projectIds = workspace.getProjectIds();
+
+        // "error_repair" context triggers the mandatory repair pipeline in AgentExecutor
+        String pageCtx = "error_repair"
+                + "\nsc_id: " + (scId != null ? scId : "")
+                + "\nmode: " + (isBuildFix ? "build_fix" : "health_check");
+
+        agentExecutor = new AgentExecutor(context, projectIds, workspaceId,
+                AgentExecutor.SCOPE_PROJECT, scId);
         agentExecutor.setPulseCallback((stepSummary, onContinue, onCancel) ->
                 showPulseConfirmation(stepSummary, onContinue, onCancel));
         agentExecutor.execute(history, currentModelId, currentProvider,
