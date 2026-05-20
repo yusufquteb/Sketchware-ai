@@ -447,8 +447,6 @@ public class AiProjectBottomSheet
                 return "Add a new view to the '" + actName + "' screen. View type: , id: , text: ";
             case "modify_view":
                 return "Modify the view with id '' on the '" + actName + "' screen. Change: ";
-            case "edit_layout":
-                return "Edit the layout of the '" + actName + "' screen: ";
             case "remove_view":
                 return "Remove the view with id '' from the '" + actName + "' screen";
             case "get_activity_events":
