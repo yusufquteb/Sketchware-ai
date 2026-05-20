@@ -116,7 +116,7 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         sidebarAdapter.setShowLabels(true);
     }
 
-    // ── BottomSheet: 82% height, allow drag (same as Design page) ─────────────
+    // ── BottomSheet: 82% height, drag only when chat is at top ────────────────
     private void lockExpanded() {
         if (!(getDialog() instanceof BottomSheetDialog)) return;
         FrameLayout sheet = ((BottomSheetDialog) getDialog())
@@ -133,9 +133,18 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         b.setPeekHeight(targetH);
         b.setState(BottomSheetBehavior.STATE_EXPANDED);
         b.setSkipCollapsed(true);
+        // Fix drag/scroll conflict: allow sheet drag only when chat RecyclerView is at the top.
+        // When the user scrolls down in the chat, dragging is disabled so the sheet doesn't close.
         b.setDraggable(true);
-        // RecyclerView scrolls independently; sheet only drags when RV is at top
         binding.aiSheetMessages.setNestedScrollingEnabled(true);
+        binding.aiSheetMessages.addOnScrollListener(
+            new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull androidx.recyclerview.widget.RecyclerView rv, int dx, int dy) {
+                    // canScrollVertically(-1) = true means there is content above (not at top)
+                    b.setDraggable(!rv.canScrollVertically(-1));
+                }
+            });
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -231,6 +240,8 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             pendingDirectKey = (tool.type == AiPageConfig.ToolType.DIRECT)
                 ? tool.actionKey : null;
             showEmpty(chatHistory.isEmpty());
+            // Collapse sidebar so the chat area is fully visible
+            if (sidebarExpanded) toggleSidebar();
         });
 
         binding.aiToolsSidebarRv.setLayoutManager(new LinearLayoutManager(getContext()));
