@@ -473,7 +473,7 @@ public class AgentExecutor {
         appendToolGroup(sb, all, "APP TEMPLATES & LOCALIZATION",
             "create_from_template","add_locale_strings","create_locale_strings","extract_strings");
         appendToolGroup(sb, all, "DEVELOPER UTILITIES",
-            "web_search","logcat_filter","resource_optimizer");
+            "web_search","filter_logcat","analyze_unused_resources");
         appendToolGroup(sb, all, "GITHUB INTELLIGENCE",
             "github_compare","github_search");
         appendToolGroup(sb, all, "SURGICAL FILE EDITING",
@@ -508,7 +508,7 @@ public class AgentExecutor {
             "analyze_code","review_source_code","validate_rtl_layout",
             "search_in_file","patch_file","append_code","insert_code_at_line","read_file_range",
             "create_from_template","add_locale_strings",
-            "web_search","logcat_filter","resource_optimizer",
+            "web_search","filter_logcat","analyze_unused_resources",
             "github_compare","github_search"
         ));
         StringBuilder extras = new StringBuilder();

@@ -6,8 +6,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import pro.sketchware.util.SketchwareFileDecryptor;
 import pro.sketchware.util.SketchwareFileEncryptor;
 import java.util.ArrayDeque;
@@ -312,7 +315,7 @@ public final class BlockLogicWriter {
         // Fallback: plain text write
         File parent = logicFile.getParentFile();
         if (parent != null && !parent.exists()) parent.mkdirs();
-        try (FileWriter fw = new FileWriter(logicFile)) { fw.write(content); }
+        try (Writer fw = new OutputStreamWriter(new FileOutputStream(logicFile), StandardCharsets.UTF_8)) { fw.write(content); }
     }
 
     /**

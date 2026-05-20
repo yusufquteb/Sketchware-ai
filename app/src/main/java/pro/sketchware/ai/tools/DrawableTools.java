@@ -4,8 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 
 import pro.sketchware.activities.projecttools.ProjectToolPaths;
 import pro.sketchware.ai.models.ToolResult;
@@ -28,7 +31,7 @@ public final class DrawableTools {
 
     private static void writeFile(File f, String content) throws IOException {
         f.getParentFile().mkdirs();
-        try (FileWriter w = new FileWriter(f, false)) { w.write(content); }
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) { w.write(content); }
     }
 
     // ══ create_drawable ═══════════════════════════════════════════════════════

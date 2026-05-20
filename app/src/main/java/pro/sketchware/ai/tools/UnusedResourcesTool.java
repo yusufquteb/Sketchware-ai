@@ -7,7 +7,9 @@ import com.google.gson.JsonObject;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -239,7 +241,7 @@ public final class UnusedResourcesTool {
 
         private String readFilePlain(File f) throws Exception {
             StringBuilder sb = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
                 char[] buf = new char[8192]; int n;
                 while ((n = br.read(buf)) != -1) sb.append(buf, 0, n);
             }
