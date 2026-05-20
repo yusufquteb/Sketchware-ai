@@ -435,7 +435,7 @@ public class AiProjectBottomSheet
                 mainHandler.postDelayed(() -> showInlineLayoutGenerator(actName), 100);
                 return null;  // signal: don't fill input
 
-            case "edit_ui":
+            case "edit_layout":
                 // Edit Layout: first read current layout, then let user describe the edit
                 mainHandler.postDelayed(() -> showInlineLayoutEditor(actName), 100);
                 return null;
