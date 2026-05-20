@@ -123,20 +123,28 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         applySidebarWidth(true);
     }
 
-    // ── Lock BottomSheet EXPANDED so chat scrolls instead of shrinking ─────────
+    // ── BottomSheet expanded; drag only when chat is scrolled to top ──────────
     private void lockBottomSheetExpanded() {
-        if (getDialog() instanceof BottomSheetDialog) {
-            BottomSheetDialog dialog = (BottomSheetDialog) getDialog();
-            FrameLayout sheet = dialog.findViewById(
-                com.google.android.material.R.id.design_bottom_sheet);
-            if (sheet != null) {
-                BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
-                behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-                behavior.setSkipCollapsed(true);
-                // Lock: prevent dragging down (sheet won't shrink while scrolling chat)
-                behavior.setDraggable(false);
-            }
-        }
+        if (!(getDialog() instanceof BottomSheetDialog)) return;
+        FrameLayout sheet = ((BottomSheetDialog) getDialog())
+            .findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        if (sheet == null) return;
+
+        BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
+        behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        behavior.setSkipCollapsed(true);
+        // Fix drag/scroll conflict: enable drag only when chat is at top.
+        // While the user scrolls through chat messages the sheet stays put.
+        behavior.setDraggable(true);
+        binding.libAiMessages.setNestedScrollingEnabled(true);
+        binding.libAiMessages.addOnScrollListener(
+            new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull androidx.recyclerview.widget.RecyclerView rv,
+                                       int dx, int dy) {
+                    behavior.setDraggable(!rv.canScrollVertically(-1));
+                }
+            });
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -243,9 +251,11 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         sidebarAdapter = new LibrarySidebarAdapter(tools, new LibrarySidebarAdapter.OnToolListener() {
             @Override public void onFillInput(String template) {
                 fillInput(template);
+                if (sidebarExpanded) toggleSidebar();
             }
             @Override public void onDirectAction(String key) {
                 executeDirectAction(key);
+                if (sidebarExpanded) toggleSidebar();
             }
         });
         sidebarAdapter.setSidebarExpanded(true); // labels visible (sidebar open)

@@ -401,15 +401,16 @@ public class AiProjectBottomSheet
             // Auto-trigger tools bypass the input field and run immediately
             if ("analyze_build_error".equals(tool.name) || "check_project_health".equals(tool.name)) {
                 triggerErrorRepairMode("analyze_build_error".equals(tool.name));
-                return;
+            } else {
+                // All other tools: fill input field so user can review before sending
+                String prompt = buildToolPrompt(tool);
+                if (prompt != null && inputView != null) {
+                    inputView.setText(prompt);
+                    inputView.setSelection(inputView.getText().length());
+                }
             }
-            // All other tools: fill input field so user can review before sending
-            String prompt = buildToolPrompt(tool);
-            if (prompt != null && inputView != null) {
-                inputView.setText(prompt);
-                inputView.setSelection(inputView.getText().length());
-            }
-            // Sidebar stays open after tool pick (user may want another)
+            // Collapse sidebar so the full chat area is visible after selecting a tool
+            if (sidebarExpanded) toggleSidebar();
         });
         toolsSidebarRv.setLayoutManager(
                 new androidx.recyclerview.widget.LinearLayoutManager(context));
