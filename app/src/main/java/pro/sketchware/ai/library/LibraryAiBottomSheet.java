@@ -26,13 +26,12 @@ import java.util.List;
 import java.util.Locale;
 
 import pro.sketchware.ai.activities.AiSettingsActivity;
-import pro.sketchware.ai.api.AiApiClient;
-import pro.sketchware.ai.api.AiClientFactory;
-import pro.sketchware.ai.api.StreamingResponseHandler;
+import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ToolCall;
+import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.databinding.BottomSheetLibraryAiBinding;
 import pro.sketchware.utility.SketchwareUtil;
@@ -83,6 +82,10 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
     private LibraryChatAdapter chatAdapter;
     private LibrarySidebarAdapter sidebarAdapter;
     private AiPreferences preferences;
+
+    // Agent executor (replaces raw AiApiClient — gives tool execution + pulse)
+    private AgentExecutor agentExecutor;
+    private boolean isAgentRunning = false;
 
     // Pulse timer while AI is thinking
     private final Handler pulseHandler = new Handler(Looper.getMainLooper());
@@ -468,6 +471,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void executeAi(String userText) {
+        if (isAgentRunning) return;
         if (preferences == null) {
             pushAssistant("⚠️ AI not configured. Open AI Settings."); return;
         }
@@ -480,38 +484,77 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
             pushAssistant("⚠️ API key missing for " + provider.getDisplayName() + "."); return;
         }
         String modelId = preferences.getSelectedModel(provider);
-        AiApiClient client = AiClientFactory.createClient(requireContext(), provider, apiKey);
-        if (client == null) {
-            pushAssistant("⚠️ Could not create AI client. Check AI Settings."); return;
-        }
 
+        isAgentRunning = true;
         startPulse();
 
         chatHistory.add(ChatMessage.userMessage(null, userText));
-        List<ChatMessage> ctx = chatHistory.size() > 8
-            ? chatHistory.subList(chatHistory.size() - 8, chatHistory.size())
-            : new ArrayList<>(chatHistory);
 
-        client.sendChatRequest(ctx, modelId, buildSystemPrompt(),
-            new StreamingResponseHandler() {
-                final StringBuilder buf = new StringBuilder();
-                @Override public void onChunk(String d) { buf.append(d); }
-                @Override public void onToolCall(ToolCall tc) { /* not used */ }
-                @Override public void onComplete(String full) {
-                    String reply = (full != null && !full.isEmpty()) ? full : buf.toString().trim();
+        List<String> projectIds = new ArrayList<>();
+        if (scId != null && !scId.equals("system")) projectIds.add(scId);
+        String workspaceId = scId != null ? scId : "lib_workspace";
+        String pageCtx = "library_editor\nsc_id: " + (scId != null ? scId : "");
+
+        agentExecutor = new AgentExecutor(requireContext(), projectIds, workspaceId,
+                AgentExecutor.SCOPE_PROJECT, scId);
+        agentExecutor.setPulseCallback((summary, onContinue, onCancel) ->
+                requireActivity().runOnUiThread(() ->
+                        new MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("Step completed")
+                                .setMessage(summary)
+                                .setPositiveButton("Continue", (d, w) -> onContinue.run())
+                                .setNegativeButton("Stop", (d, w) -> onCancel.run())
+                                .setCancelable(false)
+                                .show()));
+
+        agentExecutor.execute(chatHistory, modelId, provider, buildSystemPrompt(),
+                projectIds, workspaceId, pageCtx, new AgentExecutor.AgentCallback() {
+            @Override public void onStreamingChunk(String chunk) {
+                requireActivity().runOnUiThread(() ->
+                        binding.libAiTypingText.setText("Thinking…"));
+            }
+            @Override public void onAssistantMessage(ChatMessage msg) {
+                if (msg != null && msg.getContent() != null && !msg.getContent().isEmpty()) {
                     requireActivity().runOnUiThread(() -> {
-                        stopPulse();
-                        if (!reply.isEmpty()) {
-                            chatHistory.add(ChatMessage.assistantMessage(reply, null));
-                            pushAssistant(reply);
-                        }
-                        if (actionListener != null) actionListener.onLibraryAction("ai_response");
+                        chatHistory.add(msg);
+                        pushAssistant(msg.getContent());
                     });
                 }
-                @Override public void onError(String err) {
-                    requireActivity().runOnUiThread(() -> { stopPulse(); pushAssistant("❌ " + err); });
-                }
-            });
+            }
+            @Override public void onToolCallStarted(ToolCall tc) {
+                requireActivity().runOnUiThread(() -> {
+                    if (tc != null) binding.libAiTypingText.setText("⚙ " + tc.getName() + "…");
+                });
+            }
+            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {}
+            @Override public void onToolCallCompleted(ToolCall tc, ToolResult result) {}
+            @Override public void onToolMessage(ChatMessage msg) {}
+            @Override public void onResponseComplete(ChatMessage msg) {
+                requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
+                    stopPulse();
+                    if (actionListener != null) actionListener.onLibraryAction("ai_response");
+                });
+            }
+            @Override public void onCancelled() {
+                requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
+                    stopPulse();
+                    pushAssistant("⛔ Stopped.");
+                });
+            }
+            @Override public void onError(String error) {
+                requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
+                    stopPulse();
+                    pushAssistant("❌ " + error);
+                });
+            }
+            @Override public void onThinking(String status) {
+                requireActivity().runOnUiThread(() ->
+                        binding.libAiTypingText.setText(status != null ? status : "Thinking…"));
+            }
+        });
     }
 
     // ── Pulse (10s timer while AI thinks) ────────────────────────────────────
