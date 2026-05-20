@@ -459,13 +459,12 @@ public class AgentExecutor {
         appendToolGroup(sb, all, "EXPORT",
             "export_to_android_studio");
         appendToolGroup(sb, all, "UI TOOLS — USE THESE FOR ALL SCREEN CHANGES",
-            "generate_layout", "generate_layout_from_description",
-            "add_view_xml", "describe_layout",
-            "describe_layout_live", "add_view_live", "modify_view_live", "remove_view_live");
+            "generate_layout", "add_view_xml", "describe_layout",
+            "batch_patch_views", "replace_subtree", "add_view", "modify_view", "remove_view");
         sb.append("\n\u26a1 PREFERRED for UI generation:\n");
-        sb.append("   generate_layout / generate_layout_from_description: full screen from description.\n");
+        sb.append("   generate_layout: full screen from description.\n");
         sb.append("   add_view_xml: append XML views to existing layout.\n");
-        sb.append("   Both use ViewBeanParser → jC.c.put → live canvas reload (IA proven path).\n\n");
+        sb.append("   Both use ViewBeanParser → jC.c.put → live canvas reload.\n\n");
         appendToolGroup(sb, all, "CODE ANALYSIS & QUALITY",
             "analyze_code","review_source_code","validate_rtl_layout");
         appendToolGroup(sb, all, "LIBRARY DISCOVERY", "search_maven");
@@ -970,9 +969,8 @@ public class AgentExecutor {
             sb.append("• list_files / read_file / write_file: only paths inside sc_id=").append(pid).append(".\n");
             sb.append("• global_search: searches ONLY the files of project ").append(pid).append(", not other projects.\n");
             sb.append("• You CANNOT read, write, or create files in any other project.\n");
-            if (pageContext != null && (pageContext.equals("design_editor") || pageContext.equals("resource_editor"))) {
-                sb.append("• Page scope active: prefer describe_layout_live / add_view_live / modify_view_live\n");
-                sb.append("  for instant live-preview changes without restarting the project.\n");
+            if (pageContext != null && pageContext.startsWith("design_editor")) {
+                sb.append("• Page scope: use generate_layout and add_view_xml — they write directly to the live canvas.\n");
             }
         } else if (projectIds != null && !projectIds.isEmpty()) {
             sb.append("Scope: GLOBAL WORKSPACE\n");
@@ -1080,6 +1078,5 @@ public class AgentExecutor {
         AiApiClient client = currentClient;
         if (client != null) client.cancelAll();
         if (!executor.isShutdown()) executor.shutdownNow();
-        executor.shutdownNow();
     }
 }
