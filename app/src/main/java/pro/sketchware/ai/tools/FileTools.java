@@ -7,11 +7,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -166,7 +168,7 @@ public final class FileTools {
 
     private static String readFileContent(File file) throws IOException {
         StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             char[] buffer = new char[4096];
             int read;
             while ((read = reader.read(buffer)) != -1) {
@@ -181,7 +183,7 @@ public final class FileTools {
         if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
-        try (FileWriter writer = new FileWriter(file)) {
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             writer.write(content);
         }
     }
