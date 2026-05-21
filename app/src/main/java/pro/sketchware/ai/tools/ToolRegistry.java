@@ -181,6 +181,14 @@ public class ToolRegistry {
         registry.register(new DevTools.LogcatFilterTool());
         registry.register(new DevTools.ResourceOptimizerTool());
 
+        // ── Manifest Tools ───────────────────────────────────────────────────
+        registry.register(new ManifestTools.ReadManifestTool());
+        registry.register(new ManifestTools.EditManifestAttributeTool());
+        registry.register(new ManifestTools.AddManifestTagTool());
+
+        // ── Lint / Static Analysis ────────────────────────────────────────────
+        registry.register(new LintTools.RunLintTool());
+
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
         registry.register(new AI_GitHub_Analyzer.GitHubSearchTool());
@@ -308,6 +316,14 @@ public class ToolRegistry {
         registry.register(new DevTools.WebSearchTool());
         registry.register(new DevTools.LogcatFilterTool());
         registry.register(new DevTools.ResourceOptimizerTool());
+
+        // ── Manifest Tools ───────────────────────────────────────────────────
+        registry.register(new ManifestTools.ReadManifestTool());
+        registry.register(new ManifestTools.EditManifestAttributeTool());
+        registry.register(new ManifestTools.AddManifestTagTool());
+
+        // ── Lint / Static Analysis ────────────────────────────────────────────
+        registry.register(new LintTools.RunLintTool());
 
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
