@@ -248,7 +248,7 @@ public final class VariableAndComponentTools {
             if (lines.stream().anyMatch(l -> l.endsWith(":" + name)))
                 return error("Variable '" + name + "' already exists in activity " + actName);
 
-            lines.add(entry);
+            lines.add(typeCode + ":" + name);
             if (!writeAtFile(scId, fileName, sections))
                 return error("Failed to write " + fileName + " file.");
 
