@@ -13,8 +13,9 @@ import org.xmlpull.v1.XmlPullParserFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringReader;
@@ -93,7 +94,7 @@ public final class ResourceTools {
         if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
-        try (FileWriter writer = new FileWriter(file)) {
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             writer.write(content);
         }
     }
@@ -232,12 +233,29 @@ public final class ResourceTools {
         JsonArray xmlColors = parseXmlResourceFile(colorsXml, "color");
         JsonArray xmlStrings = parseXmlResourceFile(stringsXml, "string");
 
-        // Merge: start with JSON data, add XML entries that are not already present
+        // Merge: start with JSON data, add XML entries not already present (deduplicate by name)
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (JsonElement el : jsonResources) {
+            if (el.isJsonObject()) {
+                JsonElement name = el.getAsJsonObject().get("name");
+                if (name != null) seen.add(name.getAsString());
+            }
+        }
         for (JsonElement el : xmlColors) {
-            jsonResources.add(el);
+            if (el.isJsonObject()) {
+                JsonElement name = el.getAsJsonObject().get("name");
+                if (name == null || seen.add(name.getAsString())) {
+                    jsonResources.add(el);
+                }
+            }
         }
         for (JsonElement el : xmlStrings) {
-            jsonResources.add(el);
+            if (el.isJsonObject()) {
+                JsonElement name = el.getAsJsonObject().get("name");
+                if (name == null || seen.add(name.getAsString())) {
+                    jsonResources.add(el);
+                }
+            }
         }
 
         return jsonResources;
@@ -1087,7 +1105,7 @@ public final class ResourceTools {
 
         private static void writeRaw(File f, String content) throws IOException {
             f.getParentFile().mkdirs();
-            try (FileWriter w = new FileWriter(f, false)) { w.write(content); }
+            try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) { w.write(content); }
         }
     }
 
@@ -1159,7 +1177,7 @@ public final class ResourceTools {
 
             try {
                 valDir.mkdirs();
-                try (FileWriter w = new FileWriter(strFile, false)) { w.write(xml.toString()); }
+                try (Writer w = new OutputStreamWriter(new FileOutputStream(strFile), StandardCharsets.UTF_8)) { w.write(xml.toString()); }
                 return success("Created values-" + locale + "/strings.xml with "
                         + trans.size() + " translation(s).\nPath: " + strFile.getAbsolutePath());
             } catch (IOException e) {

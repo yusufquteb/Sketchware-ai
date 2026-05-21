@@ -103,7 +103,6 @@ public final class AiCapabilityManifest {
         ui.add(new ToolEntry("generate_layout",      "Generate a complete layout from description",   CAT_UI, "ic_mtrl_auto_fix_high"));
         ui.add(new ToolEntry("batch_patch_views",    "Patch multiple views' properties in one call",  CAT_UI, "ic_mtrl_tune"));
         ui.add(new ToolEntry("replace_subtree",      "Replace a container's children with new XML",   CAT_UI, "ic_mtrl_deployed_code"));
-        ui.add(new ToolEntry("text_to_layout_ai",    "Full AI pipeline: text → complete layout XML",  CAT_AI_TOOLS, "ic_ai_robot"));
         ui.add(new ToolEntry("read_raw_resource_file",  "Read a raw resource file",                   CAT_UI, "ic_mtrl_description"));
         ui.add(new ToolEntry("write_raw_resource_file", "Write a raw resource file",                  CAT_UI, "ic_mtrl_edit_document"));
         ui.add(new ToolEntry("validate_rtl_layout",     "Validate RTL/LTR layout compatibility",      CAT_UI, "ic_mtrl_format_textdirection_r_to_l"));

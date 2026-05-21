@@ -231,11 +231,11 @@ public class SidebarToolsAdapter
 
             int labelVis = expanded ? View.VISIBLE : View.GONE;
             label.setVisibility(labelVis);
-            arrow.setVisibility(labelVis);
-
-            if (expanded) {
-                // Rotate arrow 90° when expanded
-                arrow.setRotation(cat.isExpanded ? 90f : 0f);
+            if (arrow != null) {
+                arrow.setVisibility(labelVis);
+                if (expanded) {
+                    arrow.setRotation(cat.isExpanded ? 90f : 0f);
+                }
             }
 
             itemView.setOnClickListener(v -> toggleCategory(catIdx));
@@ -260,7 +260,7 @@ public class SidebarToolsAdapter
 
             int vis = sidebarExpanded ? View.VISIBLE : View.GONE;
             label.setVisibility(vis);
-            arrow.setVisibility(vis);
+            if (arrow != null) arrow.setVisibility(vis);
 
             itemView.setOnClickListener(v -> {
                 if (listener != null) listener.onToolClicked(tool);
@@ -297,7 +297,7 @@ public class SidebarToolsAdapter
                             "Add View",         R.drawable.ic_mtrl_add,         true),
                     new ToolEntry("modify_view",
                             "Modify View",      R.drawable.ic_mtrl_edit,        true),
-                    new ToolEntry("edit_ui",
+                    new ToolEntry("edit_layout",
                             "Edit Layout",      R.drawable.ic_mtrl_edit,        true),
                     new ToolEntry("remove_view",
                             "Remove View",      R.drawable.ic_mtrl_delete,      true),
