@@ -146,8 +146,7 @@ public class ThemeManager {
     }
 
     public static int getPreset(Context context) {
-        // Default: Modern Blue (1) — clean professional look out of the box
-        return prefs(context).getInt(KEY_PRESET, PRESET_MODERN_BLUE);
+        return prefs(context).getInt(KEY_PRESET, PRESET_DEFAULT);
     }
 
     /**
