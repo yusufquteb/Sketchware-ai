@@ -1,6 +1,7 @@
 package pro.sketchware.ai.tools.blocks;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.io.File;
@@ -288,8 +289,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.addBlock(lf, fullName, blockJson, afterBlockId);
             if (err != null) return error(err);
-            flushLogicCache(scId);
-
             return success("Block added successfully to event '" + fullName + "' in project " + scId);
         }
     }
@@ -358,7 +357,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.modifyBlock(lf, fullName, blockId, patch);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Block " + blockId + " modified in event '" + fullName + "'");
         }
     }
@@ -409,7 +407,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.deleteBlock(lf, fullName, blockId);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Block " + blockId + " deleted from event '" + fullName + "'");
         }
     }
@@ -503,7 +500,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.createEvent(lf, fullName);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Moreblock '" + mbName + "' created in activity '" + actName + "'.\n"
                     + "Use add_block with event_name='onMoreBlock_" + mbName + "' to add blocks.");
         }
@@ -550,7 +546,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.deleteEvent(lf, fullName);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Moreblock '" + mbName + "' deleted from activity '" + actName + "'");
         }
     }
@@ -634,32 +629,29 @@ public final class BlockApiTools {
                     sb.append("  (empty — no blocks)\n\n");
                     continue;
                 }
-                renderChain(ev, ev.orderedBlocks(), sb, "  ", ev.blocksById);
+                renderChain(ev.orderedBlocks(), sb, "  ", ev.blocksById);
                 sb.append("\n");
             }
 
             return success(sb.toString().trim());
         }
 
-        private void renderChain(BlockLogicReader.EventEntry ev,
-                                  List<BlockLogicReader.BlockEntry> chain,
+        private void renderChain(List<BlockLogicReader.BlockEntry> chain,
                                   StringBuilder sb, String indent,
                                   java.util.Map<Integer, BlockLogicReader.BlockEntry> byId) {
             for (BlockLogicReader.BlockEntry b : chain) {
                 String line = fillSpec(b);
                 sb.append(indent).append("[").append(b.id).append("] ").append(line).append("\n");
 
-                // Render subStack1 branch (if / first branch)
                 if (b.subStack1 != -1 && byId.containsKey(b.subStack1)) {
                     sb.append(indent).append("  {\n");
-                    renderChain(ev, collectChain(b.subStack1, byId), sb, indent + "    ", byId);
+                    renderChain(collectChain(b.subStack1, byId), sb, indent + "    ", byId);
                     sb.append(indent).append("  }\n");
                 }
 
-                // Render subStack2 branch (else / second branch)
                 if (b.subStack2 != -1 && byId.containsKey(b.subStack2)) {
                     sb.append(indent).append("  else {\n");
-                    renderChain(ev, collectChain(b.subStack2, byId), sb, indent + "    ", byId);
+                    renderChain(collectChain(b.subStack2, byId), sb, indent + "    ", byId);
                     sb.append(indent).append("  }\n");
                 }
             }
@@ -702,6 +694,208 @@ public final class BlockApiTools {
             // Append remaining params if any
             while (pi < params.size()) res.append(" ").append(params.get(pi++));
             return res.toString();
+        }
+    }
+
+    // ── Tool 10: set_event_logic ──────────────────────────────────────────
+
+    /**
+     * Replaces ALL blocks in an event with a fresh ordered list.
+     *
+     * The AI provides blocks WITHOUT ids or nextBlock links — they are
+     * auto-assigned by this tool.  Nested blocks (if/loop conditions) use
+     * "then_blocks" / "else_blocks" arrays that are recursively wired.
+     *
+     * Example blocks array:
+     *   [
+     *     {"opCode":"addSourceDirectly","spec":"add source directly %s.inputOnly",
+     *      "type":" ","parameters":["setTitle(\"Hello\");"]},
+     *     {"opCode":"ifElse","spec":"if %b then","type":"c",
+     *      "parameters":["count > 0"],
+     *      "then_blocks":[
+     *        {"opCode":"addSourceDirectly","type":" ","parameters":["doSomething();"]}
+     *      ],
+     *      "else_blocks":[
+     *        {"opCode":"addSourceDirectly","type":" ","parameters":["doElse();"]}
+     *      ]}
+     *   ]
+     */
+    public static class SetEventLogicTool implements AgentTool {
+        @Override public String getName() { return "set_event_logic"; }
+
+        @Override public String getDescription() {
+            return "Replaces ALL blocks in a Sketchware event with a new ordered list in one call. "
+                 + "Much faster than calling add_block repeatedly. "
+                 + "Provide blocks in execution order WITHOUT ids or nextBlock — they are auto-assigned. "
+                 + "Nested branches use 'then_blocks' and 'else_blocks' arrays. "
+                 + "Common opCodes: addSourceDirectly (raw Java), ifElse, doWhile, "
+                 + "setInt, setString, setBoolean, callFunc, showToast, startActivity, finish. "
+                 + "For addSourceDirectly: type=' ', spec='add source directly %s.inputOnly', "
+                 + "parameters=[\"your java code here;\"]";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            addProp(props, "sc_id",         "string",  "Project ID");
+            addProp(props, "activity_name", "string",  "Activity name without .java");
+            addProp(props, "event_name",    "string",  "Event name, e.g. 'onCreate', 'onClick_button1'");
+
+            JsonObject blocksP = new JsonObject();
+            blocksP.addProperty("type", "array");
+            blocksP.addProperty("description",
+                    "Ordered list of block objects. Fields: opCode, spec, type, parameters, "
+                  + "color (optional), then_blocks (array, for if-true branch), "
+                  + "else_blocks (array, for else branch). "
+                  + "Do NOT include id, nextBlock, subStack1, subStack2 — auto-assigned.");
+            JsonObject items = new JsonObject(); items.addProperty("type", "object");
+            blocksP.add("items", items);
+            props.add("blocks", blocksP);
+            schema.add("properties", props);
+
+            JsonArray req = new JsonArray();
+            req.add("sc_id"); req.add("activity_name"); req.add("event_name"); req.add("blocks");
+            schema.add("required", req);
+            return schema;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId      = requireString(args, "sc_id");
+            String actName   = requireString(args, "activity_name");
+            String eventName = requireString(args, "event_name");
+            if (scId == null || actName == null || eventName == null)
+                return error("sc_id, activity_name, and event_name are required");
+            if (!args.has("blocks") || !args.get("blocks").isJsonArray())
+                return error("'blocks' must be a JSON array");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: project " + scId);
+
+            JsonArray blocksInput = args.getAsJsonArray("blocks");
+            String fullName = actName + ".java_" + eventName;
+
+            ctx.reportProgress("Writing " + blocksInput.size() + " blocks to " + fullName + "…");
+
+            BlockLogicReader.LogicFile lf = BlockLogicReader.read(logicFile(ctx, scId), scId);
+            if (lf == null) return error("Could not read logic file for project " + scId);
+
+            BlockLogicReader.EventEntry existing = lf.findEvent(fullName);
+            if (existing != null) lf.events.remove(existing);
+
+            JsonArray newContent = new JsonArray();
+            int[] idCounter = {0};
+            BlockLogicReader.EventEntry newEv = new BlockLogicReader.EventEntry(fullName, newContent);
+            buildBlocks(blocksInput, newContent, newEv.blocksById, idCounter, -1);
+            lf.events.add(newEv);
+
+            BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
+            String err = writer.write(lf);
+            if (err != null) return error(err);
+            return success("Set " + newContent.size() + " block(s) in event '" + fullName
+                    + "' of project " + scId + ".");
+        }
+
+        /**
+         * Recursively builds block JSON, assigns sequential IDs, wires nextBlock/subStack links,
+         * and populates blocksById. Parent blocks are written before their nested children.
+         *
+         * @return id of the first block in this chain, or -1 if empty
+         */
+        private int buildBlocks(JsonArray inputBlocks, JsonArray output,
+                                 java.util.Map<Integer, BlockLogicReader.BlockEntry> byId,
+                                 int[] idCounter, int nextOverride) {
+            if (inputBlocks == null || inputBlocks.size() == 0) return -1;
+
+            int[] ids = new int[inputBlocks.size()];
+            for (int i = 0; i < inputBlocks.size(); i++) ids[i] = ++idCounter[0];
+
+            for (int i = 0; i < inputBlocks.size(); i++) {
+                JsonElement el = inputBlocks.get(i);
+                if (!el.isJsonObject()) continue;
+                JsonObject src = el.getAsJsonObject().deepCopy();
+
+                int nextBlock = (i < inputBlocks.size() - 1) ? ids[i + 1] : nextOverride;
+
+                JsonArray nested = new JsonArray();
+                int subStack1 = -1;
+                if (src.has("then_blocks") && src.get("then_blocks").isJsonArray()) {
+                    subStack1 = buildBlocks(src.getAsJsonArray("then_blocks"), nested, byId, idCounter, -1);
+                    src.remove("then_blocks");
+                }
+                int subStack2 = -1;
+                if (src.has("else_blocks") && src.get("else_blocks").isJsonArray()) {
+                    subStack2 = buildBlocks(src.getAsJsonArray("else_blocks"), nested, byId, idCounter, -1);
+                    src.remove("else_blocks");
+                }
+
+                src.addProperty("id",        ids[i]);
+                src.addProperty("nextBlock",  nextBlock);
+                src.addProperty("subStack1",  subStack1);
+                src.addProperty("subStack2",  subStack2);
+                if (!src.has("color"))      src.addProperty("color",    -10701022);
+                if (!src.has("typeName"))   src.addProperty("typeName", "");
+                if (!src.has("parameters")) src.add("parameters", new JsonArray());
+
+                output.add(src);
+                BlockLogicReader.BlockEntry entry = new BlockLogicReader.BlockEntry(src);
+                byId.put(entry.id, entry);
+                for (JsonElement ne : nested) output.add(ne);
+            }
+            return ids[0];
+        }
+    }
+
+    // ── Tool 11: undo_blocks ──────────────────────────────────────────────
+
+    /**
+     * Restores the logic file to its state before the last AI modification.
+     * Keeps a backup at {dataDir}/logic.bak created just before each write.
+     */
+    public static class UndoBlocksTool implements AgentTool {
+        @Override public String getName() { return "undo_blocks"; }
+
+        @Override public String getDescription() {
+            return "Reverts the last change made to a Sketchware project's block logic. "
+                 + "Restores the logic file to its state before the previous set_event_logic, "
+                 + "add_block, modify_block, or delete_block call. "
+                 + "Each project has one undo level — call immediately after a mistake.";
+        }
+
+        @Override public JsonObject getParametersSchema() {
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject props = new JsonObject();
+            addProp(props, "sc_id", "string", "Project ID");
+            schema.add("properties", props);
+            JsonArray req = new JsonArray(); req.add("sc_id");
+            schema.add("required", req);
+            return schema;
+        }
+
+        @Override
+        public ToolResult execute(JsonObject args, ToolContext ctx) {
+            String scId = requireString(args, "sc_id");
+            if (scId == null) return error("sc_id is required");
+            if (!ctx.isProjectAllowed(scId)) return error("Access denied: project " + scId);
+
+            File logic = logicFile(ctx, scId);
+            File backup = new File(logic.getParentFile(), "logic.bak");
+            if (!backup.exists()) return error("No undo backup found for project " + scId
+                    + ". The undo backup is created just before the first AI block modification.");
+
+            try {
+                // Copy backup → logic
+                byte[] bak = java.nio.file.Files.readAllBytes(backup.toPath());
+                try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(logic, "rw")) {
+                    raf.setLength(0);
+                    raf.write(bak);
+                }
+                flushLogicCache(scId);
+                backup.delete();
+                return success("Undo successful. Block logic for project " + scId + " has been restored.");
+            } catch (Exception e) {
+                return error("Undo failed: " + e.getMessage());
+            }
         }
     }
 
