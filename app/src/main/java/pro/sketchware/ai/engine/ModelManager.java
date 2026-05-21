@@ -238,23 +238,27 @@ public final class ModelManager {
             }
 
             // Block until complete, timeout, or cancelled
-            synchronized (activeLock) {
-                long deadline = System.currentTimeMillis() + 120_000L;
-                while (!succeeded[0] && errorHolder[0] == null) {
-                    // Cancellation escape inside wait loop (Task 3)
-                    if (cancelFlag.get()) {
-                        if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
-                        return;
-                    }
-                    long remaining = deadline - System.currentTimeMillis();
-                    if (remaining <= 0) { errorHolder[0] = "Timeout after 120 s"; break; }
-                    try { activeLock.wait(Math.min(remaining, 500L)); }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
-                        return;
+            try {
+                synchronized (activeLock) {
+                    long deadline = System.currentTimeMillis() + 120_000L;
+                    while (!succeeded[0] && errorHolder[0] == null) {
+                        // Cancellation escape inside wait loop (Task 3)
+                        if (cancelFlag.get()) {
+                            if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
+                            return;
+                        }
+                        long remaining = deadline - System.currentTimeMillis();
+                        if (remaining <= 0) { errorHolder[0] = "Timeout after 120 s"; break; }
+                        try { activeLock.wait(Math.min(remaining, 500L)); }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
+                            return;
+                        }
                     }
                 }
+            } finally {
+                client.cancelAll();
             }
 
             if (succeeded[0]) {
