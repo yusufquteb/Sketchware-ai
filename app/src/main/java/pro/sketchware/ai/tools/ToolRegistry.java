@@ -165,6 +165,16 @@ public class ToolRegistry {
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetMoreBlocksTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.CreateMoreBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteMoreBlockTool());
+        // Phase 4: bulk block replacement + undo
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.SetEventLogicTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.UndoBlocksTool());
+        // Phase 4: variable & component CRUD
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.GetVariablesTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.AddVariableTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.DeleteVariableTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.GetComponentsTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.AddComponentTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.DeleteComponentTool());
 
         // ── UI Layout — describe, generate, add_xml, batch_patch, replace_subtree ──
         registry.register(new DesignXmlEditorTool.DescribeLayoutTool());
@@ -296,6 +306,16 @@ public class ToolRegistry {
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.GetMoreBlocksTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.CreateMoreBlockTool());
         registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.DeleteMoreBlockTool());
+        // Phase 4: bulk block replacement + undo
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.SetEventLogicTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.BlockApiTools.UndoBlocksTool());
+        // Phase 4: variable & component CRUD
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.GetVariablesTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.AddVariableTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.DeleteVariableTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.GetComponentsTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.AddComponentTool());
+        registry.register(new pro.sketchware.ai.tools.blocks.VariableAndComponentTools.DeleteComponentTool());
 
         // ── UI Layout — describe, generate, add_xml, batch_patch, replace_subtree ──
         registry.register(new DesignXmlEditorTool.DescribeLayoutTool());

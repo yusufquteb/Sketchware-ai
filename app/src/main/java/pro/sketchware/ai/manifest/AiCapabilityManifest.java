@@ -122,6 +122,14 @@ public final class AiCapabilityManifest {
         logic.add(new ToolEntry("get_moreblocks",       "List all custom MoreBlocks (functions)",     CAT_LOGIC, "ic_mtrl_functions"));
         logic.add(new ToolEntry("create_moreblock",     "Create a new custom MoreBlock",              CAT_LOGIC, "ic_mtrl_add_circle"));
         logic.add(new ToolEntry("delete_moreblock",     "Delete a custom MoreBlock",                  CAT_LOGIC, "ic_mtrl_delete"));
+        logic.add(new ToolEntry("set_event_logic",      "Replace all blocks in an event atomically",  CAT_LOGIC, "ic_mtrl_deployed_code"));
+        logic.add(new ToolEntry("undo_blocks",          "Undo last block write (restore backup)",     CAT_LOGIC, "ic_mtrl_undo"));
+        logic.add(new ToolEntry("get_variables",        "List all variables for an activity",         CAT_LOGIC, "ic_mtrl_data_object"));
+        logic.add(new ToolEntry("add_variable",         "Add a variable to an activity",              CAT_LOGIC, "ic_mtrl_add_box"));
+        logic.add(new ToolEntry("delete_variable",      "Delete a variable from an activity",         CAT_LOGIC, "ic_mtrl_delete"));
+        logic.add(new ToolEntry("get_components",       "List all components for an activity",        CAT_LOGIC, "ic_mtrl_widgets"));
+        logic.add(new ToolEntry("add_component",        "Add a component to an activity",             CAT_LOGIC, "ic_mtrl_add_circle"));
+        logic.add(new ToolEntry("delete_component",     "Delete a component from an activity",        CAT_LOGIC, "ic_mtrl_delete"));
         REGISTRY.put(CAT_LOGIC, logic);
 
         // ── Resources ──────────────────────────────────────────────────────────

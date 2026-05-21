@@ -6,13 +6,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+
 import pro.sketchware.util.SketchwareFileDecryptor;
-import pro.sketchware.util.SketchwareFileEncryptor;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -264,23 +264,25 @@ public final class BlockLogicWriter {
 
     private void pushUndo() throws IOException {
         if (logicFile.exists()) {
-            // Read via IA's proven decryptor (handles AES-encrypted logic files)
-            String absPath = logicFile.getAbsolutePath().replace("\\", "/");
-            String[] parts = absPath.split("/");
-            String rScId = null, rRel = null;
-            for (int i = 0; i < parts.length - 1; i++) {
-                if ("data".equals(parts[i]) && i + 1 < parts.length) {
-                    rScId = parts[i + 1]; rRel = parts[parts.length - 1]; break;
+            // Create a binary backup file alongside the logic file for UndoBlocksTool.
+            // The backup stores the raw encrypted bytes, so restore is trivial.
+            File backup = new File(logicFile.getParentFile(), "logic.bak");
+            if (!backup.exists()) {
+                // Only create backup once (before the first write in this session).
+                byte[] raw = java.nio.file.Files.readAllBytes(logicFile.toPath());
+                try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(backup, "rw")) {
+                    raf.setLength(0);
+                    raf.write(raw);
                 }
             }
+            // Also push decrypted snapshot to the in-memory undo stack
             String snapshot = "";
-            if (rScId != null) {
-                String dec = SketchwareFileDecryptor.decryptFile(rScId, rRel);
-                if (dec != null) snapshot = dec;
-            }
+            try {
+                snapshot = BlockLogicReader.readDecrypted(logicFile);
+            } catch (IOException ignored) {}
+            if (snapshot == null) snapshot = "";
             undoStack.push(snapshot);
             while (undoStack.size() > MAX_UNDO) {
-                // Remove oldest (bottom of deque)
                 String[] arr = undoStack.toArray(new String[0]);
                 undoStack.clear();
                 for (int i = 0; i < arr.length - 1; i++) undoStack.push(arr[i]);
@@ -289,33 +291,51 @@ public final class BlockLogicWriter {
     }
 
     /**
-     * Encrypts and saves the logic file using IA's proven encryptor.
-     * KEY = IV = "sketchwaresecure" — AES/CBC/PKCS5Padding.
+     * Encrypts and saves the logic file in Sketchware's native "@Section\n{JSON}" format.
+     * Uses AES/CBC/PKCS5Padding with KEY = IV = "sketchwaresecure".
      */
     private void writeRaw(String content) throws IOException {
+        // Derive scId and relPath from the file path
         String absPath = logicFile.getAbsolutePath().replace("\\", "/");
         String[] parts = absPath.split("/");
         String scId = null;
         String relPath = null;
         for (int i = 0; i < parts.length - 1; i++) {
             if ("data".equals(parts[i]) && i + 1 < parts.length) {
-                scId = parts[i + 1];
+                scId    = parts[i + 1];
                 relPath = parts[parts.length - 1];
                 break;
             }
         }
         if (scId != null && relPath != null) {
-            boolean saved = SketchwareFileEncryptor.encryptAndSaveFile(scId, relPath, content);
-            if (saved) {
-                // Flush jC logic cache
+            // Encrypt directly (bypass the shouldEncrypt JSON-detection heuristic
+            // which would incorrectly skip encryption for @-format content).
+            try {
+                byte[] key = "sketchwaresecure".getBytes(StandardCharsets.UTF_8);
+                javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding");
+                cipher.init(javax.crypto.Cipher.ENCRYPT_MODE,
+                        new javax.crypto.spec.SecretKeySpec(key, "AES"),
+                        new javax.crypto.spec.IvParameterSpec(key));
+                byte[] encrypted = cipher.doFinal(content.getBytes(StandardCharsets.UTF_8));
+                File parent = logicFile.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+                try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(logicFile, "rw")) {
+                    raf.setLength(0);
+                    raf.write(encrypted);
+                }
+                // Flush jC logic cache so the Logic Editor reloads
                 try { a.a.a.jC.a(scId, true); } catch (Throwable ignored) {}
                 return;
+            } catch (Exception e) {
+                throw new IOException("Encryption failed: " + e.getMessage(), e);
             }
         }
-        // Fallback: plain text write
+        // Fallback: plain text write (dev/test environments without proper path structure)
         File parent = logicFile.getParentFile();
         if (parent != null && !parent.exists()) parent.mkdirs();
-        try (Writer fw = new OutputStreamWriter(new FileOutputStream(logicFile), StandardCharsets.UTF_8)) { fw.write(content); }
+        try (Writer fw = new OutputStreamWriter(new FileOutputStream(logicFile), StandardCharsets.UTF_8)) {
+            fw.write(content);
+        }
     }
 
     /**
