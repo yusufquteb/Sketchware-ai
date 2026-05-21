@@ -214,17 +214,14 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             }
         });
 
-        // Free providers — show a "Visit Website" button; disable key input
+        // Free providers — disable key input and hide all key-related buttons
         if (!provider.requiresApiKey()) {
             h.inputApiKey.setEnabled(false);
             h.inputApiKey.setHint("No API key required — free access");
             h.inputApiKey.setText("");
             h.btnShowKey.setVisibility(View.GONE);
             h.btnCopyKey.setVisibility(View.GONE);
-            // Repurpose Get Key button as "Visit Website"
-            h.btnGetKey.setVisibility(View.VISIBLE);
-            h.getKeyLabel.setText("Free provider — visit " + getFreeProviderWebsite(provider));
-            h.btnGetKey.setOnClickListener(v -> callback.onGetKey(provider));
+            h.btnGetKey.setVisibility(View.GONE);
         } else {
             h.inputApiKey.setEnabled(true);
             h.inputApiKey.setHint("Enter API key");
@@ -266,16 +263,6 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             case SAMBANOVA:        return R.drawable.ic_provider_sambanova;
             // providers without dedicated icons — use generic stack icon
             default:               return R.drawable.ic_mtrl_code;
-        }
-    }
-
-    private static String getFreeProviderWebsite(AiProvider p) {
-        switch (p) {
-            case CHUTES:           return "api.airforce";
-            case GOOGLE_AI_STUDIO: return "aistudio.google.com";
-            case SAMBANOVA:        return "cloud.sambanova.ai";
-            case HUGGINGFACE:      return "huggingface.co";
-            default:               return p.getBaseUrl().replace("https://", "");
         }
     }
 
