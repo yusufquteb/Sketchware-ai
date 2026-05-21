@@ -227,6 +227,8 @@ public class CompileLogActivity extends BaseAppCompatActivity {
                 + "If not, paste the new errors.'\n\n"
                 + "FORMAT: concise, exact code, rebuild reminder. Reply in user's language.")
             .tools(tools)
+            .projectIds(scId != null ? java.util.Arrays.asList(scId) : new java.util.ArrayList<>())
+            .workspaceId(scId != null ? scId : "")
             .build();
 
         pro.sketchware.ai.shared.AiAssistantBottomSheet.newInstance(config)
