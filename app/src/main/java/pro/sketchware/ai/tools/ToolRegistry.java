@@ -304,6 +304,11 @@ public class ToolRegistry {
         registry.register(new ProjectTemplateTools.CreateFromTemplateTool());
         registry.register(new ProjectTemplateTools.AddLocaleStringsTool());
 
+        // ── Developer Utilities ───────────────────────────────────────────────
+        registry.register(new DevTools.WebSearchTool());
+        registry.register(new DevTools.LogcatFilterTool());
+        registry.register(new DevTools.ResourceOptimizerTool());
+
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
         registry.register(new AI_GitHub_Analyzer.GitHubSearchTool());
