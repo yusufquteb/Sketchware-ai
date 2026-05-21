@@ -2,26 +2,31 @@ package pro.sketchware.ai.tools;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import a.a.a.GB;
 import a.a.a.lC;
-import a.a.a.wq;
+import a.a.a.yB;
+import com.besome.sketch.editor.manage.library.material3.Material3LibraryManager;
+import mod.hey.studios.project.ProjectSettings;
+import mod.hey.studios.util.ProjectFile;
 import pro.sketchware.activities.importproject.ImportAndroidStudioProjectActivity;
 import pro.sketchware.ai.models.ToolResult;
-import pro.sketchware.importer.AndroidStudioProjectImporter;
 import pro.sketchware.utility.FilePathUtil;
-import pro.sketchware.utility.FileUtil;
 
 /**
  * AI Agent Tool: export_to_android_studio
@@ -35,18 +40,15 @@ import pro.sketchware.utility.FileUtil;
  */
 public final class ExportToAndroidStudioTool implements AgentTool {
 
-    private static final String TOOL_NAME        = "export_to_android_studio";
-    private static final int    BUFFER_SIZE      = 8192;
-    private static final String SKPRO_DIR_NAME   = ".skpro";
-    private static final String SNAPSHOT_DIR     = "data_snapshot";
-    private static final String METADATA_FILE    = "project_metadata.json";
+    private static final String TOOL_NAME      = "export_to_android_studio";
+    private static final int    BUFFER_SIZE    = 8192;
+    private static final String SNAPSHOT_DIR   = "data_snapshot";
+    private static final String METADATA_FILE  = "project_metadata.json";
 
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
-    public String getName() {
-        return TOOL_NAME;
-    }
+    public String getName() { return TOOL_NAME; }
 
     @Override
     public String getDescription() {
@@ -130,11 +132,10 @@ public final class ExportToAndroidStudioTool implements AgentTool {
         try {
             Intent intent = new Intent(appCtx, ImportAndroidStudioProjectActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            // Pass the exported ZIP path so the activity can pre-fill it
             intent.putExtra(ImportAndroidStudioProjectActivity.EXTRA_PRELOADED_ZIP_PATH,
                     outputZip.getAbsolutePath());
             appCtx.startActivity(intent);
-        } catch (Exception e) {
+        } catch (Exception ignored) {
             // Even if the Activity open fails, export succeeded
         }
 
@@ -163,12 +164,21 @@ public final class ExportToAndroidStudioTool implements AgentTool {
                                        File outputZip) throws Exception {
 
         FilePathUtil fpu = new FilePathUtil();
-        String dataDir   = wq.b(scId);         // .sketchware/data/<scId>
+        // Data dir: .sketchware/data/<scId>
+        String dataDir   = a.a.a.wq.b(scId);
         String javaDir   = fpu.getPathJava(scId);
         String resDir    = fpu.getPathResource(scId);
         String assetsDir = fpu.getPathAssets(scId);
 
         String base = safeAppName + "/";
+
+        // Read project SDK settings
+        ProjectSettings projectSettings = new ProjectSettings(scId);
+        int minSdk    = projectSettings.getMinSdkVersion();
+        int targetSdk = 34;
+
+        // Detect if Material3 is enabled for dependency selection
+        boolean isMaterial3 = new Material3LibraryManager(scId).isMaterial3Enabled();
 
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outputZip))) {
 
@@ -195,13 +205,17 @@ public final class ExportToAndroidStudioTool implements AgentTool {
                             + "org.gradle.jvmargs=-Xmx2048m\n");
 
             // ── app/build.gradle ──────────────────────────────────────────
-            addText(zos, base + "app/build.gradle", buildAppGradle(pkgName, verCode, verName));
+            addText(zos, base + "app/build.gradle",
+                    buildAppGradle(pkgName, verCode, verName, minSdk, targetSdk, isMaterial3));
 
             // ── AndroidManifest.xml ───────────────────────────────────────
-            String manifestPath = dataDir + "/AndroidManifest.xml";
-            if (new File(manifestPath).exists()) {
-                addFile(zos, base + "app/src/main/AndroidManifest.xml",
-                        new File(manifestPath));
+            String manifestSrc = dataDir + "/AndroidManifest.xml";
+            if (new File(manifestSrc).exists()) {
+                String manifestXml = readFileAsString(new File(manifestSrc));
+                // Strip deprecated package attribute — namespace is declared in build.gradle
+                manifestXml = manifestXml.replaceAll(
+                        "\\s+package\\s*=\\s*\"[^\"]*\"", "");
+                addText(zos, base + "app/src/main/AndroidManifest.xml", manifestXml);
             } else {
                 addText(zos, base + "app/src/main/AndroidManifest.xml",
                         buildDefaultManifest(pkgName, wsName));
@@ -210,35 +224,49 @@ public final class ExportToAndroidStudioTool implements AgentTool {
             // ── Java sources ──────────────────────────────────────────────
             File javaDirFile = new File(javaDir);
             if (javaDirFile.exists()) {
-                addDirectory(zos, javaDirFile,
-                        base + "app/src/main/java/");
+                addDirectory(zos, javaDirFile, base + "app/src/main/java/");
             }
 
-            // ── Resources ─────────────────────────────────────────────────
+            // ── SketchApplication.java + DebugActivity.java ───────────────
+            // These are required by the manifest but not included in project java sources.
+            String pkgPath = pkgName.replace('.', '/');
+            String javaBase = base + "app/src/main/java/" + pkgPath + "/";
+
+            String debugActivitySrc = readAssetTemplate(ctx, "debug/DebugActivity.java")
+                    .replaceAll("<\\?package_name\\?>", pkgName);
+            addText(zos, javaBase + "DebugActivity.java", debugActivitySrc);
+
+            String sketchAppSrc = readAssetTemplate(ctx, "debug/SketchApplication.java")
+                    .replaceAll("<\\?package_name\\?>", pkgName);
+            addText(zos, javaBase + "SketchApplication.java", sketchAppSrc);
+
+            // ── Resources (skip values/colors.xml and values/styles.xml) ──
             File resDirFile = new File(resDir);
             if (resDirFile.exists()) {
-                addDirectory(zos, resDirFile,
-                        base + "app/src/main/res/");
+                addDirectoryExcluding(zos, resDirFile, base + "app/src/main/res/",
+                        "values/colors.xml", "values/styles.xml");
             }
+
+            // ── Generated colors.xml + styles.xml ────────────────────────
+            addText(zos, base + "app/src/main/res/values/colors.xml",
+                    buildColorsXml(metadata));
+            addText(zos, base + "app/src/main/res/values/styles.xml",
+                    buildStylesXml(isMaterial3));
 
             // ── Assets ────────────────────────────────────────────────────
             File assetsDirFile = new File(assetsDir);
             if (assetsDirFile.exists()) {
-                addDirectory(zos, assetsDirFile,
-                        base + "app/src/main/assets/");
+                addDirectory(zos, assetsDirFile, base + "app/src/main/assets/");
             }
 
             // ── .skpro round-trip snapshot ────────────────────────────────
-            // This makes re-import completely lossless (all Sketchware metadata
-            // and logic blocks are preserved via restoreRoundTripProject)
             String skproBase = base + ".skpro/";
             addText(zos, skproBase + METADATA_FILE,
                     new com.google.gson.Gson().toJson(metadata));
 
             File dataDirFile = new File(dataDir);
             if (dataDirFile.exists()) {
-                addDirectory(zos, dataDirFile,
-                        skproBase + SNAPSHOT_DIR + "/data/");
+                addDirectory(zos, dataDirFile, skproBase + SNAPSHOT_DIR + "/data/");
             }
         }
     }
@@ -247,17 +275,21 @@ public final class ExportToAndroidStudioTool implements AgentTool {
     //  GRADLE TEMPLATES
     // ─────────────────────────────────────────────────────────────────────────
 
-    private String buildAppGradle(String pkgName, String verCode, String verName) {
+    private String buildAppGradle(String pkgName, String verCode, String verName,
+                                   int minSdk, int targetSdk, boolean isMaterial3) {
+        String materialDep = isMaterial3
+                ? "    implementation 'com.google.android.material:material:1.12.0'\n"
+                : "    implementation 'com.google.android.material:material:1.12.0'\n";
         return "plugins {\n"
                 + "    id 'com.android.application'\n"
                 + "}\n\n"
                 + "android {\n"
-                + "    compileSdk 34\n"
+                + "    compileSdk " + targetSdk + "\n"
                 + "    namespace '" + pkgName + "'\n\n"
                 + "    defaultConfig {\n"
                 + "        applicationId \"" + pkgName + "\"\n"
-                + "        minSdk 21\n"
-                + "        targetSdk 34\n"
+                + "        minSdk " + minSdk + "\n"
+                + "        targetSdk " + targetSdk + "\n"
                 + "        versionCode " + verCode + "\n"
                 + "        versionName \"" + verName + "\"\n"
                 + "    }\n\n"
@@ -274,7 +306,7 @@ public final class ExportToAndroidStudioTool implements AgentTool {
                 + "}\n\n"
                 + "dependencies {\n"
                 + "    implementation 'androidx.appcompat:appcompat:1.7.1'\n"
-                + "    implementation 'com.google.android.material:material:1.12.0'\n"
+                + materialDep
                 + "    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'\n"
                 + "}\n";
     }
@@ -283,9 +315,10 @@ public final class ExportToAndroidStudioTool implements AgentTool {
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
                 + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n"
                 + "    <application\n"
+                + "        android:name=\".SketchApplication\"\n"
                 + "        android:allowBackup=\"true\"\n"
                 + "        android:label=\"" + escXml(appName) + "\"\n"
-                + "        android:theme=\"@style/Theme.AppCompat.Light.DarkActionBar\">\n"
+                + "        android:theme=\"@style/AppTheme\">\n"
                 + "        <activity\n"
                 + "            android:name=\"." + appName.replaceAll("[^A-Za-z0-9]", "") + "Activity\"\n"
                 + "            android:exported=\"true\">\n"
@@ -299,26 +332,85 @@ public final class ExportToAndroidStudioTool implements AgentTool {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  RESOURCE GENERATORS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private String buildColorsXml(HashMap<String, Object> metadata) {
+        int colorPrimary         = intOf(metadata, ProjectFile.COLOR_PRIMARY,           Color.parseColor("#ff2196f3"));
+        int colorPrimaryDark     = intOf(metadata, ProjectFile.COLOR_PRIMARY_DARK,      Color.parseColor("#ff1976d2"));
+        int colorAccent          = intOf(metadata, ProjectFile.COLOR_ACCENT,            Color.parseColor("#ff2196f3"));
+        int colorOnPrimary       = intOf(metadata, ProjectFile.COLOR_ON_PRIMARY,        Color.WHITE);
+        int colorControlHighlight= intOf(metadata, ProjectFile.COLOR_CONTROL_HIGHLIGHT, Color.parseColor("#202196f3"));
+        int colorControlNormal   = intOf(metadata, ProjectFile.COLOR_CONTROL_NORMAL,    Color.parseColor("#ff2196f3"));
+
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                + "<resources>\n"
+                + "    <color name=\"colorPrimary\">"          + fmtColor(colorPrimary)          + "</color>\n"
+                + "    <color name=\"colorPrimaryDark\">"      + fmtColor(colorPrimaryDark)      + "</color>\n"
+                + "    <color name=\"colorAccent\">"           + fmtColor(colorAccent)           + "</color>\n"
+                + "    <color name=\"colorOnPrimary\">"        + fmtColor(colorOnPrimary)        + "</color>\n"
+                + "    <color name=\"colorControlHighlight\">" + fmtColor(colorControlHighlight) + "</color>\n"
+                + "    <color name=\"colorControlNormal\">"    + fmtColor(colorControlNormal)    + "</color>\n"
+                + "</resources>\n";
+    }
+
+    private String buildStylesXml(boolean isMaterial3) {
+        if (isMaterial3) {
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                    + "<resources>\n"
+                    + "    <style name=\"AppTheme\" parent=\"Theme.Material3.DayNight.NoActionBar\">\n"
+                    + "        <item name=\"android:statusBarColor\">@android:color/transparent</item>\n"
+                    + "        <item name=\"android:navigationBarColor\">@android:color/transparent</item>\n"
+                    + "    </style>\n"
+                    + "    <style name=\"AppTheme.FullScreen\" parent=\"AppTheme\">\n"
+                    + "        <item name=\"android:windowFullscreen\">true</item>\n"
+                    + "        <item name=\"android:windowContentOverlay\">@null</item>\n"
+                    + "    </style>\n"
+                    + "    <style name=\"AppTheme.DebugActivity\" parent=\"AppTheme\">\n"
+                    + "        <item name=\"windowActionBar\">true</item>\n"
+                    + "        <item name=\"windowNoTitle\">false</item>\n"
+                    + "    </style>\n"
+                    + "</resources>\n";
+        } else {
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                    + "<resources>\n"
+                    + "    <style name=\"AppTheme\" parent=\"Theme.MaterialComponents.Light.NoActionBar.Bridge\">\n"
+                    + "        <item name=\"colorPrimary\">@color/colorPrimary</item>\n"
+                    + "        <item name=\"colorPrimaryDark\">@color/colorPrimaryDark</item>\n"
+                    + "        <item name=\"colorAccent\">@color/colorAccent</item>\n"
+                    + "        <item name=\"colorOnPrimary\">@color/colorOnPrimary</item>\n"
+                    + "        <item name=\"colorControlHighlight\">@color/colorControlHighlight</item>\n"
+                    + "        <item name=\"colorControlNormal\">@color/colorControlNormal</item>\n"
+                    + "    </style>\n"
+                    + "    <style name=\"AppTheme.FullScreen\" parent=\"AppTheme\">\n"
+                    + "        <item name=\"android:windowFullscreen\">true</item>\n"
+                    + "        <item name=\"android:windowContentOverlay\">@null</item>\n"
+                    + "    </style>\n"
+                    + "    <style name=\"AppTheme.DebugActivity\" parent=\"AppTheme\">\n"
+                    + "        <item name=\"windowActionBar\">true</item>\n"
+                    + "        <item name=\"windowNoTitle\">false</item>\n"
+                    + "    </style>\n"
+                    + "</resources>\n";
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  ZIP HELPERS
     // ─────────────────────────────────────────────────────────────────────────
 
     private void addText(ZipOutputStream zos, String entryName, String text) throws IOException {
-        byte[] bytes = text.getBytes("UTF-8");
-        ZipEntry entry = new ZipEntry(entryName);
-        zos.putNextEntry(entry);
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        zos.putNextEntry(new ZipEntry(entryName));
         zos.write(bytes);
         zos.closeEntry();
     }
 
     private void addFile(ZipOutputStream zos, String entryName, File file) throws IOException {
-        ZipEntry entry = new ZipEntry(entryName);
-        zos.putNextEntry(entry);
+        zos.putNextEntry(new ZipEntry(entryName));
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] buf = new byte[BUFFER_SIZE];
             int len;
-            while ((len = fis.read(buf)) > 0) {
-                zos.write(buf, 0, len);
-            }
+            while ((len = fis.read(buf)) > 0) zos.write(buf, 0, len);
         }
         zos.closeEntry();
     }
@@ -327,11 +419,31 @@ public final class ExportToAndroidStudioTool implements AgentTool {
         File[] files = dir.listFiles();
         if (files == null) return;
         for (File f : files) {
-            if (f.isDirectory()) {
-                addDirectory(zos, f, zipBase + f.getName() + "/");
-            } else {
-                addFile(zos, zipBase + f.getName(), f);
+            if (f.isDirectory()) addDirectory(zos, f, zipBase + f.getName() + "/");
+            else addFile(zos, zipBase + f.getName(), f);
+        }
+    }
+
+    /** Like addDirectory but skips relative paths listed in {@code excludeRelPaths}. */
+    private void addDirectoryExcluding(ZipOutputStream zos, File dir, String zipBase,
+                                        String... excludeRelPaths) throws IOException {
+        addDirRecursiveExcl(zos, dir, dir, zipBase, excludeRelPaths);
+    }
+
+    private void addDirRecursiveExcl(ZipOutputStream zos, File root, File current,
+                                      String zipBase, String[] excludeRelPaths) throws IOException {
+        File[] files = current.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            // Build relative path from root for exclusion comparison
+            String relPath = root.toURI().relativize(f.toURI()).getPath();
+            boolean excluded = false;
+            for (String ex : excludeRelPaths) {
+                if (relPath.equals(ex) || relPath.equals(ex + "/")) { excluded = true; break; }
             }
+            if (excluded) continue;
+            if (f.isDirectory()) addDirRecursiveExcl(zos, root, f, zipBase + f.getName() + "/", excludeRelPaths);
+            else addFile(zos, zipBase + f.getName(), f);
         }
     }
 
@@ -339,11 +451,45 @@ public final class ExportToAndroidStudioTool implements AgentTool {
     //  UTILS
     // ─────────────────────────────────────────────────────────────────────────
 
+    /** Reads an Android asset file and returns it as a String. */
+    private String readAssetTemplate(Context ctx, String assetPath) throws IOException {
+        try (InputStream is = ctx.getAssets().open(assetPath);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) sb.append(line).append('\n');
+            return sb.toString();
+        }
+    }
+
+    /** Reads a file from the filesystem as a UTF-8 String. */
+    private String readFileAsString(File file) throws IOException {
+        try (InputStream is = new FileInputStream(file);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) sb.append(line).append('\n');
+            return sb.toString();
+        }
+    }
+
     private String strOf(HashMap<String, Object> map, String key, String fallback) {
         Object v = map.get(key);
         if (v == null) return fallback;
         String s = String.valueOf(v).trim();
         return s.isEmpty() ? fallback : s;
+    }
+
+    private int intOf(HashMap<String, Object> map, String key, int fallback) {
+        try { return yB.a(map, key, fallback); } catch (Exception e) { return fallback; }
+    }
+
+    /** Formats an ARGB int color as #RRGGBB or #AARRGGBB. */
+    private String fmtColor(int color) {
+        if ((color & 0xFF000000) == 0 && color != 0) color |= 0xFF000000;
+        int alpha = (color >> 24) & 0xff;
+        if (alpha != 0xff) return String.format("#%08X", color);
+        return String.format("#%06X", 0xFFFFFF & color);
     }
 
     private String escXml(String s) {
