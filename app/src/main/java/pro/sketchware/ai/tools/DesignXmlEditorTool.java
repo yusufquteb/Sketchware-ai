@@ -11,9 +11,13 @@ import com.google.gson.JsonSyntaxException;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,7 +130,7 @@ public final class DesignXmlEditorTool {
         }
         // Fallback: plain text read
         StringBuilder sb = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
             char[] buf = new char[4096]; int n;
             while ((n = br.read(buf)) != -1) sb.append(buf, 0, n);
         }
@@ -154,7 +158,7 @@ public final class DesignXmlEditorTool {
         // Fallback: plain text write
         File parent = f.getParentFile();
         if (parent != null && !parent.exists()) parent.mkdirs();
-        try (FileWriter fw = new FileWriter(f)) { fw.write(content); }
+        try (Writer fw = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) { fw.write(content); }
     }
 
     // ── @section ↔ JSON-array bridge helpers ─────────────────────────────────

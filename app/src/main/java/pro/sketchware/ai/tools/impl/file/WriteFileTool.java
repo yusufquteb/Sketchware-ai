@@ -8,8 +8,10 @@ import org.json.JSONObject;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 
 import pro.sketchware.ai.tools.Tool;
 
@@ -118,7 +120,7 @@ public class WriteFileTool implements Tool {
 
         // ── 4. Write file ──────────────────────────────────────────────────
         boolean existed = file.exists();
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, append))) {
+        try (BufferedWriter writer = new java.io.BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, append), StandardCharsets.UTF_8))) {
             writer.write(content);
             writer.flush();
         } catch (IOException e) {

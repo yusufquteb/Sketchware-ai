@@ -5,8 +5,10 @@ import com.google.gson.JsonObject;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -403,7 +405,7 @@ public final class BuildRepairTool {
         private String readFile(File file) {
             if (!file.exists()) return null;
             StringBuilder sb = new StringBuilder();
-            try (BufferedReader r = new BufferedReader(new FileReader(file))) {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = r.readLine()) != null) sb.append(line).append("\n");
                 return sb.toString();

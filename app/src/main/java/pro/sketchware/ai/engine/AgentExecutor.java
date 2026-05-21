@@ -459,34 +459,57 @@ public class AgentExecutor {
         appendToolGroup(sb, all, "EXPORT",
             "export_to_android_studio");
         appendToolGroup(sb, all, "UI TOOLS — USE THESE FOR ALL SCREEN CHANGES",
-            "generate_layout", "generate_layout_from_description",
-            "add_view_xml", "describe_layout",
-            "describe_layout_live", "add_view_live", "modify_view_live", "remove_view_live");
+            "generate_layout", "add_view_xml", "describe_layout",
+            "batch_patch_views", "replace_subtree", "add_view", "modify_view", "remove_view");
         sb.append("\n\u26a1 PREFERRED for UI generation:\n");
-        sb.append("   generate_layout / generate_layout_from_description: full screen from description.\n");
+        sb.append("   generate_layout: full screen from description.\n");
         sb.append("   add_view_xml: append XML views to existing layout.\n");
-        sb.append("   Both use ViewBeanParser → jC.c.put → live canvas reload (IA proven path).\n\n");
+        sb.append("   Both use ViewBeanParser → jC.c.put → live canvas reload.\n\n");
         appendToolGroup(sb, all, "CODE ANALYSIS & QUALITY",
-            "analyze_code","review_source_code","validate_rtl_layout");
-        appendToolGroup(sb, all, "LIBRARY DISCOVERY", "search_maven");
+            "analyze_code","review_source_code","validate_rtl_layout","analyze_build_error",
+            "check_project_health","index_project","search_in_file");
+        appendToolGroup(sb, all, "LIBRARY DISCOVERY",
+            "search_maven","scan_dependencies","validate_gradle_dependency");
         appendToolGroup(sb, all, "APP TEMPLATES & LOCALIZATION",
-            "create_from_template","add_locale_strings");
+            "create_from_template","add_locale_strings","create_locale_strings","extract_strings");
+        appendToolGroup(sb, all, "DEVELOPER UTILITIES",
+            "web_search","filter_logcat","analyze_unused_resources");
+        appendToolGroup(sb, all, "GITHUB INTELLIGENCE",
+            "github_compare","github_search");
+        appendToolGroup(sb, all, "SURGICAL FILE EDITING",
+            "patch_file","append_code","insert_code_at_line","read_file_range");
+        appendToolGroup(sb, all, "RESOURCES — DRAWABLES & STRINGS",
+            "create_drawable","extract_strings","create_locale_strings",
+            "scan_unused_resources","delete_unused_resources",
+            "read_raw_resource_file","write_raw_resource_file");
+        appendToolGroup(sb, all, "BUILD REPAIR",
+            "analyze_build_error","check_project_health","build_with_r8","set_build_compiler");
 
-        // ── Any remaining tools ────────────────────────────────────────────
+        // ── Any remaining tools not yet listed above ───────────────────────
         java.util.Set<String> listed = new java.util.HashSet<>(java.util.Arrays.asList(
             "list_projects","get_project_info","create_project","delete_project","duplicate_project",
             "read_file","write_file","delete_file","list_files","copy_file","move_file",
+            "global_search","get_recent_logs",
             "list_activities","get_screen_source","create_activity","delete_activity",
             "get_layout","edit_layout","describe_layout","add_view","modify_view","remove_view",
+            "add_view_xml","generate_layout","batch_patch_views","replace_subtree",
             "get_activity_events","get_event_blocks","add_block","modify_block","delete_block",
-            "get_moreblocks","create_moreblock","delete_moreblock",
+            "get_moreblocks","create_moreblock","delete_moreblock","describe_block_logic",
             "add_string_resource","add_color_resource","list_resources",
+            "create_drawable","extract_strings","create_locale_strings",
+            "scan_unused_resources","delete_unused_resources",
+            "read_raw_resource_file","write_raw_resource_file",
             "list_libraries","add_library","remove_library",
             "attach_local_library","detach_local_library","download_dependency","validate_libraries",
+            "search_maven","scan_dependencies","validate_gradle_dependency",
             "build_project","build_with_r8","set_build_compiler",
             "get_compile_logs","get_project_structure","export_to_android_studio",
+            "analyze_build_error","check_project_health","index_project",
             "analyze_code","review_source_code","validate_rtl_layout",
-            "search_maven","create_from_template","add_locale_strings"
+            "search_in_file","patch_file","append_code","insert_code_at_line","read_file_range",
+            "create_from_template","add_locale_strings",
+            "web_search","filter_logcat","analyze_unused_resources",
+            "github_compare","github_search"
         ));
         StringBuilder extras = new StringBuilder();
         for (AgentTool t : all) {
@@ -725,14 +748,33 @@ public class AgentExecutor {
                     sb.append("  2. Call create_moreblock for each function\n");
                     sb.append("  3. Use add_block with addSourceDirectly for Java code\n");
                     break;
-                case "libraries":
-                    sb.append("Launched from: Library Manager screen\n");
-                    sb.append("User goal: Audit and improve project dependencies\n");
-                    sb.append("Action plan:\n");
-                    sb.append("  1. Call list_libraries to see current state\n");
-                    sb.append("  2. Call validate_libraries to check compatibility\n");
-                    sb.append("  3. Use add_library / attach_local_library as needed\n");
+                case "library_editor":
+                case "libraries": {
+                    // Parse sc_id from context lines if present
+                    String libScId = null;
+                    for (String cl : pageContext.split("\\n")) {
+                        if (cl.startsWith("sc_id:")) libScId = cl.replace("sc_id:", "").trim();
+                    }
+                    sb.append("Launched from: Library Manager\n");
+                    if (libScId != null && !libScId.isEmpty())
+                        sb.append("Project sc_id: ").append(libScId).append("\n");
+                    sb.append("User goal: Search, add, remove, and audit project libraries\n\n");
+                    sb.append("AVAILABLE LIBRARY TOOLS:\n");
+                    sb.append("  list_libraries(sc_id)          — show all enabled libraries\n");
+                    sb.append("  validate_libraries(sc_id)      — check for conflicts/compatibility\n");
+                    sb.append("  search_maven(query)            — find a library on Maven Central\n");
+                    sb.append("  download_dependency(sc_id,...) — download + attach a Maven lib\n");
+                    sb.append("  add_library(sc_id, name)       — enable a built-in library\n");
+                    sb.append("  remove_library(sc_id, name)    — disable a library\n");
+                    sb.append("  attach_local_library(sc_id,..) — attach a local .jar/.aar\n");
+                    sb.append("  detach_local_library(sc_id,..) — detach a local library\n");
+                    sb.append("  scan_dependencies(sc_id)       — scan for dependency issues\n\n");
+                    sb.append("RULES:\n");
+                    sb.append("  • Always call list_libraries first so you know what's already there\n");
+                    sb.append("  • Call validate_libraries after adding/removing to confirm no conflicts\n");
+                    sb.append("  • Never add a library without confirming the exact Maven coordinate\n");
                     break;
+                }
                 case "source_editor":
                     sb.append("Launched from: Source Code Editor\n");
                     sb.append("User goal: Review or improve Java source code\n");
@@ -970,9 +1012,8 @@ public class AgentExecutor {
             sb.append("• list_files / read_file / write_file: only paths inside sc_id=").append(pid).append(".\n");
             sb.append("• global_search: searches ONLY the files of project ").append(pid).append(", not other projects.\n");
             sb.append("• You CANNOT read, write, or create files in any other project.\n");
-            if (pageContext != null && (pageContext.equals("design_editor") || pageContext.equals("resource_editor"))) {
-                sb.append("• Page scope active: prefer describe_layout_live / add_view_live / modify_view_live\n");
-                sb.append("  for instant live-preview changes without restarting the project.\n");
+            if (pageContext != null && pageContext.startsWith("design_editor")) {
+                sb.append("• Page scope: use generate_layout and add_view_xml — they write directly to the live canvas.\n");
             }
         } else if (projectIds != null && !projectIds.isEmpty()) {
             sb.append("Scope: GLOBAL WORKSPACE\n");
@@ -1080,6 +1121,5 @@ public class AgentExecutor {
         AiApiClient client = currentClient;
         if (client != null) client.cancelAll();
         if (!executor.isShutdown()) executor.shutdownNow();
-        executor.shutdownNow();
     }
 }
