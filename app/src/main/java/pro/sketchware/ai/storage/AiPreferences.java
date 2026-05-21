@@ -373,4 +373,30 @@ public class AiPreferences {
         }
         return null;
     }
+
+    // ── Agent execution settings ────────────────────────────────────────────
+
+    private static final String KEY_PULSE_STEPS       = "ai_pulse_steps";
+    private static final String KEY_REQUEST_TIMEOUT   = "ai_request_timeout_s";
+
+    /**
+     * Number of tool calls between pulse confirmation dialogs (default 6).
+     * Higher values = fewer interruptions; lower = more control.
+     */
+    public int getPulseSteps() {
+        return prefs.getInt(KEY_PULSE_STEPS, 6);
+    }
+
+    public void setPulseSteps(int steps) {
+        prefs.edit().putInt(KEY_PULSE_STEPS, Math.max(1, steps)).apply();
+    }
+
+    /** Per-model request timeout in seconds (default 120). */
+    public int getRequestTimeoutSecs() {
+        return prefs.getInt(KEY_REQUEST_TIMEOUT, 120);
+    }
+
+    public void setRequestTimeoutSecs(int secs) {
+        prefs.edit().putInt(KEY_REQUEST_TIMEOUT, Math.max(30, secs)).apply();
+    }
 }

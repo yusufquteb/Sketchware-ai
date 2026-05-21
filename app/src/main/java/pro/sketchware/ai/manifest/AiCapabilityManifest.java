@@ -87,8 +87,11 @@ public final class AiCapabilityManifest {
         activities.add(new ToolEntry("get_screen_source",  "Get the Java source of an activity",       CAT_ACTIVITIES, "ic_mtrl_code"));
         activities.add(new ToolEntry("create_activity",    "Add a new screen/activity",                CAT_ACTIVITIES, "ic_mtrl_add_circle"));
         activities.add(new ToolEntry("delete_activity",    "Remove a screen/activity",                 CAT_ACTIVITIES, "ic_mtrl_delete"));
-        activities.add(new ToolEntry("add_activity",       "Add an activity entry to the manifest",    CAT_ACTIVITIES, "ic_mtrl_add_box"));
-        activities.add(new ToolEntry("add_permission",     "Add a manifest permission",                CAT_ACTIVITIES, "ic_mtrl_security"));
+        activities.add(new ToolEntry("add_activity",            "Add an activity entry to the manifest",        CAT_ACTIVITIES, "ic_mtrl_add_box"));
+        activities.add(new ToolEntry("add_permission",          "Add a manifest permission",                    CAT_ACTIVITIES, "ic_mtrl_security"));
+        activities.add(new ToolEntry("read_manifest",           "Read the full AndroidManifest XML",            CAT_ACTIVITIES, "ic_mtrl_description"));
+        activities.add(new ToolEntry("edit_manifest_attribute", "Set/update an attribute in AndroidManifest",   CAT_ACTIVITIES, "ic_mtrl_edit"));
+        activities.add(new ToolEntry("add_manifest_tag",        "Insert any XML tag into AndroidManifest",      CAT_ACTIVITIES, "ic_mtrl_add_box"));
         REGISTRY.put(CAT_ACTIVITIES, activities);
 
         // ── UI Layout & Design ─────────────────────────────────────────────────
@@ -155,6 +158,7 @@ public final class AiCapabilityManifest {
         build.add(new ToolEntry("get_compile_logs",     "Get the latest compilation logs",             CAT_BUILD, "ic_mtrl_log"));
         build.add(new ToolEntry("analyze_build_error",  "Classify build errors + generate repair plan", CAT_BUILD, "ic_mtrl_troubleshoot"));
         build.add(new ToolEntry("get_project_structure","Show the project file/folder structure",      CAT_BUILD, "ic_mtrl_account_tree"));
+        build.add(new ToolEntry("run_lint",             "Run lightweight static analysis on Java sources", CAT_BUILD, "ic_mtrl_checklist"));
         REGISTRY.put(CAT_BUILD, build);
 
         // ── AI-Powered Tools ───────────────────────────────────────────────────
