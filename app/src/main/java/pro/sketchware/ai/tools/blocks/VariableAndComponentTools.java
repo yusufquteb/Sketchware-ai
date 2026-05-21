@@ -83,7 +83,9 @@ public final class VariableAndComponentTools {
                     if (!trimmed.isEmpty()) result.get(currentSection).add(trimmed);
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            android.util.Log.w("VarCompTools", "readAtFile(" + scId + ", " + fileName + ") failed", e);
+        }
         return result;
     }
 
@@ -243,9 +245,7 @@ public final class VariableAndComponentTools {
             Map<String, List<String>> sections = readAtFile(scId, fileName);
             List<String> lines = sections.computeIfAbsent(sectionKey, k -> new ArrayList<>());
 
-            // Check for duplicate
-            String entry = typeCode + ":" + name;
-            if (lines.contains(entry))
+            if (lines.stream().anyMatch(l -> l.endsWith(":" + name)))
                 return error("Variable '" + name + "' already exists in activity " + actName);
 
             lines.add(entry);
