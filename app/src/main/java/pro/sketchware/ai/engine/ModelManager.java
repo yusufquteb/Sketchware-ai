@@ -215,53 +215,84 @@ public final class ModelManager {
                         + "/" + am.modelId + " (attempt " + attemptCount + ")");
             }
 
-            // ── Try this model ─────────────────────────────────────────────
-            final boolean[] succeeded   = { false };
-            final String[]  errorHolder = { null };
-
-            StreamingResponseHandler handler = new StreamingResponseHandler() {
-                @Override public void onChunk(String textDelta)        { callback.onStreamChunk(textDelta); }
-                @Override public void onToolCall(ToolCall toolCall) {
-                    String name    = toolCall != null ? toolCall.getName()      : "";
-                    String argsJson = toolCall != null ? toolCall.getArguments() : "{}";
-                    callback.onToolCall(name, argsJson);
+            // ── Try this model with retry for network/timeout errors ────────
+            boolean modelSucceeded = false;
+            final int MAX_RETRIES = 2;
+            for (int retry = 0; retry <= MAX_RETRIES && !modelSucceeded; retry++) {
+                if (cancelFlag.get()) {
+                    if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
+                    return;
                 }
-                @Override public void onComplete(String fullResponse)  { succeeded[0] = true;  synchronized (activeLock) { activeLock.notifyAll(); } }
-                @Override public void onError(String error)            { errorHolder[0] = error; synchronized (activeLock) { activeLock.notifyAll(); } }
-            };
-
-            Log.d(TAG, "Trying " + provider + " / " + am.modelId);
-            if (tools != null && !tools.isEmpty()) {
-                client.sendChatRequest(messages, am.modelId, systemPrompt, tools, handler);
-            } else {
-                client.sendChatRequest(messages, am.modelId, systemPrompt, handler);
-            }
-
-            // Block until complete, timeout, or cancelled
-            try {
-                synchronized (activeLock) {
-                    long deadline = System.currentTimeMillis() + 120_000L;
-                    while (!succeeded[0] && errorHolder[0] == null) {
-                        // Cancellation escape inside wait loop (Task 3)
-                        if (cancelFlag.get()) {
-                            if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
-                            return;
-                        }
-                        long remaining = deadline - System.currentTimeMillis();
-                        if (remaining <= 0) { errorHolder[0] = "Timeout after 120 s"; break; }
-                        try { activeLock.wait(Math.min(remaining, 500L)); }
-                        catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
-                            return;
-                        }
+                if (retry > 0) {
+                    // Exponential backoff: 2s, 4s
+                    long backoffMs = 2000L << (retry - 1);
+                    Log.d(TAG, "Retry " + retry + " for " + provider + "/" + am.modelId + " after " + backoffMs + "ms");
+                    try { Thread.sleep(backoffMs); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
+                        return;
                     }
                 }
-            } finally {
-                client.cancelAll();
+
+                final boolean[] succeeded   = { false };
+                final String[]  errorHolder = { null };
+
+                StreamingResponseHandler handler = new StreamingResponseHandler() {
+                    @Override public void onChunk(String textDelta)        { callback.onStreamChunk(textDelta); }
+                    @Override public void onToolCall(ToolCall toolCall) {
+                        String name    = toolCall != null ? toolCall.getName()      : "";
+                        String argsJson = toolCall != null ? toolCall.getArguments() : "{}";
+                        callback.onToolCall(name, argsJson);
+                    }
+                    @Override public void onComplete(String fullResponse)  { succeeded[0] = true;  synchronized (activeLock) { activeLock.notifyAll(); } }
+                    @Override public void onError(String error)            { errorHolder[0] = error; synchronized (activeLock) { activeLock.notifyAll(); } }
+                };
+
+                Log.d(TAG, "Trying " + provider + " / " + am.modelId + (retry > 0 ? " (retry " + retry + ")" : ""));
+                if (tools != null && !tools.isEmpty()) {
+                    client.sendChatRequest(messages, am.modelId, systemPrompt, tools, handler);
+                } else {
+                    client.sendChatRequest(messages, am.modelId, systemPrompt, handler);
+                }
+
+                // Block until complete, timeout, or cancelled
+                try {
+                    synchronized (activeLock) {
+                        long timeoutMs = prefs.getRequestTimeoutSecs() * 1000L;
+                        long deadline = System.currentTimeMillis() + timeoutMs;
+                        while (!succeeded[0] && errorHolder[0] == null) {
+                            if (cancelFlag.get()) {
+                                if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
+                                return;
+                            }
+                            long remaining = deadline - System.currentTimeMillis();
+                            if (remaining <= 0) { errorHolder[0] = "Timeout"; break; }
+                            try { activeLock.wait(Math.min(remaining, 500L)); }
+                            catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
+                                return;
+                            }
+                        }
+                    }
+                } finally {
+                    client.cancelAll();
+                }
+
+                if (succeeded[0]) {
+                    modelSucceeded = true;
+                    break;
+                }
+
+                lastError = errorHolder[0] != null ? errorHolder[0] : "Unknown error";
+                boolean isRetryable = isNetworkError(lastError);
+                if (!isRetryable) break; // Auth/model errors — skip retries, try next model
+                if (retry < MAX_RETRIES) {
+                    Log.w(TAG, "Retryable error on " + provider + "/" + am.modelId + ": " + lastError);
+                }
             }
 
-            if (succeeded[0]) {
+            if (modelSucceeded) {
                 if (!alreadyResolved[0]) {
                     alreadyResolved[0] = true;
                     if (pro.sketchware.BuildConfig.DEBUG) {
@@ -274,7 +305,6 @@ public final class ModelManager {
                 return;
             }
 
-            lastError = errorHolder[0] != null ? errorHolder[0] : "Unknown error";
             if (pro.sketchware.BuildConfig.DEBUG) {
                 Log.d("PulseEngine", "[Pulse] " + provider.getDisplayName() + "/" + am.modelId
                         + " failed: " + lastError + " → switching");
@@ -359,5 +389,22 @@ public final class ModelManager {
     /** Returns true for providers that work without an API key. */
     private boolean isNoKeyProvider(AiProvider p) {
         return p == AiProvider.CHUTES;
+    }
+
+    /**
+     * Returns true if the error is a transient network/timeout issue worth retrying.
+     * Auth failures, rate limits, and model errors are not retried.
+     */
+    private static boolean isNetworkError(String error) {
+        if (error == null) return false;
+        String lower = error.toLowerCase();
+        return lower.contains("timeout")
+                || lower.contains("connect")
+                || lower.contains("socket")
+                || lower.contains("network")
+                || lower.contains("i/o")
+                || lower.contains("reset")
+                || lower.contains("eof")
+                || lower.contains("ssl");
     }
 }

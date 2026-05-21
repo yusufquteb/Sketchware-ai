@@ -19,6 +19,8 @@ import a.a.a.Yv;
 import a.a.a.mB;
 import a.a.a.ow;
 import pro.sketchware.R;
+import pro.sketchware.ai.shared.AiAssistantBottomSheet;
+import pro.sketchware.ai.shared.AiPageConfig;
 import pro.sketchware.databinding.ManageSoundBinding;
 
 public class ManageSoundActivity extends BaseAppCompatActivity implements ViewPager.OnPageChangeListener {
@@ -71,6 +73,14 @@ public class ManageSoundActivity extends BaseAppCompatActivity implements ViewPa
             }
         });
         sc_id = savedInstanceState == null ? getIntent().getStringExtra("sc_id") : savedInstanceState.getString("sc_id");
+        binding.toolbar.inflateMenu(R.menu.compile_log_menu);
+        binding.toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_ai_fix && sc_id != null) {
+                openSoundAi();
+                return true;
+            }
+            return false;
+        });
 
         binding.viewPager.setAdapter(new PagerAdapter(getSupportFragmentManager()));
         binding.viewPager.setOffscreenPageLimit(TAB_COUNT);
@@ -132,6 +142,34 @@ public class ManageSoundActivity extends BaseAppCompatActivity implements ViewPa
         public void a(String str) {
             activityWeakReference.get().h();
         }
+    }
+
+    private void openSoundAi() {
+        java.util.List<AiPageConfig.Tool> tools = new java.util.ArrayList<>();
+        tools.add(new AiPageConfig.Tool("Sound Assets", R.drawable.ic_mtrl_box));
+        tools.add(AiPageConfig.Tool.ai("List Project Sounds",
+                R.drawable.ic_mtrl_box,
+                "List all sound files in project " + sc_id + "."));
+        tools.add(AiPageConfig.Tool.ai("Suggest Sound Effects",
+                R.drawable.ic_mtrl_article,
+                "Suggest appropriate sound effects for my Android app."));
+
+        AiPageConfig config = new AiPageConfig.Builder()
+                .pageTitle("Sound Manager AI")
+                .scopeLabel("Project: " + sc_id)
+                .inputHint("Ask about sound assets…")
+                .systemPrompt("You are an Android audio/sound resource assistant inside Sketchware Pro.\n"
+                        + "Project sc_id: " + sc_id + "\n"
+                        + "Help the user manage sound files and audio resources.\n"
+                        + "Use read_file and list_files tools to inspect sound assets.\n"
+                        + "Reply in the user's language.")
+                .tools(tools)
+                .projectIds(java.util.Arrays.asList(sc_id))
+                .workspaceId(sc_id)
+                .build();
+
+        AiAssistantBottomSheet.newInstance(config)
+                .show(getSupportFragmentManager(), "sound_ai");
     }
 
     private class PagerAdapter extends FragmentPagerAdapter {
