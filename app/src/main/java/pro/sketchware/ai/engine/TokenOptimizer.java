@@ -32,10 +32,38 @@ public final class TokenOptimizer {
     public static final int SUMMARY_THRESHOLD = 10;
 
     /**
-     * Maximum number of characters to keep from a single tool result.
-     * Tool results larger than this are trimmed: first 2 000 + last 1 000 chars.
+     * Default maximum characters to keep from a single tool result.
+     * Tool results larger than this are trimmed: first 2/3 + last 1/3 chars.
      */
-    public static final int MAX_TOOL_CHARS = 3_000;
+    public static final int MAX_TOOL_CHARS = 5_000;
+
+    /**
+     * Per-tool character limits — tools that return large structured output get
+     * a higher budget; lightweight tools use the default.
+     */
+    private static final java.util.Map<String, Integer> TOOL_CHAR_LIMITS;
+    static {
+        java.util.Map<String, Integer> m = new java.util.HashMap<>();
+        m.put("build_project",       15_000);
+        m.put("get_compile_logs",    12_000);
+        m.put("analyze_build_error",  8_000);
+        m.put("list_libraries",      10_000);
+        m.put("search_maven",         5_000);
+        m.put("get_layout",           6_000);
+        m.put("read_file",            6_000);
+        m.put("read_file_range",      4_000);
+        m.put("get_screen_source",    6_000);
+        m.put("describe_block_logic", 5_000);
+        m.put("global_search",        5_000);
+        m.put("list_files",           4_000);
+        TOOL_CHAR_LIMITS = java.util.Collections.unmodifiableMap(m);
+    }
+
+    /** Returns the char limit for a specific tool, falling back to {@link #MAX_TOOL_CHARS}. */
+    public static int getCharLimitForTool(String toolName) {
+        if (toolName == null) return MAX_TOOL_CHARS;
+        return TOOL_CHAR_LIMITS.getOrDefault(toolName, MAX_TOOL_CHARS);
+    }
 
     /**
      * Hard cap on the number of messages sent in one API request.
@@ -296,14 +324,15 @@ public final class TokenOptimizer {
     private static ChatMessage maybeTrimToolResult(ChatMessage m) {
         if (!"tool".equals(m.getRole())) return m;
         String content = m.getContent();
-        if (content == null || content.length() <= MAX_TOOL_CHARS) return m;
+        if (content == null) return m;
+        int limit = getCharLimitForTool(m.getToolName());
+        if (content.length() <= limit) return m;
 
-        int headLen = MAX_TOOL_CHARS * 2 / 3;   // ~2 000 chars
-        int tailLen = MAX_TOOL_CHARS - headLen;  // ~1 000 chars
+        int headLen = limit * 2 / 3;
+        int tailLen = limit - headLen;
         String trimmed = content.substring(0, headLen)
                 + "\n… [" + (content.length() - headLen - tailLen) + " chars omitted to save tokens] …\n"
                 + content.substring(content.length() - tailLen);
-        // Return a new ChatMessage with trimmed content
         return ChatMessage.toolResultMessage(m.getToolCallId(), m.getToolName(), trimmed);
     }
 

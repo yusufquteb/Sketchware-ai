@@ -49,8 +49,8 @@ public class AgentExecutor {
 
     private static final int  SAFETY_TOOL_ITERATION_LIMIT = 200;
     private static final long STREAM_TIMEOUT_MS   = 120_000L;  // 120s per request
-    /** After how many tool iterations we pause and show Continue/Cancel. */
-    private static final int  PULSE_STEPS         = 6;  // every 6 tool calls — less interruption for complex tasks
+    /** Default pulse steps — can be overridden by AiPreferences.getPulseSteps(). */
+    private static final int  PULSE_STEPS_DEFAULT  = 6;
     /** Countdown seconds before Continue is auto-selected. */
     private static final int  PULSE_AUTO_SECS     = 10;
     /** Ordered failover providers (tried in sequence on timeout/error). */
@@ -307,7 +307,8 @@ public class AgentExecutor {
 
                         // ── Pulse: pause after every N tool calls for Continue/Cancel ────
                         toolCallCount++;
-                        if (pulseCallback != null && toolCallCount % PULSE_STEPS == 0 && !isCancelled.get()) {
+                        int pulseSteps = preferences.getPulseSteps();
+                        if (pulseCallback != null && toolCallCount % pulseSteps == 0 && !isCancelled.get()) {
                             pulseLatch = new java.util.concurrent.CountDownLatch(1);
                             final boolean[] cancelled = {false};
                             final String stepSummary = "Tool " + toolCallCount

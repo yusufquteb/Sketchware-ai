@@ -413,8 +413,23 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
             if (actionId == EditorInfo.IME_ACTION_SEND) { sendUserMessage(); return true; }
             return false;
         });
-        binding.libAiBtnSend.setOnClickListener(v -> sendUserMessage());
+        binding.libAiBtnSend.setOnClickListener(v -> {
+            if (isAgentRunning) stopAgent();
+            else sendUserMessage();
+        });
         binding.libAiBtnMic.setOnClickListener(v -> launchVoiceInput());
+    }
+
+    private void stopAgent() {
+        if (agentExecutor != null) agentExecutor.shutdown();
+    }
+
+    private void setAgentRunning(boolean running) {
+        isAgentRunning = running;
+        if (binding == null) return;
+        binding.libAiBtnSend.setIconResource(running
+                ? pro.sketchware.R.drawable.ic_mtrl_cancel
+                : pro.sketchware.R.drawable.ic_chat_send);
     }
 
     private void launchVoiceInput() {
@@ -485,7 +500,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
         }
         String modelId = preferences.getSelectedModel(provider);
 
-        isAgentRunning = true;
+        setAgentRunning(true);
         startPulse();
 
         chatHistory.add(ChatMessage.userMessage(null, userText));
@@ -526,26 +541,32 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
                     if (tc != null) binding.libAiTypingText.setText("⚙ " + tc.getName() + "…");
                 });
             }
-            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {}
+            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {
+                if (status != null && !status.isEmpty()) {
+                    requireActivity().runOnUiThread(() -> {
+                        if (binding != null) binding.libAiTypingText.setText(status);
+                    });
+                }
+            }
             @Override public void onToolCallCompleted(ToolCall tc, ToolResult result) {}
             @Override public void onToolMessage(ChatMessage msg) {}
             @Override public void onResponseComplete(ChatMessage msg) {
                 requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                     if (actionListener != null) actionListener.onLibraryAction("ai_response");
                 });
             }
             @Override public void onCancelled() {
                 requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                     pushAssistant("⛔ Stopped.");
                 });
             }
             @Override public void onError(String error) {
                 requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                     pushAssistant("❌ " + error);
                 });
@@ -581,21 +602,31 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
 
     // ── System prompt ─────────────────────────────────────────────────────────
     private String buildSystemPrompt() {
+        // Inject dynamic project metadata when sc_id is available
+        String sdkInfo = "";
+        if (scId != null && !scId.equals("system")) {
+            try {
+                mod.hey.studios.build.BuildSettings bs = new mod.hey.studios.build.BuildSettings(scId);
+                int minSdk = bs.getMinSdkVersion();
+                sdkInfo = "  minSdkVersion: " + minSdk + "\n";
+            } catch (Exception ignored) {}
+        }
         return "You are the Library Assistant inside Sketchware Pro (mobile Android IDE).\n"
             + "Project sc_id: " + scId + " | "
-            + (notAssociated ? "Global library browser" : "Project library manager") + "\n\n"
+            + (notAssociated ? "Global library browser" : "Project library manager") + "\n"
+            + sdkInfo + "\n"
             + "═══ MANDATORY PIPELINE — CATEGORY 6 (LIBRARY) ═══\n"
             + "1. list_libraries(sc_id) → know current state before anything\n"
             + "2. search_maven(name) → latest stable groupId:artifactId:version\n"
             + "3. validate_libraries(sc_id) → check conflicts before recommending\n"
             + "4. NEVER add or remove without explicit user confirmation ('yes'/'add it')\n"
             + "5. ALWAYS show exact Maven coordinates\n"
-            + "6. Flag libraries incompatible with minSdk 21\n"
+            + "6. Flag libraries incompatible with the project's minSdkVersion\n"
             + "7. If no network: use static known versions; flag as 'offline estimate'\n\n"
             + "═══ FORBIDDEN ═══\n"
             + "✗ Add/remove libraries without 'yes' from user\n"
             + "✗ Modify project files directly\n"
-            + "✗ Recommend libraries requiring minSdk > 21\n"
+            + "✗ Recommend libraries incompatible with minSdkVersion\n"
             + "✗ More than 3 consecutive tool calls without reporting progress\n\n"
             + "FORMAT: short answers, tables for comparisons, exact Maven coords.\n"
             + "Reply in the same language the user writes in.";

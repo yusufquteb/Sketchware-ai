@@ -306,8 +306,23 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             if (id == EditorInfo.IME_ACTION_SEND) { onSend(); return true; }
             return false;
         });
-        binding.aiSheetBtnSend.setOnClickListener(v -> onSend());
+        binding.aiSheetBtnSend.setOnClickListener(v -> {
+            if (isAgentRunning) stopAgent();
+            else onSend();
+        });
         binding.aiSheetBtnMic.setOnClickListener(v -> launchMic());
+    }
+
+    private void stopAgent() {
+        if (agentExecutor != null) agentExecutor.shutdown();
+    }
+
+    private void setAgentRunning(boolean running) {
+        isAgentRunning = running;
+        if (binding == null) return;
+        binding.aiSheetBtnSend.setIconResource(running
+                ? pro.sketchware.R.drawable.ic_mtrl_cancel
+                : pro.sketchware.R.drawable.ic_chat_send);
     }
 
     private void onSend() {
@@ -428,7 +443,7 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         String scopedId = projectIds.isEmpty() ? null : projectIds.get(0);
         String scope = scopedId != null ? AgentExecutor.SCOPE_PROJECT : AgentExecutor.SCOPE_GLOBAL;
 
-        isAgentRunning = true;
+        setAgentRunning(true);
         startPulse();
 
         chatHistory.add(ChatMessage.userMessage(null, userText));
@@ -461,25 +476,31 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
                 if (tc != null && isAdded()) requireActivity().runOnUiThread(() ->
                         binding.aiSheetTypingText.setText("⚙ " + tc.getName() + "…"));
             }
-            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {}
+            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {
+                if (status != null && !status.isEmpty() && isAdded()) {
+                    requireActivity().runOnUiThread(() -> {
+                        if (binding != null) binding.aiSheetTypingText.setText(status);
+                    });
+                }
+            }
             @Override public void onToolCallCompleted(ToolCall tc, ToolResult result) {}
             @Override public void onToolMessage(ChatMessage msg) {}
             @Override public void onResponseComplete(ChatMessage msg) {
                 if (isAdded()) requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                 });
             }
             @Override public void onCancelled() {
                 if (isAdded()) requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                     pushAssistant("⛔ Stopped.");
                 });
             }
             @Override public void onError(String error) {
                 if (isAdded()) requireActivity().runOnUiThread(() -> {
-                    isAgentRunning = false;
+                    setAgentRunning(false);
                     stopPulse();
                     pushAssistant("❌ " + error);
                 });

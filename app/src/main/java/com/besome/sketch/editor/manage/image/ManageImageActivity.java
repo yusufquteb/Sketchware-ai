@@ -22,6 +22,8 @@ import a.a.a.fu;
 import a.a.a.mB;
 import a.a.a.pu;
 import pro.sketchware.R;
+import pro.sketchware.ai.shared.AiAssistantBottomSheet;
+import pro.sketchware.ai.shared.AiPageConfig;
 import pro.sketchware.databinding.ManageImageBinding;
 
 public class ManageImageActivity extends BaseAppCompatActivity implements ViewPager.OnPageChangeListener {
@@ -85,6 +87,14 @@ public class ManageImageActivity extends BaseAppCompatActivity implements ViewPa
                 onBackPressed();
             }
         });
+        binding.topAppBar.inflateMenu(R.menu.compile_log_menu);
+        binding.topAppBar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_ai_fix && sc_id != null) {
+                openImageAi();
+                return true;
+            }
+            return false;
+        });
         if (savedInstanceState == null) {
             sc_id = getIntent().getStringExtra("sc_id");
         } else {
@@ -125,6 +135,38 @@ public class ManageImageActivity extends BaseAppCompatActivity implements ViewPa
             binding.fab.hide();
             projectImagesFragment.a(false);
         }
+    }
+
+    private void openImageAi() {
+        java.util.List<AiPageConfig.Tool> tools = new java.util.ArrayList<>();
+        tools.add(new AiPageConfig.Tool("Image Resources", R.drawable.ic_mtrl_image));
+        tools.add(AiPageConfig.Tool.ai("List Project Images",
+                R.drawable.ic_mtrl_box,
+                "List all images in project " + sc_id + " and suggest optimizations."));
+        tools.add(AiPageConfig.Tool.ai("Suggest Image Assets",
+                R.drawable.ic_mtrl_image,
+                "Suggest drawable/icon assets needed for a typical Android app."));
+        tools.add(AiPageConfig.Tool.ai("Generate Placeholder Drawable",
+                R.drawable.ic_mtrl_article,
+                "Create an XML placeholder drawable for: [describe the drawable]"));
+
+        AiPageConfig config = new AiPageConfig.Builder()
+                .pageTitle("Image Manager AI")
+                .scopeLabel("Project: " + sc_id)
+                .inputHint("Ask about images or drawables…")
+                .systemPrompt("You are an Android image/drawable resource assistant inside Sketchware Pro.\n"
+                        + "Project sc_id: " + sc_id + "\n"
+                        + "Help the user manage images, create drawable XML files, optimize image assets, "
+                        + "and suggest appropriate Android image resources.\n"
+                        + "Use read_file and write_file tools to inspect or create drawable files in res/drawable/.\n"
+                        + "Reply in the user's language.")
+                .tools(tools)
+                .projectIds(java.util.Arrays.asList(sc_id))
+                .workspaceId(sc_id)
+                .build();
+
+        AiAssistantBottomSheet.newInstance(config)
+                .show(getSupportFragmentManager(), "image_ai");
     }
 
     private static class SaveImagesAsyncTask extends MA {
