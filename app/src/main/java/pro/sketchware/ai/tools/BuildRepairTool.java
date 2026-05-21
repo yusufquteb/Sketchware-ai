@@ -196,7 +196,7 @@ public final class BuildRepairTool {
         private static final Pattern SYNTAX_VAR_DECL = Pattern.compile(
                 "variable declaration not allowed here");
         private static final Pattern SYNTAX_PAREN = Pattern.compile(
-                "'\\)' expected|')' expected");
+                "'\\)' expected");
         // Activity suffix used in layout (e.g. R.layout.activity_main when it should be R.layout.main)
         private static final Pattern LAYOUT_ACTIVITY = Pattern.compile(
                 "R\\.layout\\.activity_(\\w+)");

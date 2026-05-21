@@ -333,7 +333,8 @@ public class AiSettingsActivity extends AppCompatActivity {
             case SCALEWAY:         return URL_SCALEWAY;
             case FIREWORKS:        return URL_FIREWORKS;
             case NOVITA:           return URL_NOVITA;
-            case CHUTES:         return URL_AIRFORCE;
+            case CHUTES:           return URL_AIRFORCE;
+            case MORPH:            return "https://morphllm.com/dashboard/api-keys";
             default:               return "";
         }
     }
