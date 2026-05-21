@@ -288,8 +288,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.addBlock(lf, fullName, blockJson, afterBlockId);
             if (err != null) return error(err);
-            flushLogicCache(scId);
-
             return success("Block added successfully to event '" + fullName + "' in project " + scId);
         }
     }
@@ -358,7 +356,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.modifyBlock(lf, fullName, blockId, patch);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Block " + blockId + " modified in event '" + fullName + "'");
         }
     }
@@ -409,7 +406,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.deleteBlock(lf, fullName, blockId);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Block " + blockId + " deleted from event '" + fullName + "'");
         }
     }
@@ -503,7 +499,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.createEvent(lf, fullName);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Moreblock '" + mbName + "' created in activity '" + actName + "'.\n"
                     + "Use add_block with event_name='onMoreBlock_" + mbName + "' to add blocks.");
         }
@@ -550,7 +545,6 @@ public final class BlockApiTools {
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.deleteEvent(lf, fullName);
             if (err != null) return error(err);
-            flushLogicCache(scId);
             return success("Moreblock '" + mbName + "' deleted from activity '" + actName + "'");
         }
     }
@@ -634,32 +628,29 @@ public final class BlockApiTools {
                     sb.append("  (empty — no blocks)\n\n");
                     continue;
                 }
-                renderChain(ev, ev.orderedBlocks(), sb, "  ", ev.blocksById);
+                renderChain(ev.orderedBlocks(), sb, "  ", ev.blocksById);
                 sb.append("\n");
             }
 
             return success(sb.toString().trim());
         }
 
-        private void renderChain(BlockLogicReader.EventEntry ev,
-                                  List<BlockLogicReader.BlockEntry> chain,
+        private void renderChain(List<BlockLogicReader.BlockEntry> chain,
                                   StringBuilder sb, String indent,
                                   java.util.Map<Integer, BlockLogicReader.BlockEntry> byId) {
             for (BlockLogicReader.BlockEntry b : chain) {
                 String line = fillSpec(b);
                 sb.append(indent).append("[").append(b.id).append("] ").append(line).append("\n");
 
-                // Render subStack1 branch (if / first branch)
                 if (b.subStack1 != -1 && byId.containsKey(b.subStack1)) {
                     sb.append(indent).append("  {\n");
-                    renderChain(ev, collectChain(b.subStack1, byId), sb, indent + "    ", byId);
+                    renderChain(collectChain(b.subStack1, byId), sb, indent + "    ", byId);
                     sb.append(indent).append("  }\n");
                 }
 
-                // Render subStack2 branch (else / second branch)
                 if (b.subStack2 != -1 && byId.containsKey(b.subStack2)) {
                     sb.append(indent).append("  else {\n");
-                    renderChain(ev, collectChain(b.subStack2, byId), sb, indent + "    ", byId);
+                    renderChain(collectChain(b.subStack2, byId), sb, indent + "    ", byId);
                     sb.append(indent).append("  }\n");
                 }
             }
@@ -787,90 +778,69 @@ public final class BlockApiTools {
             BlockLogicReader.LogicFile lf = BlockLogicReader.read(logicFile(ctx, scId), scId);
             if (lf == null) return error("Could not read logic file for project " + scId);
 
-            // Remove existing event or create new one
             BlockLogicReader.EventEntry existing = lf.findEvent(fullName);
             if (existing != null) lf.events.remove(existing);
 
-            // Build new event with auto-assigned IDs
             JsonArray newContent = new JsonArray();
             int[] idCounter = {0};
-            buildBlocks(blocksInput, newContent, idCounter, -1);
-
             BlockLogicReader.EventEntry newEv = new BlockLogicReader.EventEntry(fullName, newContent);
-            for (JsonElement el : newContent) {
-                if (el.isJsonObject()) {
-                    BlockLogicReader.BlockEntry b = new BlockLogicReader.BlockEntry(el.getAsJsonObject());
-                    newEv.blocksById.put(b.id, b);
-                }
-            }
+            buildBlocks(blocksInput, newContent, newEv.blocksById, idCounter, -1);
             lf.events.add(newEv);
 
             BlockLogicWriter writer = new BlockLogicWriter(logicFile(ctx, scId), scId);
             String err = writer.write(lf);
             if (err != null) return error(err);
-            flushLogicCache(scId);
-
             return success("Set " + newContent.size() + " block(s) in event '" + fullName
                     + "' of project " + scId + ".");
         }
 
         /**
-         * Recursively builds block JSON, assigns sequential IDs and wires nextBlock/subStack links.
+         * Recursively builds block JSON, assigns sequential IDs, wires nextBlock/subStack links,
+         * and populates blocksById. Parent blocks are written before their nested children.
          *
-         * @param inputBlocks  user-provided block array (without ids)
-         * @param output       target JsonArray to append completed block objects to
-         * @param idCounter    mutable counter [0] for id assignment
-         * @param nextOverride id of block that should follow the LAST block in this chain (-1 = end)
-         * @return id of the FIRST block in this chain (for subStack linking), or -1 if empty
+         * @return id of the first block in this chain, or -1 if empty
          */
         private int buildBlocks(JsonArray inputBlocks, JsonArray output,
+                                 java.util.Map<Integer, BlockLogicReader.BlockEntry> byId,
                                  int[] idCounter, int nextOverride) {
             if (inputBlocks == null || inputBlocks.size() == 0) return -1;
 
-            // First pass: assign ids
             int[] ids = new int[inputBlocks.size()];
             for (int i = 0; i < inputBlocks.size(); i++) ids[i] = ++idCounter[0];
-
-            // Reserve id space for nested blocks BEFORE processing them (simple approach:
-            // we process bottom-up and patch ids in. Instead we do a two-pass: assign top-level
-            // ids first, then process each block including its sub-blocks.)
 
             for (int i = 0; i < inputBlocks.size(); i++) {
                 JsonElement el = inputBlocks.get(i);
                 if (!el.isJsonObject()) continue;
                 JsonObject src = el.getAsJsonObject().deepCopy();
 
-                // Determine nextBlock for this block
                 int nextBlock = (i < inputBlocks.size() - 1) ? ids[i + 1] : nextOverride;
 
-                // Handle nested then_blocks → subStack1
+                JsonArray nested = new JsonArray();
                 int subStack1 = -1;
                 if (src.has("then_blocks") && src.get("then_blocks").isJsonArray()) {
-                    JsonArray thenBlocks = src.getAsJsonArray("then_blocks");
-                    subStack1 = buildBlocks(thenBlocks, output, idCounter, -1);
+                    subStack1 = buildBlocks(src.getAsJsonArray("then_blocks"), nested, byId, idCounter, -1);
                     src.remove("then_blocks");
                 }
-
-                // Handle nested else_blocks → subStack2
                 int subStack2 = -1;
                 if (src.has("else_blocks") && src.get("else_blocks").isJsonArray()) {
-                    JsonArray elseBlocks = src.getAsJsonArray("else_blocks");
-                    subStack2 = buildBlocks(elseBlocks, output, idCounter, -1);
+                    subStack2 = buildBlocks(src.getAsJsonArray("else_blocks"), nested, byId, idCounter, -1);
                     src.remove("else_blocks");
                 }
 
-                // Set required block fields
                 src.addProperty("id",        ids[i]);
                 src.addProperty("nextBlock",  nextBlock);
                 src.addProperty("subStack1",  subStack1);
                 src.addProperty("subStack2",  subStack2);
-                if (!src.has("color"))    src.addProperty("color",    -10701022);
-                if (!src.has("typeName")) src.addProperty("typeName", "");
+                if (!src.has("color"))      src.addProperty("color",    -10701022);
+                if (!src.has("typeName"))   src.addProperty("typeName", "");
                 if (!src.has("parameters")) src.add("parameters", new JsonArray());
 
                 output.add(src);
+                BlockLogicReader.BlockEntry entry = new BlockLogicReader.BlockEntry(src);
+                byId.put(entry.id, entry);
+                for (JsonElement ne : nested) output.add(ne);
             }
-            return ids[0]; // first block id in this chain
+            return ids[0];
         }
     }
 
