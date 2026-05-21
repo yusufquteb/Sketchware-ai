@@ -306,6 +306,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             case SCALEWAY:         return "Scaleway → console.scaleway.com";
             case FIREWORKS:        return "Fireworks AI → fireworks.ai/account/api-keys";
             case NOVITA:           return "Novita AI → novita.ai/settings";
+            case MORPH:            return "Morph LLM → morphllm.com/dashboard/api-keys";
             default:               return "Provider website";
         }
     }

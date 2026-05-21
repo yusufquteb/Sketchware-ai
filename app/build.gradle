@@ -28,6 +28,20 @@ android {
 
     }
 
+    signingConfigs {
+        debug {
+            def keystoreFile = file("../testkey.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "testkey"
+                keyAlias = "testkey"
+                keyPassword = "testkey"
+            }
+            // If testkey.keystore is absent (local build), Android falls back
+            // to the default debug keystore (~/.android/debug.keystore).
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled = false
@@ -59,20 +73,6 @@ android {
 
     androidResources {
         additionalParameters.addAll("--stable-ids", "${rootDir}/public-stable-ids.txt")
-    }
-
-    signingConfigs {
-        debug {
-            def keystoreFile = file("../testkey.keystore")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = "testkey"
-                keyAlias = "testkey"
-                keyPassword = "testkey"
-            }
-            // If testkey.keystore is absent (local build), Android falls back
-            // to the default debug keystore (~/.android/debug.keystore).
-        }
     }
 
     buildFeatures {
