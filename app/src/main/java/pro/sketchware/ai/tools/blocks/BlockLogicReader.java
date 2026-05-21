@@ -6,47 +6,33 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import pro.sketchware.util.SketchwareFileDecryptor;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import pro.sketchware.util.SketchwareFileDecryptor;
+
 /**
- * BlockLogicReader — Phase 4 Block Logic API
+ * BlockLogicReader — reads Sketchware Pro's native .logic file format.
  *
- * Reads Sketchware Pro's .logic file format and converts it into a structured
- * object model the AI agent can understand and manipulate.
+ * Native format (AES-encrypted, key/IV = "sketchwaresecure"):
  *
- * .logic file structure:
- *   JSON array of event entries, each:
- *   {
- *     "name": "MainActivity.java_onCreate",   // {activity}.java_{eventName}
- *     "content": [                             // ordered list of blocks
- *       {
- *         "id": 1,
- *         "opCode": "addSourceDirectly",
- *         "spec": "add source directly %s.inputOnly",
- *         "type": " ",
- *         "typeName": "",
- *         "color": -10701022,
- *         "nextBlock": 2,          // id of next block (-1 = end)
- *         "subStack1": -1,         // id of first child block (-1 = none)
- *         "subStack2": -1,
- *         "parameters": ["Toast.makeText(this,\"Hello\",0).show();"]
- *       }, ...
- *     ]
- *   }
+ *   @ActivityName.java_eventName
+ *   {"id":1,"opCode":"...","spec":"...","type":" ","nextBlock":2,...,"parameters":["..."]}
+ *   {"id":2,"opCode":"...","nextBlock":-1,...}
+ *   @ActivityName.java_onMoreBlock_myFunc
+ *   {"id":1,...}
  *
- * Special entries:
- *   name ending with ".java_onMoreBlock"  → custom moreblock definitions
- *   name containing "@" separator         → component events
+ * Each section starts with "@{activityName}.java_{eventName}" and contains
+ * one BlockBean JSON object per line.
+ *
+ * Block chain navigation:
+ *   nextBlock  — id of the next statement in sequence  (-1 = end)
+ *   subStack1  — id of the first child block (if-true / loop body)  (-1 = none)
+ *   subStack2  — id of the second child block (else branch)         (-1 = none)
  */
 public final class BlockLogicReader {
 
@@ -60,25 +46,18 @@ public final class BlockLogicReader {
 
         public LogicFile(String scId) { this.scId = scId; }
 
-        /** Returns the event entry with the given name, or null. */
         public EventEntry findEvent(String name) {
-            for (EventEntry e : events) {
-                if (e.name.equals(name)) return e;
-            }
+            for (EventEntry e : events) { if (e.name.equals(name)) return e; }
             return null;
         }
 
-        /** Returns all events for the given activity (e.g. "MainActivity"). */
         public List<EventEntry> eventsForActivity(String activityName) {
             String prefix = activityName + ".java_";
             List<EventEntry> result = new ArrayList<>();
-            for (EventEntry e : events) {
-                if (e.name.startsWith(prefix)) result.add(e);
-            }
+            for (EventEntry e : events) { if (e.name.startsWith(prefix)) result.add(e); }
             return result;
         }
 
-        /** Returns all distinct activity names present in this logic file. */
         public List<String> activityNames() {
             List<String> names = new ArrayList<>();
             for (EventEntry e : events) {
@@ -93,17 +72,14 @@ public final class BlockLogicReader {
     }
 
     public static class EventEntry {
-        /** Full entry name: e.g. "MainActivity.java_onCreate" */
+        /** Full entry name, e.g. "MainActivity.java_onCreate" */
         public final String name;
-        /** Activity name extracted from name (e.g. "MainActivity") */
         public final String activityName;
-        /** Event name extracted from name (e.g. "onCreate") */
         public final String eventName;
-        /** Whether this is a moreblock definition */
         public final boolean isMoreBlock;
-        /** Ordered list of blocks. Key = block id, value = block. */
+        /** Ordered map: block id → block. */
         public final Map<Integer, BlockEntry> blocksById = new LinkedHashMap<>();
-        /** Raw JSON content array (preserved for write-back) */
+        /** Mutable JSON content array — mutated in-place by BlockLogicWriter. */
         public final JsonArray rawContent;
 
         public EventEntry(String name, JsonArray rawContent) {
@@ -117,32 +93,29 @@ public final class BlockLogicReader {
                 activityName = name;
                 eventName    = "";
             }
-            isMoreBlock = eventName.equals("onMoreBlock");
+            isMoreBlock = eventName.startsWith("onMoreBlock");
         }
 
-        /** Returns blocks in logical execution order (following nextBlock links). */
+        /** Returns blocks in logical execution order (root → nextBlock chain). */
         public List<BlockEntry> orderedBlocks() {
-            List<BlockEntry> ordered = new ArrayList<>();
-            // Find root block (not referenced as nextBlock, subStack1, or subStack2 by any other)
+            if (blocksById.isEmpty()) return new ArrayList<>();
             java.util.Set<Integer> referenced = new java.util.HashSet<>();
             for (BlockEntry b : blocksById.values()) {
-                if (b.nextBlock  != -1) referenced.add(b.nextBlock);
-                if (b.subStack1  != -1) referenced.add(b.subStack1);
-                if (b.subStack2  != -1) referenced.add(b.subStack2);
+                if (b.nextBlock != -1) referenced.add(b.nextBlock);
+                if (b.subStack1 != -1) referenced.add(b.subStack1);
+                if (b.subStack2 != -1) referenced.add(b.subStack2);
             }
             BlockEntry root = null;
             for (BlockEntry b : blocksById.values()) {
                 if (!referenced.contains(b.id)) { root = b; break; }
             }
-            if (root == null && !blocksById.isEmpty()) {
-                root = blocksById.values().iterator().next();
-            }
-            // Follow nextBlock chain
-            BlockEntry cur = root;
+            if (root == null) root = blocksById.values().iterator().next();
+
+            List<BlockEntry> ordered = new ArrayList<>();
             java.util.Set<Integer> visited = new java.util.HashSet<>();
-            while (cur != null && !visited.contains(cur.id)) {
+            BlockEntry cur = root;
+            while (cur != null && visited.add(cur.id)) {
                 ordered.add(cur);
-                visited.add(cur.id);
                 cur = cur.nextBlock != -1 ? blocksById.get(cur.nextBlock) : null;
             }
             return ordered;
@@ -160,17 +133,17 @@ public final class BlockLogicReader {
         public final int    subStack1;
         public final int    subStack2;
         public final List<String> parameters;
-        /** Reference to original JSON for patch-write */
+        /** Reference back to the JsonObject for in-place mutation. */
         public final JsonObject rawJson;
 
         public BlockEntry(JsonObject json) {
             this.rawJson    = json;
-            this.id         = getInt(json, "id", 0);
+            this.id         = getInt(json, "id",        0);
             this.opCode     = getString(json, "opCode");
             this.spec       = getString(json, "spec");
             this.type       = getString(json, "type");
             this.typeName   = getString(json, "typeName");
-            this.color      = getInt(json, "color", 0);
+            this.color      = getInt(json, "color",     0);
             this.nextBlock  = getInt(json, "nextBlock", -1);
             this.subStack1  = getInt(json, "subStack1", -1);
             this.subStack2  = getInt(json, "subStack2", -1);
@@ -185,21 +158,19 @@ public final class BlockLogicReader {
         private static String getString(JsonObject j, String key) {
             return j.has(key) && !j.get(key).isJsonNull() ? j.get(key).getAsString() : "";
         }
+
         private static int getInt(JsonObject j, String key, int def) {
             return j.has(key) && j.get(key).isJsonPrimitive() ? j.get(key).getAsInt() : def;
         }
 
-        /** Human-readable description of this block. */
         public String describe() {
             StringBuilder sb = new StringBuilder();
             sb.append("[id=").append(id).append("] ");
             sb.append(opCode.isEmpty() ? spec : opCode);
-            if (!parameters.isEmpty()) {
-                sb.append(" params=").append(parameters);
-            }
-            if (nextBlock != -1)  sb.append(" →").append(nextBlock);
-            if (subStack1 != -1)  sb.append(" sub1→").append(subStack1);
-            if (subStack2 != -1)  sb.append(" sub2→").append(subStack2);
+            if (!parameters.isEmpty()) sb.append(" params=").append(parameters);
+            if (nextBlock != -1) sb.append(" →").append(nextBlock);
+            if (subStack1 != -1) sb.append(" sub1→").append(subStack1);
+            if (subStack2 != -1) sb.append(" sub2→").append(subStack2);
             return sb.toString();
         }
     }
@@ -208,34 +179,35 @@ public final class BlockLogicReader {
 
     /**
      * Reads and parses the logic file for a project.
-     *
-     * @param logicFile  File pointing to .sketchware/data/{scId}/logic
-     * @param scId       project id (for reference in returned model)
-     * @return parsed LogicFile, or null if file doesn't exist or can't be parsed
+     * Handles both the native Sketchware "@Section\n{JSON}" format and
+     * a fallback JSON-array format.
      */
     public static LogicFile read(File logicFile, String scId) {
         if (!logicFile.exists()) return new LogicFile(scId);
         try {
-            String raw = readFile(logicFile);
+            String raw = readDecrypted(logicFile);
             if (raw == null || raw.trim().isEmpty()) return new LogicFile(scId);
-            JsonArray array = JsonParser.parseString(raw.trim()).getAsJsonArray();
-            return parse(array, scId);
-        } catch (IOException | JsonSyntaxException | IllegalStateException e) {
+            raw = raw.trim();
+
+            if (raw.startsWith("@")) return parseAtFormat(raw, scId);  // native format
+            if (raw.startsWith("[")) {                                  // legacy JSON array
+                try {
+                    return parse(JsonParser.parseString(raw).getAsJsonArray(), scId);
+                } catch (JsonSyntaxException | IllegalStateException ignored) {}
+            }
+            return new LogicFile(scId);
+        } catch (IOException e) {
             return null;
         }
     }
 
-    /**
-     * Converts the logic file to a compact human-readable summary for the AI model.
-     * Groups by activity and lists events with block counts.
-     */
+    /** Human-readable summary of all events grouped by activity. */
     public static String summarize(LogicFile lf) {
-        if (lf == null) return "Error: could not read logic file.";
-        if (lf.events.isEmpty()) return "Logic file is empty — no events defined yet.";
+        if (lf == null)           return "Error: could not read logic file.";
+        if (lf.events.isEmpty())  return "Logic file is empty — no events defined yet.";
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Project ").append(lf.scId).append(" — ")
-          .append(lf.events.size()).append(" event(s):\n");
+        sb.append("Project ").append(lf.scId).append(" — ").append(lf.events.size()).append(" event(s):\n");
 
         String currentActivity = null;
         for (EventEntry ev : lf.events) {
@@ -255,21 +227,52 @@ public final class BlockLogicReader {
     }
 
     /**
-     * Serialises a LogicFile back to the JSON string for writing to disk.
+     * Serialises a LogicFile to the native "@Section\n{JSON}" format.
+     * This is the format Sketchware reads at runtime.
      */
     public static String serialise(LogicFile lf) {
-        JsonArray out = new JsonArray();
+        StringBuilder sb = new StringBuilder();
         for (EventEntry ev : lf.events) {
-            JsonObject entry = new JsonObject();
-            entry.addProperty("name", ev.name);
-            entry.add("content", ev.rawContent);
-            out.add(entry);
+            sb.append("@").append(ev.name).append("\n");
+            for (JsonElement el : ev.rawContent) {
+                sb.append(el.toString()).append("\n");
+            }
         }
-        return out.toString();
+        return sb.toString().trim();
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
+    // ── Parsing ───────────────────────────────────────────────────────────
 
+    /** Parses the native "@Section\n{JSON}" format. */
+    private static LogicFile parseAtFormat(String raw, String scId) {
+        LogicFile lf = new LogicFile(scId);
+        // Split on lines that begin with '@', keeping the delimiter
+        String[] lines = raw.split("\r?\n");
+        EventEntry current = null;
+
+        for (String line : lines) {
+            if (line.startsWith("@")) {
+                // Start of a new section
+                String sectionName = line.substring(1).trim();
+                if (!sectionName.contains(".java_")) continue; // skip non-logic sections
+                JsonArray contentArray = new JsonArray();
+                current = new EventEntry(sectionName, contentArray);
+                lf.events.add(current);
+            } else if (current != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || !trimmed.startsWith("{")) continue;
+                try {
+                    JsonObject blockJson = JsonParser.parseString(trimmed).getAsJsonObject();
+                    current.rawContent.add(blockJson);
+                    BlockEntry block = new BlockEntry(blockJson);
+                    current.blocksById.put(block.id, block);
+                } catch (JsonSyntaxException | IllegalStateException ignored) {}
+            }
+        }
+        return lf;
+    }
+
+    /** Parses the legacy JSON array format. */
     private static LogicFile parse(JsonArray array, String scId) {
         LogicFile lf = new LogicFile(scId);
         for (JsonElement element : array) {
@@ -291,12 +294,11 @@ public final class BlockLogicReader {
     }
 
     /**
-     * Reads and decrypts a Sketchware logic file using IA's proven decryptor.
-     * The logic file uses AES/CBC with KEY=IV="sketchwaresecure".
-     * Falls back to plain text for new/unencrypted files.
+     * Decrypts the logic file using Sketchware's AES/CBC/PKCS5 scheme
+     * (key = IV = "sketchwaresecure").
      */
-    private static String readFile(File f) throws IOException {
-        if (!f.exists() || f.length() == 0) return "[]";
+    static String readDecrypted(File f) throws IOException {
+        if (!f.exists() || f.length() == 0) return "";
         // Extract scId from path: .../.sketchware/data/{scId}/logic
         String absPath = f.getAbsolutePath().replace("\\", "/");
         String[] parts = absPath.split("/");
@@ -304,8 +306,8 @@ public final class BlockLogicReader {
         String relPath = null;
         for (int i = 0; i < parts.length - 1; i++) {
             if ("data".equals(parts[i]) && i + 1 < parts.length) {
-                scId = parts[i + 1];
-                relPath = parts[parts.length - 1]; // "logic"
+                scId    = parts[i + 1];
+                relPath = parts[parts.length - 1];
                 break;
             }
         }
@@ -314,11 +316,7 @@ public final class BlockLogicReader {
             if (decrypted != null && !decrypted.isEmpty()) return decrypted;
         }
         // Fallback: plain text
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
-            char[] buf = new char[4096]; int n;
-            while ((n = br.read(buf)) != -1) sb.append(buf, 0, n);
-        }
-        return sb.toString();
+        byte[] bytes = java.nio.file.Files.readAllBytes(f.toPath());
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 }
