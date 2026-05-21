@@ -70,6 +70,10 @@ public class AiPageConfig {
     public final String               systemPrompt;
     public final List<Tool>           tools;
     public final DirectActionHandler  directActionHandler;
+    /** Project IDs to pass to AgentExecutor (empty = global scope). */
+    public final List<String>         projectIds;
+    /** Workspace/session ID for AgentExecutor. */
+    public final String               workspaceId;
 
     private AiPageConfig(Builder b) {
         this.pageTitle           = b.pageTitle;
@@ -78,6 +82,8 @@ public class AiPageConfig {
         this.systemPrompt        = b.systemPrompt;
         this.tools               = b.tools;
         this.directActionHandler = b.directActionHandler;
+        this.projectIds          = b.projectIds;
+        this.workspaceId         = b.workspaceId;
     }
 
     // ── Builder ───────────────────────────────────────────────────────────────
@@ -89,13 +95,17 @@ public class AiPageConfig {
         String systemPrompt = "";
         List<Tool> tools = new ArrayList<>();
         DirectActionHandler directActionHandler = null;
+        List<String> projectIds = new ArrayList<>();
+        String workspaceId = "";
 
-        public Builder pageTitle(String t)              { pageTitle = t;           return this; }
-        public Builder scopeLabel(String s)             { scopeLabel = s;          return this; }
-        public Builder inputHint(String h)              { inputHint = h;           return this; }
-        public Builder systemPrompt(String sp)          { systemPrompt = sp;       return this; }
-        public Builder tools(List<Tool> t)              { tools = t;               return this; }
+        public Builder pageTitle(String t)                  { pageTitle = t;           return this; }
+        public Builder scopeLabel(String s)                 { scopeLabel = s;          return this; }
+        public Builder inputHint(String h)                  { inputHint = h;           return this; }
+        public Builder systemPrompt(String sp)              { systemPrompt = sp;       return this; }
+        public Builder tools(List<Tool> t)                  { tools = t;               return this; }
         public Builder directActions(DirectActionHandler h) { directActionHandler = h; return this; }
-        public AiPageConfig build()                     { return new AiPageConfig(this); }
+        public Builder projectIds(List<String> ids)         { projectIds = ids != null ? ids : new ArrayList<>(); return this; }
+        public Builder workspaceId(String id)               { workspaceId = id != null ? id : ""; return this; }
+        public AiPageConfig build()                         { return new AiPageConfig(this); }
     }
 }

@@ -635,6 +635,7 @@ public class LibraryAiBottomSheet extends BottomSheetDialogFragment {
 
     @Override public void onDestroyView() {
         stopPulse();
+        if (agentExecutor != null) agentExecutor.shutdown();
         super.onDestroyView();
         binding = null;
     }

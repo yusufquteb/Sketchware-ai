@@ -27,13 +27,12 @@ import java.util.List;
 import java.util.Locale;
 
 import pro.sketchware.ai.activities.AiSettingsActivity;
-import pro.sketchware.ai.api.AiApiClient;
-import pro.sketchware.ai.api.AiClientFactory;
-import pro.sketchware.ai.api.StreamingResponseHandler;
+import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ToolCall;
+import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.databinding.DesignAiBottomSheetBinding;
 import pro.sketchware.utility.SketchwareUtil;
@@ -79,6 +78,10 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
     private AiSidebarAdapter sidebarAdapter;
     private AiPreferences    preferences;
     @Nullable private String pendingDirectKey = null; // set when user taps a DIRECT tool
+
+    // Agent executor
+    private AgentExecutor agentExecutor;
+    private boolean       isAgentRunning = false;
 
     // Pulse
     private final Handler  pulseHandler  = new Handler(Looper.getMainLooper());
@@ -407,8 +410,9 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         }
     }
 
-    // ── AI call ───────────────────────────────────────────────────────────────
+    // ── AI call (AgentExecutor — full tool execution + pulse) ────────────────
     private void sendToAi(String userText) {
+        if (isAgentRunning) return;
         if (preferences == null) { pushAssistant("⚠️ AI not configured. Open AI Settings."); return; }
         AiProvider provider = preferences.getSelectedProvider();
         if (provider == null) { pushAssistant("⚠️ No provider selected. Open AI Settings."); return; }
@@ -417,37 +421,72 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             pushAssistant("⚠️ API key missing for " + provider.getDisplayName() + "."); return;
         }
         String modelId = preferences.getSelectedModel(provider);
-        AiApiClient client = AiClientFactory.createClient(requireContext(), provider, apiKey);
-        if (client == null) { pushAssistant("⚠️ Could not create AI client."); return; }
 
+        List<String> projectIds = config != null ? config.projectIds : new ArrayList<>();
+        String workspaceId = config != null && !config.workspaceId.isEmpty()
+                ? config.workspaceId : "ai_assistant";
+        String scopedId = projectIds.isEmpty() ? null : projectIds.get(0);
+        String scope = scopedId != null ? AgentExecutor.SCOPE_PROJECT : AgentExecutor.SCOPE_GLOBAL;
+
+        isAgentRunning = true;
         startPulse();
 
         chatHistory.add(ChatMessage.userMessage(null, userText));
-        List<ChatMessage> ctx = chatHistory.size() > 8
-            ? chatHistory.subList(chatHistory.size() - 8, chatHistory.size())
-            : new ArrayList<>(chatHistory);
-
         String sysPrompt = config != null ? config.systemPrompt : "";
 
-        client.sendChatRequest(ctx, modelId, sysPrompt, new StreamingResponseHandler() {
-            final StringBuilder buf = new StringBuilder();
-            @Override public void onChunk(String d) { buf.append(d); }
-            @Override public void onToolCall(ToolCall tc) {}
-            @Override public void onComplete(String full) {
-                String reply = (full != null && !full.isEmpty()) ? full : buf.toString().trim();
+        agentExecutor = new AgentExecutor(requireContext(), projectIds, workspaceId, scope, scopedId);
+        agentExecutor.setPulseCallback((summary, onContinue, onCancel) -> {
+            if (!isAdded()) return;
+            requireActivity().runOnUiThread(() ->
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Step completed")
+                            .setMessage(summary)
+                            .setPositiveButton("Continue", (d, w) -> onContinue.run())
+                            .setNegativeButton("Stop", (d, w) -> onCancel.run())
+                            .setCancelable(false)
+                            .show());
+        });
+        agentExecutor.execute(chatHistory, modelId, provider, sysPrompt,
+                projectIds, workspaceId, null, new AgentExecutor.AgentCallback() {
+            @Override public void onStreamingChunk(String chunk) {}
+            @Override public void onAssistantMessage(ChatMessage msg) {
+                if (msg != null && msg.getContent() != null && !msg.getContent().isEmpty()) {
+                    if (isAdded()) requireActivity().runOnUiThread(() -> {
+                        chatHistory.add(msg);
+                        pushAssistant(msg.getContent());
+                    });
+                }
+            }
+            @Override public void onToolCallStarted(ToolCall tc) {
+                if (tc != null && isAdded()) requireActivity().runOnUiThread(() ->
+                        binding.aiSheetTypingText.setText("⚙ " + tc.getName() + "…"));
+            }
+            @Override public void onToolCallProgress(String id, String status, int p, boolean ind) {}
+            @Override public void onToolCallCompleted(ToolCall tc, ToolResult result) {}
+            @Override public void onToolMessage(ChatMessage msg) {}
+            @Override public void onResponseComplete(ChatMessage msg) {
                 if (isAdded()) requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
                     stopPulse();
-                    if (!reply.isEmpty()) {
-                        chatHistory.add(ChatMessage.assistantMessage(reply, null));
-                        pushAssistant(reply);
-                    }
                 });
             }
-            @Override public void onError(String err) {
+            @Override public void onCancelled() {
                 if (isAdded()) requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
                     stopPulse();
-                    pushAssistant("❌ " + err);
+                    pushAssistant("⛔ Stopped.");
                 });
+            }
+            @Override public void onError(String error) {
+                if (isAdded()) requireActivity().runOnUiThread(() -> {
+                    isAgentRunning = false;
+                    stopPulse();
+                    pushAssistant("❌ " + error);
+                });
+            }
+            @Override public void onThinking(String status) {
+                if (isAdded()) requireActivity().runOnUiThread(() ->
+                        binding.aiSheetTypingText.setText(status != null ? status : "Thinking…"));
             }
         });
     }
@@ -508,6 +547,7 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
 
     @Override public void onDestroyView() {
         stopPulse();
+        if (agentExecutor != null) agentExecutor.shutdown();
         super.onDestroyView();
         binding = null;
     }
