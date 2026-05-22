@@ -23,6 +23,14 @@ public class ConversationManager {
     private final File conversationsBaseDir;
     private final File messagesBaseDir;
 
+    /**
+     * Guards all read-modify-write operations on message files.
+     * One lock per conversation ID; prevents concurrent saveMessage() calls
+     * from the AI streaming thread and the UI thread racing and losing data.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, Object> messageLocks =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     public ConversationManager(@NonNull Context context) {
         conversationsBaseDir = new File(context.getFilesDir(), "ai_agent/conversations");
         messagesBaseDir = new File(context.getFilesDir(), "ai_agent/messages");
@@ -32,6 +40,10 @@ public class ConversationManager {
         if (!messagesBaseDir.exists()) {
             messagesBaseDir.mkdirs();
         }
+    }
+
+    private Object lockFor(@NonNull String conversationId) {
+        return messageLocks.computeIfAbsent(conversationId, k -> new Object());
     }
 
     public void saveConversation(@NonNull Conversation conversation) {
@@ -100,9 +112,11 @@ public class ConversationManager {
     }
 
     public void saveMessage(@NonNull String conversationId, @NonNull ChatMessage message) {
-        List<ChatMessage> messages = getMessages(conversationId);
-        messages.add(message);
-        writeMessages(conversationId, messages);
+        synchronized (lockFor(conversationId)) {
+            List<ChatMessage> messages = getMessages(conversationId);
+            messages.add(message);
+            writeMessagesAtomic(conversationId, messages);
+        }
     }
 
     @NonNull
@@ -135,18 +149,19 @@ public class ConversationManager {
     }
 
     public void updateLastMessage(@NonNull String conversationId, @NonNull ChatMessage message) {
-        List<ChatMessage> messages = getMessages(conversationId);
-        if (!messages.isEmpty()) {
+        synchronized (lockFor(conversationId)) {
+            List<ChatMessage> messages = getMessages(conversationId);
+            boolean found = false;
             for (int i = messages.size() - 1; i >= 0; i--) {
                 if (messages.get(i).getId().equals(message.getId())) {
                     messages.set(i, message);
-                    writeMessages(conversationId, messages);
-                    return;
+                    found = true;
+                    break;
                 }
             }
+            if (!found) messages.add(message);
+            writeMessagesAtomic(conversationId, messages);
         }
-        messages.add(message);
-        writeMessages(conversationId, messages);
     }
 
     public void deleteMessages(@NonNull String conversationId) {
@@ -162,7 +177,12 @@ public class ConversationManager {
         }
     }
 
-    private void writeMessages(@NonNull String conversationId, @NonNull List<ChatMessage> messages) {
+    /**
+     * Atomic write: serializes to a temp file then renames to the real file.
+     * Prevents partial writes from corrupting data on crash mid-write.
+     */
+    private void writeMessagesAtomic(@NonNull String conversationId,
+                                     @NonNull List<ChatMessage> messages) {
         File messagesDir = new File(messagesBaseDir, conversationId);
         if (!messagesDir.exists()) {
             messagesDir.mkdirs();
@@ -171,6 +191,17 @@ public class ConversationManager {
         for (ChatMessage message : messages) {
             array.add(message.toJson());
         }
-        FileUtil.writeFile(new File(messagesDir, "messages.json").getAbsolutePath(), array.toString());
+        String json = array.toString();
+        File target = new File(messagesDir, "messages.json");
+        File tmp    = new File(messagesDir, "messages.json.tmp");
+        FileUtil.writeFile(tmp.getAbsolutePath(), json);
+        if (tmp.exists()) {
+            // Rename is atomic on most filesystems
+            if (!tmp.renameTo(target)) {
+                // Fallback: direct write if rename fails
+                FileUtil.writeFile(target.getAbsolutePath(), json);
+                tmp.delete();
+            }
+        }
     }
 }

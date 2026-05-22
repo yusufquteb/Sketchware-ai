@@ -1,6 +1,12 @@
 package pro.sketchware.ai.api;
 
 import android.content.Context;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import pro.sketchware.ai.core.ProviderCapabilities;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.storage.AiPreferences;
 
@@ -14,9 +20,22 @@ import pro.sketchware.ai.storage.AiPreferences;
  */
 public final class AiClientFactory {
 
+    private static final String TAG = "AiClientFactory";
+
     private AiClientFactory() {}
 
+    /**
+     * Creates an API client for the given provider.
+     *
+     * @return the client, or {@code null} only if the provider enum value has no
+     *         corresponding client class (should never happen in production).
+     */
+    @Nullable
     public static AiApiClient createClient(Context context, AiProvider provider, String apiKey) {
+        if (provider == null) {
+            Log.e(TAG, "createClient called with null provider");
+            return null;
+        }
         AiPreferences preferences = AiPreferences.getInstance(context);
         switch (provider) {
             case GEMINI:           return new GeminiApiClient(apiKey);
@@ -46,8 +65,20 @@ public final class AiClientFactory {
             case NOVITA:           return new NovitaApiClient(apiKey);
             case CHUTES:           return new ChutesApiClient(apiKey);
             case MORPH:            return new MorphApiClient(apiKey);
-            default: return null;
+            default:
+                Log.w(TAG, "No client implementation for provider: " + provider
+                        + " — returning null");
+                return null;
         }
+    }
+
+    /**
+     * Returns the capability profile for the given provider.
+     * Never returns null.
+     */
+    @NonNull
+    public static ProviderCapabilities getCapabilities(@NonNull AiProvider provider) {
+        return ProviderCapabilities.of(provider);
     }
 
     public static String getCompatibilityNote(AiProvider provider) {

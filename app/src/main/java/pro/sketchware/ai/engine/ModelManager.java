@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamingResponseHandler;
+import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ModelInfo;
@@ -198,6 +199,13 @@ public final class ModelManager {
             if (!prefs.isProviderEnabled(provider)) { Log.d(TAG, "Skipping " + provider + " — disabled"); continue; }
             if (apiKey == null) apiKey = "";
 
+            // Circuit breaker: skip providers that are in cooldown after repeated failures
+            CircuitBreaker cb = CircuitBreaker.getInstance();
+            if (!cb.isAllowed(provider.name())) {
+                Log.d(TAG, "Skipping " + provider + " — circuit open");
+                continue;
+            }
+
             AiApiClient client = AiClientFactory.createClient(context, provider, apiKey);
             if (client == null) { Log.w(TAG, "No client for provider: " + provider); continue; }
 
@@ -293,6 +301,7 @@ public final class ModelManager {
             }
 
             if (modelSucceeded) {
+                CircuitBreaker.getInstance().recordSuccess(provider.name());
                 if (!alreadyResolved[0]) {
                     alreadyResolved[0] = true;
                     if (pro.sketchware.BuildConfig.DEBUG) {
@@ -305,6 +314,7 @@ public final class ModelManager {
                 return;
             }
 
+            CircuitBreaker.getInstance().recordFailure(provider.name());
             if (pro.sketchware.BuildConfig.DEBUG) {
                 Log.d("PulseEngine", "[Pulse] " + provider.getDisplayName() + "/" + am.modelId
                         + " failed: " + lastError + " → switching");
