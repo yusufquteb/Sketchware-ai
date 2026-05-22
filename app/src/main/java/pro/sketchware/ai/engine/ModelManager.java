@@ -44,7 +44,7 @@ public final class ModelManager {
 
     /**
      * Entry in the ACTIVE_MODELS list.
-     * Stored as JSON: [{"provider":"GROQ","modelId":"compound-beta-mini"}, …]
+     * Stored as JSON: [{"provider":"GROQ","modelId":"llama-3.3-70b-versatile"}, …]
      */
     public static class ActiveModel {
         public String provider; // AiProvider.name()
@@ -376,13 +376,14 @@ public final class ModelManager {
      */
     private List<ActiveModel> buildDefaultActiveModels() {
         return new ArrayList<>(Arrays.asList(
-                new ActiveModel(AiProvider.GROQ,            AiPreferences.DEFAULT_GROQ_MODEL),
+                // Free no-key first, then free-with-key, then paid
+                new ActiveModel(AiProvider.CHUTES,           AiPreferences.DEFAULT_CHUTES_MODEL),
                 new ActiveModel(AiProvider.GOOGLE_AI_STUDIO, AiPreferences.DEFAULT_GOOGLE_AI_STUDIO_MODEL),
-                new ActiveModel(AiProvider.SAMBANOVA,       AiPreferences.DEFAULT_SAMBANOVA_MODEL),
-                new ActiveModel(AiProvider.TOGETHER,        AiPreferences.DEFAULT_TOGETHER_MODEL),
-                new ActiveModel(AiProvider.GEMINI,          AiPreferences.DEFAULT_GEMINI_MODEL),
-                new ActiveModel(AiProvider.ANTHROPIC,       AiPreferences.DEFAULT_ANTHROPIC_MODEL),
-                new ActiveModel(AiProvider.DEEPSEEK,        AiPreferences.DEFAULT_DEEPSEEK_MODEL)
+                new ActiveModel(AiProvider.SAMBANOVA,        AiPreferences.DEFAULT_SAMBANOVA_MODEL),
+                new ActiveModel(AiProvider.GROQ,             AiPreferences.DEFAULT_GROQ_MODEL),
+                new ActiveModel(AiProvider.GEMINI,           AiPreferences.DEFAULT_GEMINI_MODEL),
+                new ActiveModel(AiProvider.ANTHROPIC,        AiPreferences.DEFAULT_ANTHROPIC_MODEL),
+                new ActiveModel(AiProvider.DEEPSEEK,         AiPreferences.DEFAULT_DEEPSEEK_MODEL)
         ));
     }
 

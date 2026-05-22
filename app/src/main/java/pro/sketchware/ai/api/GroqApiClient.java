@@ -29,16 +29,17 @@ import pro.sketchware.ai.models.ModelInfo;
  * Base URL: https://api.groq.com/openai/v1
  *
  * TOKEN LIMIT HANDLING:
- * Groq models have strict per-request context limits. This client automatically
- * truncates long conversation histories BEFORE sending, accounting for both the
- * system prompt size and the model's context window.
+ * Groq's free tier has per-minute and per-day token limits. This client:
+ *  1. Uses llama-3.3-70b-versatile as the default model (128K context, good TPM limits).
+ *  2. Removes compound-beta / compound-beta-mini from use — they exhaust TPM rapidly
+ *     because each request fans out to multiple internal model calls.
+ *  3. Caps max_tokens at 4096 to leave headroom for conversation history.
+ *  4. Truncates conversation history to fit within model's context window.
  *
  * Budget per model (chars ≈ tokens × 4):
- *   compound-beta-mini / 8B / 7B : ~20 000 chars
- *   70B models                    : ~80 000 chars
- *   128k models                   : ~200 000 chars
- *
- * max_tokens is capped at 4096 to avoid Groq's per-minute token limit errors.
+ *   8B / 9B models  : ~32 000 chars   (8K context)
+ *   70B models       : ~200 000 chars  (128K context)
+ *   default fallback : ~60 000 chars
  */
 public class GroqApiClient extends AiApiClient {
 
@@ -114,8 +115,11 @@ public class GroqApiClient extends AiApiClient {
                                 String systemPrompt, List<ToolDefinition> tools,
                                 Object tag, StreamingResponseHandler handler) {
         try {
-            String effectiveModel = (modelId != null && !modelId.isEmpty())
+            // compound-beta models burn tokens fast via internal fan-out — never use them.
+            String safeModel = (modelId != null && !modelId.isEmpty()
+                    && !modelId.startsWith("compound-beta"))
                     ? modelId : "llama-3.3-70b-versatile";
+            String effectiveModel = safeModel;
 
             // Truncate messages to fit within this model's context window
             List<ChatMessage> truncated = truncateMessages(messages, effectiveModel, systemPrompt);
@@ -166,16 +170,19 @@ public class GroqApiClient extends AiApiClient {
                                                       String modelId, String systemPrompt) {
         if (messages == null || messages.isEmpty()) return messages;
 
-        // Budget by model
+        // Budget by model context window (chars ≈ tokens × 4)
         int totalBudget;
         String lo = modelId.toLowerCase(Locale.ROOT);
-        if (lo.contains("compound-beta-mini") || lo.contains("8b") || lo.contains("7b")
-                || lo.contains("9b") || lo.contains("1b") || lo.contains("3b")) {
-            totalBudget = 20_000;
-        } else if (lo.contains("70b") || lo.contains("70-b")) {
-            totalBudget = 80_000;
+        if (lo.contains("70b") || lo.contains("70-b") || lo.contains("70b-versatile")
+                || lo.contains("deepseek-r1") || lo.contains("scout") || lo.contains("maverick")) {
+            // 128K context window models
+            totalBudget = 200_000;
+        } else if (lo.contains("8b") || lo.contains("9b") || lo.contains("7b")) {
+            // 8K context window models — leave room for system prompt
+            totalBudget = 28_000;
         } else {
-            totalBudget = 40_000;
+            // Safe default for unknown models
+            totalBudget = 60_000;
         }
 
         int systemLen = systemPrompt != null ? systemPrompt.length() : 0;
@@ -214,10 +221,10 @@ public class GroqApiClient extends AiApiClient {
     }
     private static List<ModelInfo> fallbackModels() {
         List<ModelInfo> l = new ArrayList<>();
-        l.add(new ModelInfo("compound-beta-mini",             "Compound Beta Mini",          AiProvider.GROQ, 8192,   "Groq \u221e \u2014 fast tool-calling"));
-        l.add(new ModelInfo("deepseek-r1-distill-llama-70b", "DeepSeek R1 Distill Llama 70B",AiProvider.GROQ, 128000, "Groq \u221e \u2014 best for reasoning"));
-        l.add(new ModelInfo("llama-3.3-70b-versatile",       "Llama 3.3 70B Versatile",     AiProvider.GROQ, 128000, "Groq \u221e \u2014 best for code & projects"));
-        l.add(new ModelInfo("llama-3.1-8b-instant",          "Llama 3.1 8B Instant",        AiProvider.GROQ, 128000, "Groq \u221e \u2014 fast, small tasks"));
+        l.add(new ModelInfo("llama-3.3-70b-versatile",       "Llama 3.3 70B Versatile",     AiProvider.GROQ, 128000, "Groq \u221e \u2014 recommended, best for code & projects"));
+        l.add(new ModelInfo("llama-3.1-8b-instant",          "Llama 3.1 8B Instant",        AiProvider.GROQ, 131072, "Groq \u221e \u2014 fastest, simple tasks"));
+        l.add(new ModelInfo("gemma2-9b-it",                  "Gemma 2 9B IT",               AiProvider.GROQ, 8192,   "Groq \u221e \u2014 Google Gemma 2"));
+        l.add(new ModelInfo("deepseek-r1-distill-llama-70b", "DeepSeek R1 Distill 70B",     AiProvider.GROQ, 128000, "Groq \u221e \u2014 reasoning tasks"));
         return l;
     }
 }

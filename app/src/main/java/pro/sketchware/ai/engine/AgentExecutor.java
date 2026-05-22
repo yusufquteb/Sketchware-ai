@@ -54,16 +54,29 @@ public class AgentExecutor {
     /** Countdown seconds before Continue is auto-selected. */
     private static final int  PULSE_AUTO_SECS     = 10;
     /** Ordered failover providers (tried in sequence on timeout/error). */
-    /** Failover order - only enabled providers with API keys will be used. */
+    /**
+     * Failover order — only enabled providers with API keys (or no-key providers) are tried.
+     * Order: free-no-key → free-with-key → paid.
+     */
     private static final pro.sketchware.ai.models.AiProvider[] FAILOVER_ORDER = {
-        pro.sketchware.ai.models.AiProvider.GROQ,
+        // Group 1: Free, no API key
+        pro.sketchware.ai.models.AiProvider.CHUTES,
+        // Group 2: Free with API key
         pro.sketchware.ai.models.AiProvider.GOOGLE_AI_STUDIO,
         pro.sketchware.ai.models.AiProvider.SAMBANOVA,
-        pro.sketchware.ai.models.AiProvider.TOGETHER,
+        pro.sketchware.ai.models.AiProvider.CEREBRAS,
+        pro.sketchware.ai.models.AiProvider.GROQ,
+        pro.sketchware.ai.models.AiProvider.HUGGINGFACE,
+        pro.sketchware.ai.models.AiProvider.MISTRAL,
+        pro.sketchware.ai.models.AiProvider.COHERE,
+        pro.sketchware.ai.models.AiProvider.GITHUB_MODELS,
+        // Group 3: Paid
         pro.sketchware.ai.models.AiProvider.OPENAI,
         pro.sketchware.ai.models.AiProvider.ANTHROPIC,
         pro.sketchware.ai.models.AiProvider.DEEPSEEK,
         pro.sketchware.ai.models.AiProvider.GEMINI,
+        pro.sketchware.ai.models.AiProvider.TOGETHER,
+        pro.sketchware.ai.models.AiProvider.DEEPINFRA,
     };
 
     private final Context context;

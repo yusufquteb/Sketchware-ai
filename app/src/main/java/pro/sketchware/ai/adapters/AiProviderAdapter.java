@@ -1,8 +1,6 @@
-// nikit overhaul — Task 2 — 2026-05
 package pro.sketchware.ai.adapters;
 
 import android.content.Context;
-import android.text.InputType;
 import android.text.method.PasswordTransformationMethod;
 import android.text.method.SingleLineTransformationMethod;
 import android.view.LayoutInflater;
@@ -14,7 +12,6 @@ import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -26,115 +23,213 @@ import pro.sketchware.R;
 import pro.sketchware.ai.models.AiProvider;
 
 /**
- * RecyclerView adapter for the AI Providers list in AiSettingsActivity.
- * Each provider gets a card with icon, name, status, enable switch,
- * API key field, and Get Key / Refresh Models buttons.
+ * RecyclerView adapter for the AI Providers list.
+ * Supports two item types: GROUP_HEADER and PROVIDER_CARD.
+ * Providers are organized into three groups: Free (no API), Free (with API), Paid.
  */
-public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.ViewHolder> {
+public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+    private static final int TYPE_HEADER   = 0;
+    private static final int TYPE_PROVIDER = 1;
+
+    // ── Callback ──────────────────────────────────────────────────────────────
 
     public interface ProviderCallback {
-        /** Called when user toggles the switch for a provider */
         void onToggle(AiProvider provider, boolean enabled);
-        /** Called when user types and loses focus from the API key field */
         void onKeyChanged(AiProvider provider, String key);
-        /** Called when user taps "Get Key" */
         void onGetKey(AiProvider provider);
-        /** Called when user taps "Refresh Models" */
         void onRefresh(AiProvider provider);
     }
 
-    /** Per-provider state (enabled, key, models count text) */
+    // ── Item types ────────────────────────────────────────────────────────────
+
+    public abstract static class ListItem {
+        public abstract int getType();
+    }
+
+    public static class GroupHeader extends ListItem {
+        public final String title;
+        public final String subtitle;
+        public final int    iconRes;
+        public final boolean showDivider;
+
+        public GroupHeader(String title, String subtitle, int iconRes, boolean showDivider) {
+            this.title       = title;
+            this.subtitle    = subtitle;
+            this.iconRes     = iconRes;
+            this.showDivider = showDivider;
+        }
+
+        @Override public int getType() { return TYPE_HEADER; }
+    }
+
+    public static class ProviderItem extends ListItem {
+        public final ProviderState state;
+        public ProviderItem(ProviderState state) { this.state = state; }
+        @Override public int getType() { return TYPE_PROVIDER; }
+    }
+
+    /** Per-provider UI state */
     public static class ProviderState {
         public final AiProvider provider;
         public boolean enabled;
-        public String apiKey;         // masked — only for display/restore
-        public String modelsCountText;
+        public String  apiKey;
+        public String  modelsCountText;
         public boolean keyVisible;
 
         public ProviderState(AiProvider provider, boolean enabled,
                              String apiKey, String modelsCountText) {
-            this.provider       = provider;
-            this.enabled        = enabled;
-            this.apiKey         = apiKey != null ? apiKey : "";
+            this.provider        = provider;
+            this.enabled         = enabled;
+            this.apiKey          = apiKey != null ? apiKey : "";
             this.modelsCountText = modelsCountText != null ? modelsCountText : "";
-            this.keyVisible     = false;
+            this.keyVisible      = false;
         }
     }
 
-    private final List<ProviderState> states = new ArrayList<>();
-    private final ProviderCallback callback;
+    // ── Fields ────────────────────────────────────────────────────────────────
+
+    private final List<ListItem>     items    = new ArrayList<>();
+    private final ProviderCallback   callback;
 
     public AiProviderAdapter(ProviderCallback callback) {
         this.callback = callback;
     }
 
-    public void setStates(List<ProviderState> newStates) {
-        List<ProviderState> oldStates = new ArrayList<>(states);
-        states.clear();
-        for (ProviderState s : newStates) {
-            states.add(s);
+    // ── Data ──────────────────────────────────────────────────────────────────
+
+    public void setStates(List<ProviderState> states) {
+        items.clear();
+
+        List<ProviderState> freeNoApi  = new ArrayList<>();
+        List<ProviderState> freeApi    = new ArrayList<>();
+        List<ProviderState> paid       = new ArrayList<>();
+
+        for (ProviderState s : states) {
+            switch (s.provider.getGroup()) {
+                case FREE_NO_API:  freeNoApi.add(s);  break;
+                case FREE_WITH_API: freeApi.add(s);   break;
+                default:           paid.add(s);       break;
+            }
         }
-        List<ProviderState> filtered = new ArrayList<>(states);
-        DiffUtil.calculateDiff(new DiffUtil.Callback() {
-            @Override public int getOldListSize() { return oldStates.size(); }
-            @Override public int getNewListSize() { return filtered.size(); }
-            @Override public boolean areItemsTheSame(int op, int np) {
-                return oldStates.get(op).provider == filtered.get(np).provider;
-            }
-            @Override public boolean areContentsTheSame(int op, int np) {
-                ProviderState o = oldStates.get(op), n = filtered.get(np);
-                return o.enabled == n.enabled && java.util.Objects.equals(o.modelsCountText, n.modelsCountText);
-            }
-        }).dispatchUpdatesTo(this);
+
+        if (!freeNoApi.isEmpty()) {
+            items.add(new GroupHeader(
+                    "Free — No API Key",
+                    "Works immediately, zero setup required",
+                    R.drawable.ic_mtrl_check,
+                    false));
+            for (ProviderState s : freeNoApi) items.add(new ProviderItem(s));
+        }
+
+        if (!freeApi.isEmpty()) {
+            items.add(new GroupHeader(
+                    "Free — API Key Required",
+                    "Generous free tiers — get a key in minutes",
+                    R.drawable.ic_mtrl_key,
+                    !freeNoApi.isEmpty()));
+            for (ProviderState s : freeApi) items.add(new ProviderItem(s));
+        }
+
+        if (!paid.isEmpty()) {
+            items.add(new GroupHeader(
+                    "Paid Providers",
+                    "Premium models — pay-as-you-go pricing",
+                    R.drawable.ic_mtrl_payment,
+                    !freeNoApi.isEmpty() || !freeApi.isEmpty()));
+            for (ProviderState s : paid) items.add(new ProviderItem(s));
+        }
+
+        notifyDataSetChanged();
     }
 
-    /** Programmatically toggle a provider (e.g. Manus revert) */
     public void setEnabled(AiProvider provider, boolean enabled) {
-        for (int i = 0; i < states.size(); i++) {
-            if (states.get(i).provider == provider) {
-                states.get(i).enabled = enabled;
-                notifyItemChanged(i);
-                return;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i) instanceof ProviderItem) {
+                ProviderState s = ((ProviderItem) items.get(i)).state;
+                if (s.provider == provider) {
+                    s.enabled = enabled;
+                    notifyItemChanged(i);
+                    return;
+                }
             }
         }
     }
 
-    /** Updates the models count text for one provider without full rebind */
     public void setModelCount(AiProvider provider, String text) {
-        for (int i = 0; i < states.size(); i++) {
-            if (states.get(i).provider == provider) {
-                states.get(i).modelsCountText = text;
-                notifyItemChanged(i);
-                return;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i) instanceof ProviderItem) {
+                ProviderState s = ((ProviderItem) items.get(i)).state;
+                if (s.provider == provider) {
+                    s.modelsCountText = text;
+                    notifyItemChanged(i);
+                    return;
+                }
             }
         }
     }
 
-    @Override public int getItemCount() { return states.size(); }
+    // ── Adapter ───────────────────────────────────────────────────────────────
+
+    @Override public int getItemCount() { return items.size(); }
+
+    @Override public int getItemViewType(int pos) { return items.get(pos).getType(); }
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_ai_provider, parent, false);
-        return new ViewHolder(v);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        LayoutInflater inf = LayoutInflater.from(parent.getContext());
+        if (viewType == TYPE_HEADER) {
+            View v = inf.inflate(R.layout.item_provider_group_header, parent, false);
+            return new HeaderViewHolder(v);
+        }
+        View v = inf.inflate(R.layout.item_ai_provider, parent, false);
+        return new ProviderViewHolder(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder h, int pos) {
-        ProviderState state = states.get(pos);
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int pos) {
+        if (holder instanceof HeaderViewHolder) {
+            bindHeader((HeaderViewHolder) holder, (GroupHeader) items.get(pos));
+        } else {
+            bindProvider((ProviderViewHolder) holder, ((ProviderItem) items.get(pos)).state);
+        }
+    }
+
+    // ── Header binding ────────────────────────────────────────────────────────
+
+    private void bindHeader(HeaderViewHolder h, GroupHeader header) {
+        h.title.setText(header.title);
+        h.subtitle.setText(header.subtitle);
+        h.icon.setImageResource(header.iconRes);
+        h.divider.setVisibility(header.showDivider ? View.VISIBLE : View.GONE);
+
+        // Count providers in this group
+        int count = 0;
+        boolean counting = false;
+        for (ListItem item : items) {
+            if (item == header) { counting = true; continue; }
+            if (counting) {
+                if (item instanceof GroupHeader) break;
+                count++;
+            }
+        }
+        h.count.setText(count + " providers");
+    }
+
+    // ── Provider binding ──────────────────────────────────────────────────────
+
+    private void bindProvider(ProviderViewHolder h, ProviderState state) {
         AiProvider provider = state.provider;
         Context ctx = h.itemView.getContext();
 
-        // ── Icon ──────────────────────────────────────────────────────────────
         h.icon.setImageResource(getIconFor(provider));
-
-        // ── Name & badge ──────────────────────────────────────────────────────
         h.name.setText(provider.getDisplayName());
 
+        // Badge
         if (provider.isUnlimited()) {
             h.badge.setVisibility(View.VISIBLE);
-            h.badge.setText("\u221e Unlimited");
+            h.badge.setText("∞ Unlimited");
         } else if (!provider.requiresApiKey()) {
             h.badge.setVisibility(View.VISIBLE);
             h.badge.setText("FREE");
@@ -142,18 +237,17 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             h.badge.setVisibility(View.GONE);
         }
 
-        // ── Status & models count ─────────────────────────────────────────────
+        // Status
         h.status.setText(state.enabled ? "Enabled" : "Disabled");
-        h.status.setTextColor(state.enabled
-                ? 0xFF4CAF50   // green
+        h.status.setTextColor(state.enabled ? 0xFF4CAF50
                 : ctx.obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary})
                       .getColor(0, 0xFF888888));
-        h.modelsCount.setText(state.modelsCountText);
-        h.modelsCount.setVisibility(
-                state.modelsCountText.isEmpty() ? View.GONE : View.VISIBLE);
 
-        // ── Switch ────────────────────────────────────────────────────────────
-        h.toggle.setOnCheckedChangeListener(null);  // prevent spurious triggers
+        h.modelsCount.setText(state.modelsCountText);
+        h.modelsCount.setVisibility(state.modelsCountText.isEmpty() ? View.GONE : View.VISIBLE);
+
+        // Switch
+        h.toggle.setOnCheckedChangeListener(null);
         h.toggle.setChecked(state.enabled);
         h.toggle.setOnCheckedChangeListener((btn, checked) -> {
             state.enabled = checked;
@@ -161,24 +255,21 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             h.status.setTextColor(checked ? 0xFF4CAF50
                     : ctx.obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary})
                           .getColor(0, 0xFF888888));
-            // Show expandable section when enabled for any provider (key required or free)
             h.layoutApiKey.setVisibility(checked ? View.VISIBLE : View.GONE);
             callback.onToggle(provider, checked);
         });
 
-        // ── API Key section ───────────────────────────────────────────────────
-        // Always show the expandable section when enabled (both key-required and free)
+        // Expandable API key section
         h.layoutApiKey.setVisibility(state.enabled ? View.VISIBLE : View.GONE);
 
-        h.inputApiKey.removeTextChangedListener(null);
         if (!state.apiKey.isEmpty()) {
             h.inputApiKey.setText(state.apiKey);
         } else {
             h.inputApiKey.setText("");
         }
-        // Show/hide eye toggle
         state.keyVisible = false;
         h.inputApiKey.setTransformationMethod(PasswordTransformationMethod.getInstance());
+
         h.btnShowKey.setOnClickListener(v -> {
             state.keyVisible = !state.keyVisible;
             if (state.keyVisible) {
@@ -191,7 +282,6 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             h.inputApiKey.setSelection(h.inputApiKey.getText().length());
         });
 
-        // Copy key
         h.btnCopyKey.setOnClickListener(v -> {
             String key = h.inputApiKey.getText().toString().trim();
             if (!key.isEmpty()) {
@@ -200,12 +290,13 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
                 if (cm != null) {
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("api_key", key));
                     com.google.android.material.snackbar.Snackbar
-                            .make(h.itemView, "Key copied", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
+                            .make(h.itemView, "Key copied",
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
+                            .show();
                 }
             }
         });
 
-        // Save key on focus loss
         h.inputApiKey.setOnFocusChangeListener((v, hasFocus) -> {
             if (!hasFocus) {
                 String key = h.inputApiKey.getText().toString().trim();
@@ -214,7 +305,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             }
         });
 
-        // Free providers — disable key input and hide all key-related buttons
+        // Free providers — disable key input
         if (!provider.requiresApiKey()) {
             h.inputApiKey.setEnabled(false);
             h.inputApiKey.setHint("No API key required — free access");
@@ -227,13 +318,11 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             h.inputApiKey.setHint("Enter API key");
             h.btnShowKey.setVisibility(View.VISIBLE);
             h.btnCopyKey.setVisibility(View.VISIBLE);
-            // Get Key button label and action
             h.getKeyLabel.setText("Get your API key from " + getKeySourceLabel(provider));
             h.btnGetKey.setVisibility(View.VISIBLE);
             h.btnGetKey.setOnClickListener(v -> callback.onGetKey(provider));
         }
 
-        // Refresh button
         h.btnRefresh.setOnClickListener(v -> {
             String key = h.inputApiKey.getText().toString().trim();
             state.apiKey = key;
@@ -242,7 +331,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
         });
     }
 
-    // ── Icon mapping ──────────────────────────────────────────────────────────
+    // ── Icon & label mappings ─────────────────────────────────────────────────
 
     @DrawableRes
     private static int getIconFor(AiProvider p) {
@@ -261,7 +350,6 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
             case CEREBRAS:         return R.drawable.ic_provider_cerebras;
             case GOOGLE_AI_STUDIO: return R.drawable.ic_provider_google_ai_studio;
             case SAMBANOVA:        return R.drawable.ic_provider_sambanova;
-            // providers without dedicated icons — use generic stack icon
             default:               return R.drawable.ic_mtrl_code;
         }
     }
@@ -298,9 +386,26 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
         }
     }
 
-    // ── ViewHolder ────────────────────────────────────────────────────────────
+    // ── ViewHolders ───────────────────────────────────────────────────────────
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
+    static class HeaderViewHolder extends RecyclerView.ViewHolder {
+        final View     divider;
+        final ImageView icon;
+        final TextView  title;
+        final TextView  count;
+        final TextView  subtitle;
+
+        HeaderViewHolder(@NonNull View v) {
+            super(v);
+            divider  = v.findViewById(R.id.group_divider);
+            icon     = v.findViewById(R.id.group_icon);
+            title    = v.findViewById(R.id.group_title);
+            count    = v.findViewById(R.id.group_count);
+            subtitle = v.findViewById(R.id.group_subtitle);
+        }
+    }
+
+    static class ProviderViewHolder extends RecyclerView.ViewHolder {
         final ImageView  icon;
         final TextView   name;
         final TextView   badge;
@@ -315,7 +420,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<AiProviderAdapter.Vi
         final TextView   getKeyLabel;
         final com.google.android.material.button.MaterialButton btnRefresh;
 
-        ViewHolder(@NonNull View v) {
+        ProviderViewHolder(@NonNull View v) {
             super(v);
             icon         = v.findViewById(R.id.provider_icon);
             name         = v.findViewById(R.id.provider_name);
