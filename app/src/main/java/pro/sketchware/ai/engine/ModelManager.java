@@ -18,6 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamingResponseHandler;
+import pro.sketchware.ai.core.AiError;
+import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
@@ -226,6 +228,8 @@ public final class ModelManager {
             // ── Try this model with retry for network/timeout errors ────────
             boolean modelSucceeded = false;
             final int MAX_RETRIES = 2;
+            // Record one health start-token per provider attempt (covers all retries).
+            final long providerHealthToken = AiHealthMonitor.getInstance().recordRequestStart(provider);
             for (int retry = 0; retry <= MAX_RETRIES && !modelSucceeded; retry++) {
                 if (cancelFlag.get()) {
                     if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Cancelled by user"); }
@@ -301,6 +305,7 @@ public final class ModelManager {
             }
 
             if (modelSucceeded) {
+                AiHealthMonitor.getInstance().recordSuccess(provider, providerHealthToken);
                 CircuitBreaker.getInstance().recordSuccess(provider.name());
                 if (!alreadyResolved[0]) {
                     alreadyResolved[0] = true;
@@ -314,6 +319,8 @@ public final class ModelManager {
                 return;
             }
 
+            AiHealthMonitor.getInstance().recordFailure(provider,
+                    AiError.fromRawError(lastError, provider.getDisplayName()));
             CircuitBreaker.getInstance().recordFailure(provider.name());
             if (pro.sketchware.BuildConfig.DEBUG) {
                 Log.d("PulseEngine", "[Pulse] " + provider.getDisplayName() + "/" + am.modelId

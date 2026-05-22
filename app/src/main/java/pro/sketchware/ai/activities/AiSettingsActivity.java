@@ -34,6 +34,8 @@ import pro.sketchware.R;
 import pro.sketchware.ai.adapters.AiProviderAdapter;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
+import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.storage.AiPreferences;
@@ -117,6 +119,7 @@ public class AiSettingsActivity extends AppCompatActivity {
         setupLayoutGenerationSettings();
         setupMorphSettings();
         setupSystemPrompt();
+        setupHealthDashboard();
         handleIncomingIntent();
     }
 
@@ -613,6 +616,26 @@ public class AiSettingsActivity extends AppCompatActivity {
                 });
     }
 
+    // ── AI Health Dashboard ───────────────────────────────────────────────────
+
+    private void setupHealthDashboard() {
+        refreshHealthReport();
+
+        AiHealthMonitor.getInstance().setListener(this::refreshHealthReport);
+
+        binding.btnResetHealth.setOnClickListener(v -> {
+            AiHealthMonitor.getInstance().reset();
+            CircuitBreaker.getInstance().resetAll();
+            refreshHealthReport();
+            Toast.makeText(this, "Health metrics reset", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void refreshHealthReport() {
+        String report = AiHealthMonitor.getInstance().buildDiagnosticReport(this);
+        binding.tvHealthReport.setText(report);
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
@@ -625,6 +648,7 @@ public class AiSettingsActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        AiHealthMonitor.getInstance().setListener(null);
         dismissFailoverBanner();
         executor.shutdownNow();
     }

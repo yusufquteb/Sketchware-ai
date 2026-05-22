@@ -17,6 +17,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import pro.sketchware.ai.core.AiError;
+import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamingResponseHandler;
@@ -221,6 +223,7 @@ public class AgentExecutor {
                         currentClient.cancelByTag(conversationIdTag);
                     }
 
+                    final long healthToken = AiHealthMonitor.getInstance().recordRequestStart(provider);
                     currentClient.sendChatRequest(messages, modelHolder[0], effectiveSystemPrompt, toolDefs, conversationIdTag,
                             new StreamingResponseHandler() {
                                 @Override
@@ -260,6 +263,9 @@ public class AgentExecutor {
                                 ? "timed out after " + (streamTimeoutMs / 1000) + "s"
                                 : (streamError[0] != null ? streamError[0] : "request error");
 
+                        AiHealthMonitor.getInstance().recordFailure(provider,
+                                AiError.fromRawError(failReason, provider.getDisplayName()));
+
                         // Try to failover to next available provider
                         pro.sketchware.ai.models.AiProvider failoverProvider =
                                 findFailoverProvider(provider, preferences);
@@ -290,6 +296,8 @@ public class AgentExecutor {
                             pendingToolCalls.isEmpty() ? null : pendingToolCalls);
                     messages.add(assistantMsg);
                     mainHandler.post(() -> callback.onAssistantMessage(assistantMsg));
+
+                    AiHealthMonitor.getInstance().recordSuccess(provider, healthToken);
 
                     // ── No tool calls → conversation turn complete ──────────────────
                     if (pendingToolCalls.isEmpty()) {
