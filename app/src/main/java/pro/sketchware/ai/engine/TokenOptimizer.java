@@ -88,10 +88,35 @@ public final class TokenOptimizer {
         return applyBudget(history, TOKEN_BUDGET_MESSAGES);
     }
 
-    /** Budget-caps history to {@code maxMessages} most-recent entries. */
+    /**
+     * Budget-caps history to {@code maxMessages} most-recent entries.
+     *
+     * <p>Pinned messages (see {@link pro.sketchware.ai.models.ChatMessage#isPinned()}) are
+     * always preserved regardless of the budget — they are prepended before the
+     * tail window so critical context is never summarised away.
+     */
     public static List<ChatMessage> applyBudget(List<ChatMessage> history, int maxMessages) {
-        if (history == null || history.size() <= maxMessages) return history;
-        return new ArrayList<>(history.subList(history.size() - maxMessages, history.size()));
+        if (history == null || history.isEmpty()) return history;
+
+        // Separate pinned messages (preserve them always)
+        List<ChatMessage> pinned     = new ArrayList<>();
+        List<ChatMessage> unpinned   = new ArrayList<>();
+        for (ChatMessage m : history) {
+            if (m.isPinned()) pinned.add(m); else unpinned.add(m);
+        }
+
+        // Budget only applies to unpinned messages
+        if (unpinned.size() > maxMessages) {
+            unpinned = new ArrayList<>(unpinned.subList(
+                    unpinned.size() - maxMessages, unpinned.size()));
+        }
+
+        if (pinned.isEmpty()) return unpinned;
+
+        // Merge: pinned first (in original order), then unpinned tail
+        List<ChatMessage> merged = new ArrayList<>(pinned);
+        merged.addAll(unpinned);
+        return merged;
     }
 
     // ── 2. Message Summarisation ──────────────────────────────────────────────
