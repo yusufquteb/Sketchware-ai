@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.tabs.TabLayout;
@@ -92,6 +93,10 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     /** Single source of truth for chat lifecycle. Replaces the old boolean flag. */
     private ChatState chatState = ChatState.IDLE;
+
+    /** Debouncer for persisting the in-progress draft message to preferences. */
+    private final android.os.Handler draftHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private static final long DRAFT_DEBOUNCE_MS = 800L;
 
     private static final int REQUEST_SPEECH_INPUT = 1001;
     private static final int REQUEST_FILE_PICK    = 1002;
@@ -244,6 +249,14 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
             @Override
             public void afterTextChanged(Editable s) {
+                // Debounced draft persistence — save after 800 ms of no typing
+                draftHandler.removeCallbacksAndMessages(null);
+                if (conversationId != null && !chatState.isActive()) {
+                    String text = s.toString();
+                    draftHandler.postDelayed(
+                            () -> preferences.saveDraft(conversationId, text),
+                            DRAFT_DEBOUNCE_MS);
+                }
             }
         });
 
@@ -568,6 +581,37 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         if (!messages.isEmpty()) {
             binding.messagesList.scrollToPosition(chatAdapter.getItemCount() - 1);
         }
+        // Restore draft — if the user had a partially typed message last session
+        String draft = preferences.getDraft(conversationId);
+        if (draft != null && !draft.isEmpty()
+                && (binding.inputMessage.getText() == null
+                    || binding.inputMessage.getText().length() == 0)) {
+            binding.inputMessage.setText(draft);
+            binding.inputMessage.setSelection(draft.length());
+        }
+    }
+
+    /**
+     * Shows a brief Snackbar if ModelRouter recommends a different profile than
+     * the one currently active. The Snackbar is advisory — user can dismiss.
+     * Only fires when profiles clearly differ (e.g. typing a build request on Quick).
+     */
+    private void suggestProfileIfNeeded(String text) {
+        String recommended = ModelRouter.recommendProfile(text);
+        String current     = preferences.getActiveProfile();
+        if (recommended.equalsIgnoreCase(current)) return;
+
+        boolean toDeep = ModelRouter.PROFILE_DEEP.equals(recommended);
+        String hint = toDeep
+                ? "Coding task detected — Deep profile gives better results"
+                : "Simple question — Quick profile is faster";
+        String action = toDeep ? "Use Deep" : "Use Quick";
+
+        Snackbar.make(binding.getRoot(), hint, Snackbar.LENGTH_LONG)
+                .setAction(action, v -> preferences.prefs().edit()
+                        .putString("ai_profile", recommended)
+                        .apply())
+                .show();
     }
 
     private void updateEmptyState() {
@@ -593,6 +637,13 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
             // Toast removed
             return;
         }
+
+        // Clear draft — message is now being sent
+        draftHandler.removeCallbacksAndMessages(null);
+        preferences.clearDraft(conversationId);
+
+        // Model routing hint — non-intrusive Snackbar if profile mismatch
+        suggestProfileIfNeeded(text);
 
         binding.inputMessage.setText("");
 
@@ -944,6 +995,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        draftHandler.removeCallbacksAndMessages(null);
         if (agentExecutor != null) {
             agentExecutor.shutdown();
         }

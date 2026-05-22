@@ -39,10 +39,10 @@ public final class ModelRouter {
         LONG_CONTEXT,
     }
 
-    /** Profile key constant matching {@code AiPreferences.PROFILE_QUICK}. */
-    public static final String PROFILE_QUICK = "quick";
-    /** Profile key constant matching {@code AiPreferences.PROFILE_DEEP}. */
-    public static final String PROFILE_DEEP  = "deep";
+    /** Profile key constant — matches the value stored by AiSettingsActivity's toggle. */
+    public static final String PROFILE_QUICK = "QUICK";
+    /** Profile key constant — matches the value stored by AiSettingsActivity's toggle. */
+    public static final String PROFILE_DEEP  = "DEEP";
 
     // ── Patterns ──────────────────────────────────────────────────────────────
 

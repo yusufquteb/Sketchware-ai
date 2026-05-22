@@ -431,4 +431,40 @@ public class AiPreferences {
     public void setRequestTimeoutSecs(int secs) {
         prefs.edit().putInt(KEY_REQUEST_TIMEOUT, Math.max(30, secs)).apply();
     }
+
+    // ── Active profile ────────────────────────────────────────────────────────
+
+    private static final String KEY_AI_PROFILE = "ai_profile";
+
+    /**
+     * Returns the currently active profile key ("QUICK" or "DEEP").
+     * Matches the constant stored by AiSettingsActivity's profile toggle.
+     */
+    public String getActiveProfile() {
+        return prefs.getString(KEY_AI_PROFILE, "QUICK");
+    }
+
+    // ── Draft message persistence ─────────────────────────────────────────────
+
+    private static final String KEY_DRAFT_PREFIX = "ai_draft_";
+
+    /** Saves the user's in-progress input for a conversation. Pass null/empty to clear. */
+    public void saveDraft(@NonNull String conversationId, @Nullable String text) {
+        if (text == null || text.trim().isEmpty()) {
+            prefs.edit().remove(KEY_DRAFT_PREFIX + conversationId).apply();
+        } else {
+            prefs.edit().putString(KEY_DRAFT_PREFIX + conversationId, text).apply();
+        }
+    }
+
+    /** Returns the saved draft for a conversation, or null if none. */
+    @Nullable
+    public String getDraft(@NonNull String conversationId) {
+        return prefs.getString(KEY_DRAFT_PREFIX + conversationId, null);
+    }
+
+    /** Removes the saved draft for a conversation (call after the message is sent). */
+    public void clearDraft(@NonNull String conversationId) {
+        prefs.edit().remove(KEY_DRAFT_PREFIX + conversationId).apply();
+    }
 }
