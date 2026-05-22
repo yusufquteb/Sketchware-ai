@@ -3,6 +3,8 @@ package pro.sketchware.ai.engine;
 import java.util.ArrayList;
 import java.util.List;
 
+import pro.sketchware.ai.core.ProviderCapabilities;
+import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
 
 /**
@@ -83,8 +85,13 @@ public final class TokenOptimizer {
      * @return a new list (possibly the same object if already within budget)
      */
     public static List<ChatMessage> applyBudget(List<ChatMessage> history) {
-        if (history == null || history.size() <= TOKEN_BUDGET_MESSAGES) return history;
-        return new ArrayList<>(history.subList(history.size() - TOKEN_BUDGET_MESSAGES, history.size()));
+        return applyBudget(history, TOKEN_BUDGET_MESSAGES);
+    }
+
+    /** Budget-caps history to {@code maxMessages} most-recent entries. */
+    public static List<ChatMessage> applyBudget(List<ChatMessage> history, int maxMessages) {
+        if (history == null || history.size() <= maxMessages) return history;
+        return new ArrayList<>(history.subList(history.size() - maxMessages, history.size()));
     }
 
     // ── 2. Message Summarisation ──────────────────────────────────────────────
@@ -376,6 +383,33 @@ public final class TokenOptimizer {
         List<ChatMessage> h = summariseIfNeeded(history);
         h = truncateToolResults(h);
         h = applyBudget(h);
+        return h;
+    }
+
+    /**
+     * Provider-aware variant of {@link #optimise(List)}.
+     *
+     * <p>Derives a dynamic message budget from the provider's reported context
+     * window (via {@link ProviderCapabilities}) rather than the hard-coded
+     * {@link #TOKEN_BUDGET_MESSAGES} constant. Providers with large windows
+     * (Gemini 1M, Claude 200k) get a higher budget; constrained providers
+     * (Cohere, Cloudflare 8k) get a tighter budget to avoid token overflow.
+     *
+     * @param history  full conversation history
+     * @param provider the AI provider about to receive this history
+     * @return optimised history ready to send to the API
+     */
+    public static List<ChatMessage> optimise(List<ChatMessage> history, AiProvider provider) {
+        List<ChatMessage> h = summariseIfNeeded(history);
+        h = truncateToolResults(h);
+
+        int dynamicBudget = TOKEN_BUDGET_MESSAGES; // safe default
+        if (provider != null) {
+            int maxCtx = ProviderCapabilities.of(provider).maxContextTokens;
+            dynamicBudget = TokenEstimator.budgetForContextWindow(
+                    maxCtx, /* min= */ 20, /* max= */ TOKEN_BUDGET_MESSAGES);
+        }
+        h = applyBudget(h, dynamicBudget);
         return h;
     }
 }
