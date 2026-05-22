@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.google.gson.JsonObject;
 
@@ -18,25 +19,28 @@ import pro.sketchware.ai.tools.AgentTool;
 import pro.sketchware.ai.tools.ToolContext;
 
 /**
- * Wraps {@link AgentTool#execute} with a hard timeout and telemetry recording.
+ * Wraps {@link AgentTool#execute} with:
+ * <ol>
+ *   <li>A hard 30-second timeout per execution attempt.</li>
+ *   <li>One automatic retry (500 ms backoff) for transient errors
+ *       (timeout, network, connection reset).</li>
+ *   <li>Telemetry recording on every outcome path.</li>
+ * </ol>
  *
- * <p>Uses a dedicated daemon thread pool that is completely separate from
+ * <p>Uses a dedicated daemon thread pool entirely separate from
  * {@link AgentExecutor}'s single executor thread, preventing deadlocks while
  * allowing {@code Future.get(timeout)} to enforce per-tool time limits.
  *
- * <p>All methods are thread-safe and non-blocking from the caller's perspective
- * (the caller blocks for at most {@link #TOOL_TIMEOUT_MS} ms).
+ * <p>All public methods are thread-safe and never throw.
  */
 public final class ToolExecutionGuard {
 
-    /** Hard timeout for any single tool execution. */
+    /** Hard timeout for a single tool execution attempt. */
     public static final long TOOL_TIMEOUT_MS = 30_000L;
 
-    /**
-     * Shared thread pool for tool execution.
-     * Daemon threads so they don't prevent JVM shutdown; cached so idle threads
-     * are cleaned up after 60 s without work.
-     */
+    /** Backoff before the single retry on transient failures. */
+    private static final long RETRY_BACKOFF_MS = 500L;
+
     private static final ExecutorService TOOL_EXECUTOR = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "ai-tool-exec");
         t.setDaemon(true);
@@ -48,16 +52,14 @@ public final class ToolExecutionGuard {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Executes {@code tool} with the given arguments, enforcing a 30-second timeout
-     * and recording timing + outcome in {@link ToolTelemetry}.
-     *
-     * <p>Never throws — all exceptional paths are folded into {@link ToolResult#failure}.
+     * Executes {@code tool} with the given arguments, timeout, optional retry,
+     * and telemetry. Never throws.
      *
      * @param tool    the tool to execute
-     * @param args    parsed JSON arguments from the model
-     * @param context execution context (project IDs, cancellation checker, etc.)
-     * @param callId  tool-call ID used to construct the returned ToolResult
-     * @return a non-null ToolResult — success or failure
+     * @param args    parsed JSON arguments
+     * @param context execution context (project IDs, cancellation, progress)
+     * @param callId  tool-call ID for the returned ToolResult
+     * @return non-null ToolResult — success or descriptive failure
      */
     @NonNull
     public static ToolResult executeWithTimeout(
@@ -66,31 +68,49 @@ public final class ToolExecutionGuard {
             @NonNull ToolContext context,
             @NonNull String callId) {
 
-        String name  = tool.getName();
-        long   token = ToolTelemetry.getInstance().recordStart(name);
-
-        // Check cancellation before even starting
         if (context.isCancelled()) {
             return ToolResult.failure(callId, "Cancelled before start");
         }
 
+        String name  = tool.getName();
+        long   token = ToolTelemetry.getInstance().recordStart(name);
+
+        ToolResult result = attempt(tool, args, context, callId, name, token);
+
+        // ── Single retry for transient errors ─────────────────────────────────
+        if (!result.isSuccess() && isTransient(result.getError()) && !context.isCancelled()) {
+            try { Thread.sleep(RETRY_BACKOFF_MS); } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return result;
+            }
+            // Reset telemetry token so retry duration is measured independently
+            long retryToken = ToolTelemetry.getInstance().recordStart(name);
+            result = attempt(tool, args, context, callId, name, retryToken);
+        }
+
+        return result;
+    }
+
+    // ── Internal ──────────────────────────────────────────────────────────────
+
+    @NonNull
+    private static ToolResult attempt(AgentTool tool, JsonObject args,
+                                       ToolContext context, String callId,
+                                       String name, long token) {
         Future<ToolResult> future = TOOL_EXECUTOR.submit(() -> {
             ToolResult r = tool.execute(args, context);
             return r != null ? r : ToolResult.failure(callId, "Tool returned null result");
         });
 
         try {
-            ToolResult result = future.get(TOOL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-            // Normalise: always propagate the correct callId
-            ToolResult normalised = ensureCallId(result, callId);
-
-            if (normalised.isSuccess()) {
+            ToolResult r = future.get(TOOL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            ToolResult norm = ensureCallId(r, callId);
+            if (norm.isSuccess()) {
                 ToolTelemetry.getInstance().recordSuccess(name, token);
             } else {
-                ToolTelemetry.getInstance().recordFailure(name, normalised.getError(), token);
+                ToolTelemetry.getInstance().recordFailure(name, norm.getError(), token);
             }
-            return normalised;
+            return norm;
 
         } catch (TimeoutException e) {
             future.cancel(true);
@@ -116,7 +136,18 @@ public final class ToolExecutionGuard {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    /** Returns true for errors that are worth retrying (network / timeout, not logic errors). */
+    private static boolean isTransient(@Nullable String error) {
+        if (error == null) return false;
+        String low = error.toLowerCase(java.util.Locale.US);
+        return low.contains("timeout")
+                || low.contains("timed out")
+                || low.contains("connection")
+                || low.contains("network")
+                || low.contains("socket")
+                || low.contains("econnreset")
+                || low.contains("unreachable");
+    }
 
     private static ToolResult ensureCallId(ToolResult r, String callId) {
         if (r.getToolCallId() != null && !r.getToolCallId().isEmpty()) return r;
