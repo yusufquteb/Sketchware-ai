@@ -138,10 +138,12 @@ public class AiSettingsActivity extends AppCompatActivity {
     private void setupProvidersRecyclerView() {
         List<AiProviderAdapter.ProviderState> states = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            // Default-enabled: original defaults + new free-no-key providers
-            boolean defaultEnabled = (p == AiProvider.GOOGLE_AI_STUDIO
-                    || p == AiProvider.SAMBANOVA
-                    || p == AiProvider.CHUTES);
+            // Default-enabled on first install: CHUTES (free, no key), plus GOOGLE_AI_STUDIO
+            // and SAMBANOVA for failover coverage. Groq is NOT default to avoid rate-limit
+            // exhaustion for users who haven't yet entered an API key.
+            boolean defaultEnabled = (p == AiProvider.CHUTES
+                    || p == AiProvider.GOOGLE_AI_STUDIO
+                    || p == AiProvider.SAMBANOVA);
             boolean enabled = preferences.prefs().getBoolean(PREF_ENABLED + p.name(), defaultEnabled);
             String  key     = p.requiresApiKey() ? preferences.getApiKey(p) : "";
             String  count   = buildModelCountText(p);
@@ -509,19 +511,21 @@ public class AiSettingsActivity extends AppCompatActivity {
     }
 
     private void updateLayoutProviderHint(String providerName) {
-        if (providerName.isEmpty()
-                || providerName.equalsIgnoreCase("GROQ")
-                || providerName.equalsIgnoreCase("Groq")) {
+        if (providerName.isEmpty() || providerName.equalsIgnoreCase("CHUTES")) {
             binding.tvLayoutProviderHint.setText(
-                    "\u2605 Groq \u2014 fastest (LPU hardware, high rate limits, great XML output)");
+                    "\u2605 AirForce AI \u2014 completely free, no API key required");
             binding.tvLayoutProviderHint.setVisibility(View.VISIBLE);
-        } else if (providerName.equalsIgnoreCase("CHUTES")) {
+        } else if (providerName.equalsIgnoreCase("GROQ")) {
             binding.tvLayoutProviderHint.setText(
-                    "\u2605 AirForce AI 2014 completely free, no API key required");
+                    "\u2605 Groq \u2014 fast LPU inference, 14,400 req/day free tier");
             binding.tvLayoutProviderHint.setVisibility(View.VISIBLE);
         } else if (providerName.equalsIgnoreCase("SAMBANOVA")) {
             binding.tvLayoutProviderHint.setText(
-                    "\u2605 SambaNova \u2014 fast free inference for Llama & Gemma models");
+                    "\u2605 SambaNova \u2014 free fast inference for Llama & Gemma models");
+            binding.tvLayoutProviderHint.setVisibility(View.VISIBLE);
+        } else if (providerName.equalsIgnoreCase("GOOGLE_AI_STUDIO")) {
+            binding.tvLayoutProviderHint.setText(
+                    "\u2605 Google AI Studio \u2014 free Gemini Flash access, generous quota");
             binding.tvLayoutProviderHint.setVisibility(View.VISIBLE);
         } else {
             binding.tvLayoutProviderHint.setVisibility(View.GONE);
