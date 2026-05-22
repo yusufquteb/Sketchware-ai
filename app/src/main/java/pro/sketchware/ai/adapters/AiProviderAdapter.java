@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import pro.sketchware.R;
+import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 
 /**
@@ -237,11 +238,8 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             h.badge.setVisibility(View.GONE);
         }
 
-        // Status
-        h.status.setText(state.enabled ? "Enabled" : "Disabled");
-        h.status.setTextColor(state.enabled ? 0xFF4CAF50
-                : ctx.obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary})
-                      .getColor(0, 0xFF888888));
+        // Status + Circuit Breaker health badge
+        applyProviderStatus(h, ctx, state, provider);
 
         h.modelsCount.setText(state.modelsCountText);
         h.modelsCount.setVisibility(state.modelsCountText.isEmpty() ? View.GONE : View.VISIBLE);
@@ -251,10 +249,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         h.toggle.setChecked(state.enabled);
         h.toggle.setOnCheckedChangeListener((btn, checked) -> {
             state.enabled = checked;
-            h.status.setText(checked ? "Enabled" : "Disabled");
-            h.status.setTextColor(checked ? 0xFF4CAF50
-                    : ctx.obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary})
-                          .getColor(0, 0xFF888888));
+            applyProviderStatus(h, ctx, state, provider);
             h.layoutApiKey.setVisibility(checked ? View.VISIBLE : View.GONE);
             callback.onToggle(provider, checked);
         });
@@ -329,6 +324,35 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             callback.onKeyChanged(provider, key);
             callback.onRefresh(provider);
         });
+    }
+
+    // ── Status + Circuit Breaker badge ───────────────────────────────────────
+
+    private static void applyProviderStatus(ProviderViewHolder h, Context ctx,
+                                             ProviderState state, AiProvider provider) {
+        if (!state.enabled) {
+            h.status.setText("Disabled");
+            h.status.setTextColor(
+                    ctx.obtainStyledAttributes(new int[]{android.R.attr.textColorSecondary})
+                       .getColor(0, 0xFF888888));
+            return;
+        }
+
+        long cooldownMs = CircuitBreaker.getInstance().getRemainingCooldownMs(provider.name());
+        if (cooldownMs > 0) {
+            long secs = (cooldownMs + 999) / 1000; // round up
+            h.status.setText("Circuit open — cooldown " + secs + "s");
+            h.status.setTextColor(0xFFE53935); // red
+        } else {
+            int fails = CircuitBreaker.getInstance().getFailureCount(provider.name());
+            if (fails > 0) {
+                h.status.setText("Enabled · " + fails + " recent failure" + (fails == 1 ? "" : "s"));
+                h.status.setTextColor(0xFFFF8F00); // amber
+            } else {
+                h.status.setText("Enabled");
+                h.status.setTextColor(0xFF4CAF50); // green
+            }
+        }
     }
 
     // ── Icon & label mappings ─────────────────────────────────────────────────
