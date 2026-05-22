@@ -40,6 +40,7 @@ import pro.sketchware.ai.adapters.ModelSelectorAdapter;
 import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.ChatState;
+import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.engine.TokenOptimizer;
 import pro.sketchware.ai.models.AiProvider;
@@ -543,8 +544,9 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void sendMessage() {
-        String text = binding.inputMessage.getText() != null
-                ? binding.inputMessage.getText().toString().trim() : "";
+        String raw = binding.inputMessage.getText() != null
+                ? binding.inputMessage.getText().toString() : "";
+        String text = PromptSanitizer.sanitizeUserInput(raw);
         if (text.isEmpty() || chatState.isActive()) return;
 
         if (currentModelId == null || currentModelId.isEmpty()) {
