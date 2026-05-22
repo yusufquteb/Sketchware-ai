@@ -19,6 +19,8 @@ public class ChatMessage {
     private String toolName;
     private final long timestamp;
     private transient boolean isStreaming;
+    /** Pinned messages are never pruned by TokenOptimizer — use for critical context. */
+    private boolean pinned = false;
 
     public ChatMessage(String conversationId, String content) {
         this.id = UUID.randomUUID().toString();
@@ -125,6 +127,14 @@ public class ChatMessage {
         this.isStreaming = streaming;
     }
 
+    public boolean isPinned() { return pinned; }
+
+    /** Marks this message as pinned so TokenOptimizer never prunes it. */
+    public ChatMessage setPinned(boolean pinned) {
+        this.pinned = pinned;
+        return this;
+    }
+
     public static ChatMessage userMessage(String conversationId, String content) {
         return new ChatMessage(conversationId, content);
     }
@@ -172,6 +182,7 @@ public class ChatMessage {
         json.addProperty("toolCallId", toolCallId);
         json.addProperty("toolName", toolName);
         json.addProperty("timestamp", timestamp);
+        if (pinned) json.addProperty("pinned", true);
 
         if (toolCalls != null && !toolCalls.isEmpty()) {
             JsonArray callsArray = new JsonArray();
@@ -219,7 +230,12 @@ public class ChatMessage {
             }
         }
 
-        return new ChatMessage(id, conversationId, role, content, toolCalls, toolCallId, toolName, timestamp);
+        ChatMessage msg = new ChatMessage(id, conversationId, role, content,
+                toolCalls, toolCallId, toolName, timestamp);
+        if (json.has("pinned") && json.get("pinned").getAsBoolean()) {
+            msg.pinned = true;
+        }
+        return msg;
     }
 
     @Override

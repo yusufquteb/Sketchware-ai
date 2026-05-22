@@ -249,6 +249,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
             @Override
             public void afterTextChanged(Editable s) {
+                updateInputTokenHint(s.toString());
                 // Debounced draft persistence — save after 800 ms of no typing
                 draftHandler.removeCallbacksAndMessages(null);
                 if (conversationId != null && !chatState.isActive()) {
@@ -466,6 +467,24 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         tokenBadge.setPadding(8, 2, 8, 2);
         tokenBadge.setVisibility(android.view.View.GONE);
         binding.toolbar.addView(tokenBadge);
+    }
+
+    /**
+     * Shows a subtle token estimate on the toolbar badge when the user is typing
+     * a large message (≥ 200 estimated tokens ≈ 800 chars). Clears on send or empty.
+     */
+    private void updateInputTokenHint(String input) {
+        if (tokenBadge == null || input == null) return;
+        int inputTokens = TokenEstimator.estimate(input);
+        if (inputTokens >= 200) {
+            // Large input — warn before history tokens are even counted
+            tokenBadge.setText("⌨ ~" + inputTokens + " tok");
+            tokenBadge.setTextColor(inputTokens >= 800 ? 0xFFFF8F00 : 0xFF9d8ec0);
+            tokenBadge.setVisibility(android.view.View.VISIBLE);
+        } else if (!chatState.isActive() && input.isEmpty()) {
+            // Input cleared — refresh with history context view
+            updateTokenBadge();
+        }
     }
 
     /**
