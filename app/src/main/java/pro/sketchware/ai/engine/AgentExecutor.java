@@ -48,7 +48,8 @@ public class AgentExecutor {
     }
 
     private static final int  SAFETY_TOOL_ITERATION_LIMIT = 200;
-    private static final long STREAM_TIMEOUT_MS   = 120_000L;  // 120s per request
+    /** Fallback timeout used only when preferences are unavailable. */
+    private static final long STREAM_TIMEOUT_MS_DEFAULT  = 120_000L;
     /** Default pulse steps — can be overridden by AiPreferences.getPulseSteps(). */
     private static final int  PULSE_STEPS_DEFAULT  = 6;
     /** Countdown seconds before Continue is auto-selected. */
@@ -249,12 +250,14 @@ public class AgentExecutor {
                                 }
                             });
 
-                    boolean completed = streamLatch.await(STREAM_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                    long streamTimeoutMs = preferences.getRequestTimeoutSecs() * 1000L;
+                    if (streamTimeoutMs <= 0) streamTimeoutMs = STREAM_TIMEOUT_MS_DEFAULT;
+                    boolean completed = streamLatch.await(streamTimeoutMs, TimeUnit.MILLISECONDS);
                     if (isCancelled.get()) { postCancelled(callback); return; }
 
                     if (!completed || hasError.get()) {
                         String failReason = !completed
-                                ? "timed out after " + (STREAM_TIMEOUT_MS / 1000) + "s"
+                                ? "timed out after " + (streamTimeoutMs / 1000) + "s"
                                 : (streamError[0] != null ? streamError[0] : "request error");
 
                         // Try to failover to next available provider

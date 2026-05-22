@@ -9,8 +9,10 @@ import androidx.annotation.Nullable;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
+import pro.sketchware.ai.security.SecureKeyStore;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -179,10 +181,31 @@ public class AiPreferences {
     private static volatile AiPreferences instance;
     private final SharedPreferences prefs;
     private final Gson gson;
+    private final SecureKeyStore secureStore;
 
     private AiPreferences(@NonNull Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Context appCtx = context.getApplicationContext();
+        prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         gson = new Gson();
+        secureStore = SecureKeyStore.getInstance(appCtx);
+        migratePlainApiKeys();
+    }
+
+    /**
+     * One-time migration: moves any API keys stored in plain SharedPreferences
+     * into SecureKeyStore. Removes the old plain-text entries afterward.
+     */
+    private void migratePlainApiKeys() {
+        for (AiProvider provider : AiProvider.values()) {
+            String legacyKey = KEY_API_KEY_PREFIX + provider.name();
+            if (prefs.contains(legacyKey)) {
+                String value = prefs.getString(legacyKey, null);
+                if (value != null && !value.isEmpty()) {
+                    secureStore.put(legacyKey, value);
+                }
+                prefs.edit().remove(legacyKey).apply();
+            }
+        }
     }
 
     @NonNull
@@ -201,12 +224,13 @@ public class AiPreferences {
     public SharedPreferences prefs() { return prefs; }
 
     public void setApiKey(@NonNull AiProvider provider, @NonNull String key) {
-        prefs.edit().putString(KEY_API_KEY_PREFIX + provider.name(), key).apply();
+        secureStore.put(KEY_API_KEY_PREFIX + provider.name(), key.trim());
+        CircuitBreaker.getInstance().reset(provider.name());
     }
 
     @Nullable
     public String getApiKey(@NonNull AiProvider provider) {
-        return prefs.getString(KEY_API_KEY_PREFIX + provider.name(), null);
+        return secureStore.get(KEY_API_KEY_PREFIX + provider.name());
     }
 
     public boolean hasApiKey(@NonNull AiProvider provider) {
@@ -228,7 +252,8 @@ public class AiPreferences {
     }
 
     public void clearApiKey(@NonNull AiProvider provider) {
-        prefs.edit().remove(KEY_API_KEY_PREFIX + provider.name()).apply();
+        secureStore.remove(KEY_API_KEY_PREFIX + provider.name());
+        CircuitBreaker.getInstance().reset(provider.name());
     }
 
     public void setCachedModels(@NonNull AiProvider provider, @NonNull List<ModelInfo> models) {
