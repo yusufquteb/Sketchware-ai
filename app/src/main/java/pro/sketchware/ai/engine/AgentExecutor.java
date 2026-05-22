@@ -21,6 +21,7 @@ import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
+import pro.sketchware.ai.api.StreamBuffer;
 import pro.sketchware.ai.api.StreamingResponseHandler;
 import pro.sketchware.ai.api.ToolDefinition;
 import pro.sketchware.ai.models.AiProvider;
@@ -52,6 +53,8 @@ public class AgentExecutor {
     private static final int  SAFETY_TOOL_ITERATION_LIMIT = 200;
     /** Fallback timeout used only when preferences are unavailable. */
     private static final long STREAM_TIMEOUT_MS_DEFAULT  = 120_000L;
+    /** Max time between consecutive stream chunks before treating the stream as frozen. */
+    private static final long STALL_TIMEOUT_MS = 30_000L;
     /** Default pulse steps — can be overridden by AiPreferences.getPulseSteps(). */
     private static final int  PULSE_STEPS_DEFAULT  = 6;
     /** Countdown seconds before Continue is auto-selected. */
@@ -224,13 +227,20 @@ public class AgentExecutor {
                     }
 
                     final long healthToken = AiHealthMonitor.getInstance().recordRequestStart(provider);
+
+                    // Adaptive chunk buffer: batches I/O-thread chunks at ~20 fps
+                    // to reduce UI-thread scheduling overhead on low-end devices.
+                    StreamBuffer streamBuffer = new StreamBuffer(batch -> {
+                        if (!isCancelled.get()) callback.onStreamingChunk(batch);
+                    });
+
                     currentClient.sendChatRequest(messages, modelHolder[0], effectiveSystemPrompt, toolDefs, conversationIdTag,
                             new StreamingResponseHandler() {
                                 @Override
                                 public void onChunk(String textDelta) {
                                     if (textDelta == null || isCancelled.get()) return;
                                     fullResponse.append(textDelta);
-                                    mainHandler.post(() -> callback.onStreamingChunk(textDelta));
+                                    streamBuffer.append(textDelta);
                                 }
 
                                 @Override
@@ -242,11 +252,15 @@ public class AgentExecutor {
 
                                 @Override
                                 public void onComplete(String response) {
+                                    // Flush remaining buffered chunks before signalling completion
+                                    // so the UI sees the full text before the cursor disappears.
+                                    streamBuffer.flushNow();
                                     streamLatch.countDown();
                                 }
 
                                 @Override
                                 public void onError(String error) {
+                                    streamBuffer.cancel();
                                     hasError.set(true);
                                     streamError[0] = error;
                                     streamLatch.countDown();
@@ -255,13 +269,35 @@ public class AgentExecutor {
 
                     long streamTimeoutMs = preferences.getRequestTimeoutSecs() * 1000L;
                     if (streamTimeoutMs <= 0) streamTimeoutMs = STREAM_TIMEOUT_MS_DEFAULT;
-                    boolean completed = streamLatch.await(streamTimeoutMs, TimeUnit.MILLISECONDS);
-                    if (isCancelled.get()) { postCancelled(callback); return; }
+
+                    // Poll loop: checks cancellation + heartbeat stall every 500 ms.
+                    long deadline = System.currentTimeMillis() + streamTimeoutMs;
+                    boolean completed = false;
+                    while (!completed && System.currentTimeMillis() < deadline) {
+                        completed = streamLatch.await(500L, TimeUnit.MILLISECONDS);
+                        if (completed || hasError.get()) break;
+                        if (isCancelled.get()) {
+                            streamBuffer.cancel();
+                            postCancelled(callback);
+                            return;
+                        }
+                        // Heartbeat stall: stream is open but no data for STALL_TIMEOUT_MS.
+                        // Only fire after at least one chunk has arrived (partial response).
+                        long msSinceLastChunk = System.currentTimeMillis() - streamBuffer.lastChunkMs.get();
+                        if (fullResponse.length() > 0 && msSinceLastChunk > STALL_TIMEOUT_MS) {
+                            streamBuffer.cancel();
+                            hasError.set(true);
+                            streamError[0] = "Stream stalled — no data for "
+                                    + (STALL_TIMEOUT_MS / 1000) + "s";
+                            break;
+                        }
+                    }
+                    if (isCancelled.get()) { streamBuffer.cancel(); postCancelled(callback); return; }
 
                     if (!completed || hasError.get()) {
-                        String failReason = !completed
-                                ? "timed out after " + (streamTimeoutMs / 1000) + "s"
-                                : (streamError[0] != null ? streamError[0] : "request error");
+                        String failReason = (streamError[0] != null) ? streamError[0]
+                                : (!completed ? "timed out after " + (streamTimeoutMs / 1000) + "s"
+                                             : "request error");
 
                         AiHealthMonitor.getInstance().recordFailure(provider,
                                 AiError.fromRawError(failReason, provider.getDisplayName()));
