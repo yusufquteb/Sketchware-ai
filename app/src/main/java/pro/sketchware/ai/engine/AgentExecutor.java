@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.ProviderCapabilities;
+import pro.sketchware.ai.core.ToolCallValidator;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamBuffer;
@@ -198,8 +200,9 @@ public class AgentExecutor {
 
                 // ── Token Optimiser pipeline ─────────────────────────────────
                 // Summarise old turns, truncate bulky tool results, cap total size.
+                // Pass the provider so the budget adapts to its actual context window.
                 List<ChatMessage> messages = TokenOptimizer.optimise(
-                        new ArrayList<>(conversationHistory));
+                        new ArrayList<>(conversationHistory), provider);
                 String effectiveSystemPrompt     = buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
 
@@ -451,29 +454,37 @@ public class AgentExecutor {
     private ToolResult executeTool(ToolCall toolCall, ToolContext toolContext) {
         AgentTool tool = toolRegistry.getTool(toolCall.getName());
         if (tool == null) {
-            return ToolResult.failure(toolCall.getId(), "Unknown tool: " + toolCall.getName());
+            return ToolResult.failure(toolCall.getId(),
+                    "Unknown tool: '" + toolCall.getName() + "'. "
+                    + "Check the tool catalog above and use only listed tool names.");
         }
-        try {
-            JsonObject args;
-            String argsStr = toolCall.getArguments();
-            if (argsStr != null && !argsStr.isEmpty()) {
+
+        // ── Parse arguments ──────────────────────────────────────────────────
+        JsonObject args;
+        String argsStr = toolCall.getArguments();
+        if (argsStr != null && !argsStr.isEmpty()) {
+            try {
                 args = JsonParser.parseString(argsStr).getAsJsonObject();
-            } else {
-                args = new JsonObject();
+            } catch (Exception e) {
+                return ToolResult.failure(toolCall.getId(),
+                        "Malformed JSON arguments for '" + toolCall.getName() + "': "
+                        + e.getMessage() + ". Regenerate with valid JSON.");
             }
-            ToolResult result = tool.execute(args, toolContext);
-            if (result == null) {
-                return ToolResult.failure(toolCall.getId(), "Tool returned no result");
-            }
-            // Ensure the toolCallId is always populated
-            if (result.getToolCallId() == null || result.getToolCallId().isEmpty()) {
-                return new ToolResult(toolCall.getId(), result.isSuccess(),
-                        result.getOutput(), result.getError());
-            }
-            return result;
-        } catch (Exception e) {
-            return ToolResult.failure(toolCall.getId(), "Tool execution error: " + e.getMessage());
+        } else {
+            args = new JsonObject();
         }
+
+        // ── Schema validation (Phase 8) ──────────────────────────────────────
+        ToolCallValidator.ValidationResult validation =
+                ToolCallValidator.validate(args, tool.getParametersSchema());
+        if (!validation.valid) {
+            return ToolResult.failure(toolCall.getId(),
+                    "Invalid arguments for '" + toolCall.getName() + "': "
+                    + validation.errorMessage + ". Fix the arguments and retry.");
+        }
+
+        // ── Execute with timeout + telemetry (Phase 6) ───────────────────────
+        return ToolExecutionGuard.executeWithTimeout(tool, args, toolContext, toolCall.getId());
     }
 
     // ── System prompt builder ───────────────────────────────────────────────

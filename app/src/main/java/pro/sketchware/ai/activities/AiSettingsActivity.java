@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.FileWriter;
@@ -36,6 +37,7 @@ import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.CircuitBreaker;
+import pro.sketchware.ai.core.ToolTelemetry;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.storage.AiPreferences;
@@ -119,6 +121,9 @@ public class AiSettingsActivity extends AppCompatActivity {
         setupLayoutGenerationSettings();
         setupMorphSettings();
         setupSystemPrompt();
+        setupStreamingSettings();
+        setupAdvancedSettings();
+        setupToolTelemetry();
         setupHealthDashboard();
         handleIncomingIntent();
     }
@@ -616,6 +621,60 @@ public class AiSettingsActivity extends AppCompatActivity {
                 });
     }
 
+    // ── Streaming & Timeouts ──────────────────────────────────────────────────
+
+    private void setupStreamingSettings() {
+        int savedTimeout = preferences.getRequestTimeoutSecs();
+        binding.sliderTimeout.setValue(
+                Math.max(30, Math.min(300, (savedTimeout / 10) * 10))); // snap to step
+        updateTimeoutLabel(savedTimeout);
+
+        binding.sliderTimeout.addOnChangeListener((slider, value, fromUser) -> {
+            int secs = (int) value;
+            preferences.setRequestTimeoutSecs(secs);
+            updateTimeoutLabel(secs);
+        });
+    }
+
+    private void updateTimeoutLabel(int secs) {
+        binding.tvTimeoutLabel.setText("Request timeout: " + secs + "s");
+    }
+
+    // ── Advanced Execution ────────────────────────────────────────────────────
+
+    private void setupAdvancedSettings() {
+        int savedSteps = preferences.getPulseSteps();
+        binding.sliderPulseSteps.setValue(Math.max(1, Math.min(20, savedSteps)));
+        updatePulseStepsLabel(savedSteps);
+
+        binding.sliderPulseSteps.addOnChangeListener((slider, value, fromUser) -> {
+            int steps = (int) value;
+            preferences.setPulseSteps(steps);
+            updatePulseStepsLabel(steps);
+        });
+    }
+
+    private void updatePulseStepsLabel(int steps) {
+        binding.tvPulseStepsLabel.setText(
+                "Pulse confirmation every: " + steps + " tool call" + (steps == 1 ? "" : "s"));
+    }
+
+    // ── Tool Telemetry ────────────────────────────────────────────────────────
+
+    private void setupToolTelemetry() {
+        refreshToolTelemetry();
+        ToolTelemetry.getInstance().setListener(this::refreshToolTelemetry);
+        binding.btnResetTelemetry.setOnClickListener(v -> {
+            ToolTelemetry.getInstance().reset();
+            Toast.makeText(this, "Tool metrics reset", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void refreshToolTelemetry() {
+        binding.tvToolTelemetry.setText(
+                pro.sketchware.ai.core.ToolTelemetry.getInstance().buildReport());
+    }
+
     // ── AI Health Dashboard ───────────────────────────────────────────────────
 
     private void setupHealthDashboard() {
@@ -649,6 +708,7 @@ public class AiSettingsActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         AiHealthMonitor.getInstance().setListener(null);
+        ToolTelemetry.getInstance().setListener(null);
         dismissFailoverBanner();
         executor.shutdownNow();
     }
