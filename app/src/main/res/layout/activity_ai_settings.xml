@@ -170,7 +170,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Choose which provider handles &quot;Generate UI with AI&quot;. Groq is recommended — it is the fastest and uses the same approach as Sketchware-IA."
+                            android:text="Choose which provider handles &quot;Generate UI with AI&quot;. AirForce AI (default) requires no API key. Groq is fastest for users who have a key."
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:textAppearance="?attr/textAppearanceLabelMedium"
                             android:layout_marginBottom="12dp" />
@@ -196,7 +196,7 @@
                             android:id="@+id/tv_layout_provider_hint"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="★ Groq — fastest (LPU hardware, high rate limits, great XML output)"
+                            android:text="★ AirForce AI — completely free, no API key required"
                             android:textColor="?attr/colorPrimary"
                             android:textAppearance="?attr/textAppearanceLabelSmall" />
 

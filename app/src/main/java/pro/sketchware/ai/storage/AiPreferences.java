@@ -43,16 +43,19 @@ public class AiPreferences {
     private static final String KEY_PROFILE_MODEL_PREFIX = "profile_model_";
     private static final String KEY_PROFILE_PROVIDER_PREFIX = "profile_provider_";
 
-    /** الموديلات الافتراضية الذكية للمزودات (برمجية وقوية) */
-    public static final String DEFAULT_DEEPINFRA_MODEL        = "google/gemma-3-27b-it";
-    public static final String DEFAULT_GROQ_MODEL             = "compound-beta-mini";
-    public static final String DEFAULT_TOGETHER_MODEL         = "google/gemma-3-27b-it";
-    public static final String DEFAULT_SAMBANOVA_MODEL        = "Gemma-3-27B-IT";
-    public static final String DEFAULT_GOOGLE_AI_STUDIO_MODEL = "gemma-3-27b-it";
-    public static final String DEFAULT_DEEPSEEK_MODEL  = "deepseek-chat";
-    public static final String DEFAULT_ANTHROPIC_MODEL  = "claude-sonnet-4-5"; // Claude Sonnet 4.5 — best for code
-    public static final String DEFAULT_OPENAI_MODEL     = "gpt-4o-mini";
-    public static final String DEFAULT_GEMINI_MODEL     = "gemini-2.0-flash";
+    /** Default models per provider */
+    public static final String DEFAULT_CHUTES_MODEL           = "meta-llama/llama-4-maverick";
+    public static final String DEFAULT_DEEPINFRA_MODEL        = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
+    // compound-beta-mini removed: it uses multi-call internally and exhausts tokens/min quickly.
+    public static final String DEFAULT_GROQ_MODEL             = "llama-3.3-70b-versatile";
+    public static final String DEFAULT_TOGETHER_MODEL         = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
+    public static final String DEFAULT_SAMBANOVA_MODEL        = "Meta-Llama-3.3-70B-Instruct";
+    public static final String DEFAULT_GOOGLE_AI_STUDIO_MODEL = "gemini-2.0-flash";
+    public static final String DEFAULT_DEEPSEEK_MODEL         = "deepseek-chat";
+    public static final String DEFAULT_ANTHROPIC_MODEL        = "claude-sonnet-4-5";
+    public static final String DEFAULT_OPENAI_MODEL           = "gpt-4o-mini";
+    public static final String DEFAULT_GEMINI_MODEL           = "gemini-2.0-flash";
+    public static final String DEFAULT_CEREBRAS_MODEL         = "llama-3.3-70b";
     public static final String DEFAULT_SYSTEM_PROMPT =
         "You are an expert Android developer AI agent built into Sketchware Pro "
         + "— a visual Android IDE that runs on Android devices. "
@@ -156,7 +159,7 @@ public class AiPreferences {
         + "   If a tool returns 'Project not in workspace', inform the user and ask to add it.\n"
         + "2. API ERRORS: If you encounter 'Insufficient Balance' or 'Model Not Found':\n"
         + "   - Inform the user CLEARLY which provider failed (e.g., DeepSeek).\n"
-        + "   - SUGGEST switching to a free or unlimited provider (Groq \u221e, Cerebras \uD83C\uDD13, DeepInfra \uD83C\uDD13).\n"
+        + "   - SUGGEST switching to a free provider: AirForce AI (no key needed), Cerebras, or Google AI Studio.\n"
         + "   - Do NOT just stop; explain that you have the tools but the 'light' (API) is out.\n"
         + "3. Always call tools — never pretend to create files.\n"
         + "4. Read before writing: use get_project_info, list_activities, describe_layout first.\n"
@@ -214,10 +217,12 @@ public class AiPreferences {
 
     /**
      * Returns true if the provider has been toggled ON by the user in AI Settings.
-     * GOOGLE_AI_STUDIO and SAMBANOVA are enabled by default.
+     * Default enabled: CHUTES (free, no API key needed — works immediately).
+     * GOOGLE_AI_STUDIO and SAMBANOVA also enabled by default for failover coverage.
      */
     public boolean isProviderEnabled(@NonNull AiProvider provider) {
-        boolean defaultEnabled = provider == AiProvider.GOOGLE_AI_STUDIO
+        boolean defaultEnabled = provider == AiProvider.CHUTES
+                || provider == AiProvider.GOOGLE_AI_STUDIO
                 || provider == AiProvider.SAMBANOVA;
         return prefs.getBoolean(KEY_PROVIDER_ENABLED + provider.name(), defaultEnabled);
     }
@@ -257,6 +262,7 @@ public class AiPreferences {
         if (saved != null && !saved.isEmpty()) return saved;
         
         switch (provider) {
+            case CHUTES:           return DEFAULT_CHUTES_MODEL;
             case DEEPINFRA:        return DEFAULT_DEEPINFRA_MODEL;
             case GROQ:             return DEFAULT_GROQ_MODEL;
             case DEEPSEEK:         return DEFAULT_DEEPSEEK_MODEL;
@@ -266,6 +272,7 @@ public class AiPreferences {
             case GOOGLE_AI_STUDIO: return DEFAULT_GOOGLE_AI_STUDIO_MODEL;
             case TOGETHER:         return DEFAULT_TOGETHER_MODEL;
             case SAMBANOVA:        return DEFAULT_SAMBANOVA_MODEL;
+            case CEREBRAS:         return DEFAULT_CEREBRAS_MODEL;
             default:               return null;
         }
     }
@@ -281,7 +288,7 @@ public class AiPreferences {
             AiProvider p = AiProvider.fromName(key);
             if (p != null) return p;
         }
-        return AiProvider.GROQ; // Default: Groq (unlimited, fast — matches Sketchware-IA default)
+        return AiProvider.CHUTES; // Default: AirForce AI (free, no API key — works immediately out of box)
     }
 
     public void setSystemPrompt(@NonNull String prompt) {
