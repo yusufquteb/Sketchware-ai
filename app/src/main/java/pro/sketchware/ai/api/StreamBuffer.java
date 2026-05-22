@@ -76,7 +76,7 @@ public final class StreamBuffer {
     public void flushNow() {
         mainHandler.removeCallbacksAndMessages(null);
         flushPending.set(false);
-        doFlush();
+        mainHandler.post(this::doFlush);
     }
 
     /**
