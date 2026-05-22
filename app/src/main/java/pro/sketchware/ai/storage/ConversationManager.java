@@ -145,6 +145,19 @@ public class ConversationManager {
             return new ArrayList<>();
         }
         Collections.sort(messages, (a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
+        // Recovery: remove trailing empty assistant messages — they are streaming
+        // artifacts from a process crash mid-generation and should not be shown.
+        while (!messages.isEmpty()) {
+            pro.sketchware.ai.models.ChatMessage last = messages.get(messages.size() - 1);
+            boolean isEmptyAssistant = "assistant".equals(last.getRole())
+                    && (last.getContent() == null || last.getContent().trim().isEmpty())
+                    && (last.getToolCalls() == null || last.getToolCalls().isEmpty());
+            if (isEmptyAssistant) {
+                messages.remove(messages.size() - 1);
+            } else {
+                break;
+            }
+        }
         return messages;
     }
 

@@ -40,6 +40,9 @@ import pro.sketchware.ai.adapters.ModelSelectorAdapter;
 import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.ChatState;
+import pro.sketchware.ai.core.ProviderCapabilities;
+import pro.sketchware.ai.engine.ModelRouter;
+import pro.sketchware.ai.engine.TokenEstimator;
 import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.engine.TokenOptimizer;
@@ -453,17 +456,47 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     /**
-     * Updates the token badge in the toolbar showing the optimised vs raw message count.
-     * Visible only when TokenOptimizer actually reduced the history.
+     * Updates the token badge in the toolbar.
+     *
+     * <p>Shows estimated token usage and a warning when the context window is
+     * approaching its limit (≥85%). The badge turns amber at 85% and red at 95%.
      */
     private void updateTokenBadge() {
         if (tokenBadge == null || conversationId == null || conversationManager == null) return;
         List<ChatMessage> history = conversationManager.getMessages(conversationId);
-        if (history == null || history.isEmpty()) return;
-        int raw  = history.size();
-        int opts = TokenOptimizer.optimise(new java.util.ArrayList<>(history)).size();
-        if (opts < raw) {
-            tokenBadge.setText("⚡ " + opts + "/" + raw + " msgs");
+        if (history == null || history.isEmpty()) {
+            tokenBadge.setVisibility(android.view.View.GONE);
+            return;
+        }
+
+        List<ChatMessage> optimised = (currentProvider != null)
+                ? TokenOptimizer.optimise(new java.util.ArrayList<>(history), currentProvider)
+                : TokenOptimizer.optimise(new java.util.ArrayList<>(history));
+
+        int estTokens   = TokenEstimator.estimate(optimised);
+        int maxCtx      = (currentProvider != null)
+                ? ProviderCapabilities.of(currentProvider).maxContextTokens : 0;
+
+        if (maxCtx > 0) {
+            int pct = (int) ((estTokens / (double) maxCtx) * 100);
+            if (pct >= 95) {
+                tokenBadge.setText("⚠ " + pct + "% ctx");
+                tokenBadge.setTextColor(0xFFE53935); // red
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else if (pct >= 85) {
+                tokenBadge.setText("⚡ " + pct + "% ctx");
+                tokenBadge.setTextColor(0xFFFF8F00); // amber
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else if (optimised.size() < history.size()) {
+                tokenBadge.setText("⚡ " + optimised.size() + "/" + history.size() + " msgs");
+                tokenBadge.setTextColor(0xFF9d8ec0); // purple (original)
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else {
+                tokenBadge.setVisibility(android.view.View.GONE);
+            }
+        } else if (optimised.size() < history.size()) {
+            tokenBadge.setText("⚡ " + optimised.size() + "/" + history.size() + " msgs");
+            tokenBadge.setTextColor(0xFF9d8ec0);
             tokenBadge.setVisibility(android.view.View.VISIBLE);
         } else {
             tokenBadge.setVisibility(android.view.View.GONE);
