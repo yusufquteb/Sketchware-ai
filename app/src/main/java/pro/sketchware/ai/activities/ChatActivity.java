@@ -37,6 +37,9 @@ import pro.sketchware.R;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.adapters.ChatAdapter;
 import pro.sketchware.ai.adapters.ModelSelectorAdapter;
+import pro.sketchware.ai.core.AiError;
+import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.ChatState;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.engine.TokenOptimizer;
 import pro.sketchware.ai.models.AiProvider;
@@ -82,7 +85,9 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     private AiProvider currentProvider;
     private String currentModelId;
-    private boolean isAgentRunning = false;
+
+    /** Single source of truth for chat lifecycle. Replaces the old boolean flag. */
+    private ChatState chatState = ChatState.IDLE;
 
     private static final int REQUEST_SPEECH_INPUT = 1001;
     private static final int REQUEST_FILE_PICK    = 1002;
@@ -215,7 +220,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     private void setupInput() {
         binding.btnSend.setOnClickListener(v -> {
-            if (isAgentRunning) {
+            if (chatState.isActive()) {
                 stopAgent();
             } else {
                 sendMessage();
@@ -465,7 +470,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void refreshComposerState() {
-        if (isAgentRunning) {
+        if (chatState.isActive()) {
             binding.btnSend.setEnabled(true);
             binding.btnSend.setIconResource(R.drawable.ic_mtrl_cancel);
             binding.btnSend.setContentDescription("Stop");
@@ -532,7 +537,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void updateEmptyState() {
-        boolean showEmpty = chatAdapter.getItemCount() == 0 && !isAgentRunning;
+        boolean showEmpty = chatAdapter.getItemCount() == 0 && !chatState.isActive();
         binding.emptyState.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
         binding.messagesList.setVisibility(showEmpty ? View.INVISIBLE : View.VISIBLE);
     }
@@ -540,7 +545,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     private void sendMessage() {
         String text = binding.inputMessage.getText() != null
                 ? binding.inputMessage.getText().toString().trim() : "";
-        if (text.isEmpty() || isAgentRunning) return;
+        if (text.isEmpty() || chatState.isActive()) return;
 
         if (currentModelId == null || currentModelId.isEmpty()) {
             // Toast removed
@@ -576,8 +581,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         updateEmptyState();
         scrollToBottom();
 
-        setAgentRunning(true);
-        binding.typingText.setText("Thinking\u2026");
+        transitionState(ChatState.PREPARING);
 
         List<ChatMessage> history = conversationManager.getMessages(conversationId);
         String systemPrompt = preferences.getSystemPrompt();
@@ -603,12 +607,29 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void setAgentRunning(boolean running) {
-        isAgentRunning = running;
-        binding.inputMessage.setEnabled(!running);
-        binding.typingIndicator.setVisibility(running ? View.VISIBLE : View.GONE);
-        if (running) {
-            binding.emptyDescription.setText("The agent is planning and executing tools in this workspace.");
-            // Start background service
+        transitionState(running ? ChatState.PREPARING : ChatState.IDLE);
+    }
+
+    /**
+     * Central state transition point. All UI updates are driven from here.
+     * This is the only place that should update {@link #chatState}.
+     */
+    private void transitionState(@NonNull ChatState newState) {
+        chatState = newState;
+        boolean active = chatState.isActive();
+
+        binding.inputMessage.setEnabled(!active);
+        binding.typingIndicator.setVisibility(active ? View.VISIBLE : View.GONE);
+
+        String statusLabel = chatState.getStatusLabel(
+                currentProvider != null ? currentProvider.getDisplayName() : null);
+        if (statusLabel != null) {
+            binding.typingText.setText(statusLabel);
+        }
+
+        if (active) {
+            binding.emptyDescription.setText(
+                    "The agent is planning and executing tools in this workspace.");
             Intent serviceIntent = new Intent(this, pro.sketchware.ai.engine.AiBackgroundService.class);
             serviceIntent.putExtra(EXTRA_CONVERSATION_ID, conversationId);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -617,11 +638,12 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
                 startService(serviceIntent);
             }
         } else {
-            binding.emptyDescription.setText("Create or open a conversation and ask for a Sketchware-compatible app, feature, fix, or refactor.");
-            // Stop background service
+            binding.emptyDescription.setText(
+                    "Create or open a conversation and ask for a Sketchware-compatible app, feature, fix, or refactor.");
             Intent serviceIntent = new Intent(this, pro.sketchware.ai.engine.AiBackgroundService.class);
             stopService(serviceIntent);
         }
+
         refreshComposerState();
         updateEmptyState();
     }
@@ -828,52 +850,38 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     @Override
     public void onResponseComplete(ChatMessage assistantMessage) {
-        setAgentRunning(false);
+        transitionState(ChatState.COMPLETED);
+        transitionState(ChatState.IDLE);
         pro.sketchware.ai.engine.AiBackgroundService.notifyCompletion(this, conversationId);
     }
 
     @Override
     public void onCancelled() {
-        setAgentRunning(false);
+        transitionState(ChatState.CANCELLED);
         binding.typingText.setText("Stopped");
-        // Toast removed: "Agent stopped"
+        transitionState(ChatState.IDLE);
     }
 
     @Override
     public void onError(String error) {
-        setAgentRunning(false);
+        transitionState(ChatState.ERROR);
+        // Use AiError taxonomy for consistent, user-friendly error messages with action hints
+        AiError aiError = AiError.fromRawError(error,
+                currentProvider != null ? currentProvider.getDisplayName() : null);
+        String displayMsg = aiError.toChatMessage();
 
-        // Build user-friendly message — shown inline in the chat, no Toast
-        String displayError = (error != null && !error.isEmpty()) ? error : "An unexpected error occurred.";
-        String hint = null;
-        if (displayError.contains("403") || displayError.contains("rate limit") || displayError.contains("Rate Limit") || displayError.contains("429")) {
-            hint = "\uD83D\uDCA1 Tip: Switch to Groq \u221e (unlimited) or Cerebras (free) — tap the model chip.";
-        } else if (displayError.contains("401") || displayError.contains("Invalid API Key")) {
-            hint = "\uD83D\uDCA1 Check your API key in AI Settings.";
-        } else if (displayError.contains("timeout") || displayError.contains("failed to connect")
-                || displayError.contains("Unable to resolve host")) {
-            hint = "\uD83D\uDCA1 Check your internet connection and try again.";
-        } else if (displayError.contains("404") || displayError.contains("Model Not Found")) {
-            hint = "\uD83D\uDCA1 The selected model may be unavailable. Try refreshing models in AI Settings.";
-        } else if (displayError.contains("503") || displayError.contains("Service Unavailable")) {
-            hint = "\uD83D\uDCA1 The AI provider is temporarily overloaded. Please try again in a moment.";
-        }
-
-        StringBuilder msg = new StringBuilder("\u26a0\ufe0f ").append(displayError);
-        if (hint != null) msg.append("\n\n").append(hint);
-
-        ChatMessage errorMessage = new ChatMessage(conversationId, msg.toString(), null);
+        ChatMessage errorMessage = new ChatMessage(conversationId, displayMsg, null);
         conversationManager.saveMessage(conversationId, errorMessage);
         updateConversationTimestamp();
         chatAdapter.replaceStreamingAssistantMessage(errorMessage);
         updateEmptyState();
         scrollToBottom();
-        // No Toast — error is displayed inline in the chat for a cleaner UX
+        transitionState(ChatState.IDLE);
     }
 
     @Override
     public void onThinking(String status) {
-        binding.typingText.setText(status);
+        if (status != null) binding.typingText.setText(status);
     }
 
     @Override
