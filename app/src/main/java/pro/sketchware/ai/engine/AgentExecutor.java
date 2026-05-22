@@ -258,8 +258,11 @@ public class AgentExecutor {
                                 public void onComplete(String response) {
                                     // Flush remaining buffered chunks before signalling completion
                                     // so the UI sees the full text before the cursor disappears.
-                                    streamBuffer.flushNow();
-                                    streamLatch.countDown();
+                                    try {
+                                        streamBuffer.flushNow();
+                                    } finally {
+                                        streamLatch.countDown();
+                                    }
                                 }
 
                                 @Override
