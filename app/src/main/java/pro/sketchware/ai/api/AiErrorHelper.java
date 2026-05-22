@@ -25,16 +25,16 @@ public final class AiErrorHelper {
             case 402:
                 return "Insufficient Balance \uD83D\uDCB8\nYour account credit is empty. "
                         + "Top up at the provider\u2019s website, or switch to a free provider: "
-                        + "Groq \u221e, Cerebras, or Google AI Studio.";
+                        + "AirForce AI (no key needed), Cerebras, or Google AI Studio.";
             case 403:
                 return "Access Denied \uD83D\uDEAB\nYour API key doesn\u2019t have permission for this model, "
-                        + "or the free tier is exhausted. Try Groq \u221e or Cerebras (both free).";
+                        + "or the free tier is exhausted. Try AirForce AI (free, no key), Groq, or Cerebras.";
             case 404:
                 return "Model Not Found \uD83D\uDD0D\nThe selected model is no longer available. "
                         + "Go to AI Settings \u2192 tap \uD83D\uDD04 to refresh the model list, then choose a different model.";
             case 408:
                 return "Request Timed Out \u23F1\ufe0f\nThe AI took too long to respond. "
-                        + "Try a shorter message or switch to a faster provider like Groq \u221e.";
+                        + "Try a shorter message or switch to a faster provider like Cerebras or Groq.";
             case 413:
                 return "Message Too Long \uD83D\uDCCF\nYour message or conversation history is too large. "
                         + "Start a new conversation or shorten your message.";
@@ -48,8 +48,8 @@ public final class AiErrorHelper {
                         + "Refresh models in AI Settings and try again.";
             case 429:
                 return "Rate Limit Reached \u23f3\nToo many requests sent — the provider needs a short break. "
-                        + "Wait 30-60 seconds and retry, or switch to Groq \u221e (truly unlimited) "
-                        + "or Cerebras (free, high limits). Both work without an API key.";
+                        + "Wait 30-60 seconds and retry, or switch to AirForce AI (free, no key), "
+                        + "Cerebras, or Google AI Studio (all free).";
             case 500:
                 return "AI Server Error \uD83D\uDEA8\nSomething went wrong on the provider\u2019s side. "
                         + "Please try again in a few minutes.";

@@ -69,7 +69,11 @@ public class GeminiApiClient extends AiApiClient {
                     continue;
                 }
 
-                String name = getStringOrDefault(model, "name", "");
+                String rawName = getStringOrDefault(model, "name", "");
+                // Gemini returns full paths like "models/gemini-2.0-flash".
+                // Strip "models/" prefix so the ID is consistent with the static list.
+                String name = (rawName != null && rawName.startsWith("models/"))
+                        ? rawName.substring("models/".length()) : rawName;
                 String displayName = getStringOrDefault(model, "displayName", name);
                 String description = getStringOrDefault(model, "description", "");
                 long inputTokenLimit = model.has("inputTokenLimit")
@@ -129,7 +133,11 @@ public class GeminiApiClient extends AiApiClient {
                                 String systemPrompt, List<ToolDefinition> tools,
                                 Object tag, StreamingResponseHandler handler) {
         try {
-            String url = BASE_URL + "/v1beta/" + modelId + ":streamGenerateContent?alt=sse&key=" + apiKey;
+            // Gemini REST API requires the "models/" prefix in the path.
+            // Static model IDs (e.g. "gemini-2.0-flash") lack it, so we add it here.
+            String modelPath = (modelId != null && modelId.startsWith("models/"))
+                    ? modelId : "models/" + modelId;
+            String url = BASE_URL + "/v1beta/" + modelPath + ":streamGenerateContent?alt=sse&key=" + apiKey;
             JsonObject requestBody = buildRequestBody(messages, systemPrompt, tools);
 
             Request.Builder builder = new Request.Builder()
