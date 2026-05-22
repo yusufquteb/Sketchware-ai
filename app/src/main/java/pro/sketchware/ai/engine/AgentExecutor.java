@@ -17,10 +17,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import pro.sketchware.ai.core.AiError;
+import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.ProviderCapabilities;
+import pro.sketchware.ai.core.ToolCallValidator;
 import pro.sketchware.ai.api.AiApiClient;
 import pro.sketchware.ai.api.AiClientFactory;
+import pro.sketchware.ai.api.StreamBuffer;
 import pro.sketchware.ai.api.StreamingResponseHandler;
 import pro.sketchware.ai.api.ToolDefinition;
+import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ToolCall;
@@ -48,7 +54,10 @@ public class AgentExecutor {
     }
 
     private static final int  SAFETY_TOOL_ITERATION_LIMIT = 200;
-    private static final long STREAM_TIMEOUT_MS   = 120_000L;  // 120s per request
+    /** Fallback timeout used only when preferences are unavailable. */
+    private static final long STREAM_TIMEOUT_MS_DEFAULT  = 120_000L;
+    /** Max time between consecutive stream chunks before treating the stream as frozen. */
+    private static final long STALL_TIMEOUT_MS = 30_000L;
     /** Default pulse steps — can be overridden by AiPreferences.getPulseSteps(). */
     private static final int  PULSE_STEPS_DEFAULT  = 6;
     /** Countdown seconds before Continue is auto-selected. */
@@ -191,8 +200,9 @@ public class AgentExecutor {
 
                 // ── Token Optimiser pipeline ─────────────────────────────────
                 // Summarise old turns, truncate bulky tool results, cap total size.
+                // Pass the provider so the budget adapts to its actual context window.
                 List<ChatMessage> messages = TokenOptimizer.optimise(
-                        new ArrayList<>(conversationHistory));
+                        new ArrayList<>(conversationHistory), provider);
                 String effectiveSystemPrompt     = buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
 
@@ -220,13 +230,21 @@ public class AgentExecutor {
                         currentClient.cancelByTag(conversationIdTag);
                     }
 
+                    final long healthToken = AiHealthMonitor.getInstance().recordRequestStart(provider);
+
+                    // Adaptive chunk buffer: batches I/O-thread chunks at ~20 fps
+                    // to reduce UI-thread scheduling overhead on low-end devices.
+                    StreamBuffer streamBuffer = new StreamBuffer(batch -> {
+                        if (!isCancelled.get()) callback.onStreamingChunk(batch);
+                    });
+
                     currentClient.sendChatRequest(messages, modelHolder[0], effectiveSystemPrompt, toolDefs, conversationIdTag,
                             new StreamingResponseHandler() {
                                 @Override
                                 public void onChunk(String textDelta) {
                                     if (textDelta == null || isCancelled.get()) return;
                                     fullResponse.append(textDelta);
-                                    mainHandler.post(() -> callback.onStreamingChunk(textDelta));
+                                    streamBuffer.append(textDelta);
                                 }
 
                                 @Override
@@ -238,24 +256,55 @@ public class AgentExecutor {
 
                                 @Override
                                 public void onComplete(String response) {
+                                    // Flush remaining buffered chunks before signalling completion
+                                    // so the UI sees the full text before the cursor disappears.
+                                    streamBuffer.flushNow();
                                     streamLatch.countDown();
                                 }
 
                                 @Override
                                 public void onError(String error) {
+                                    streamBuffer.cancel();
                                     hasError.set(true);
                                     streamError[0] = error;
                                     streamLatch.countDown();
                                 }
                             });
 
-                    boolean completed = streamLatch.await(STREAM_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-                    if (isCancelled.get()) { postCancelled(callback); return; }
+                    long streamTimeoutMs = preferences.getRequestTimeoutSecs() * 1000L;
+                    if (streamTimeoutMs <= 0) streamTimeoutMs = STREAM_TIMEOUT_MS_DEFAULT;
+
+                    // Poll loop: checks cancellation + heartbeat stall every 500 ms.
+                    long deadline = System.currentTimeMillis() + streamTimeoutMs;
+                    boolean completed = false;
+                    while (!completed && System.currentTimeMillis() < deadline) {
+                        completed = streamLatch.await(500L, TimeUnit.MILLISECONDS);
+                        if (completed || hasError.get()) break;
+                        if (isCancelled.get()) {
+                            streamBuffer.cancel();
+                            postCancelled(callback);
+                            return;
+                        }
+                        // Heartbeat stall: stream is open but no data for STALL_TIMEOUT_MS.
+                        // Only fire after at least one chunk has arrived (partial response).
+                        long msSinceLastChunk = System.currentTimeMillis() - streamBuffer.lastChunkMs.get();
+                        if (fullResponse.length() > 0 && msSinceLastChunk > STALL_TIMEOUT_MS) {
+                            streamBuffer.cancel();
+                            hasError.set(true);
+                            streamError[0] = "Stream stalled — no data for "
+                                    + (STALL_TIMEOUT_MS / 1000) + "s";
+                            break;
+                        }
+                    }
+                    if (isCancelled.get()) { streamBuffer.cancel(); postCancelled(callback); return; }
 
                     if (!completed || hasError.get()) {
-                        String failReason = !completed
-                                ? "timed out after " + (STREAM_TIMEOUT_MS / 1000) + "s"
-                                : (streamError[0] != null ? streamError[0] : "request error");
+                        String failReason = (streamError[0] != null) ? streamError[0]
+                                : (!completed ? "timed out after " + (streamTimeoutMs / 1000) + "s"
+                                             : "request error");
+
+                        AiHealthMonitor.getInstance().recordFailure(provider,
+                                AiError.fromRawError(failReason, provider.getDisplayName()));
 
                         // Try to failover to next available provider
                         pro.sketchware.ai.models.AiProvider failoverProvider =
@@ -287,6 +336,8 @@ public class AgentExecutor {
                             pendingToolCalls.isEmpty() ? null : pendingToolCalls);
                     messages.add(assistantMsg);
                     mainHandler.post(() -> callback.onAssistantMessage(assistantMsg));
+
+                    AiHealthMonitor.getInstance().recordSuccess(provider, healthToken);
 
                     // ── No tool calls → conversation turn complete ──────────────────
                     if (pendingToolCalls.isEmpty()) {
@@ -403,29 +454,37 @@ public class AgentExecutor {
     private ToolResult executeTool(ToolCall toolCall, ToolContext toolContext) {
         AgentTool tool = toolRegistry.getTool(toolCall.getName());
         if (tool == null) {
-            return ToolResult.failure(toolCall.getId(), "Unknown tool: " + toolCall.getName());
+            return ToolResult.failure(toolCall.getId(),
+                    "Unknown tool: '" + toolCall.getName() + "'. "
+                    + "Check the tool catalog above and use only listed tool names.");
         }
-        try {
-            JsonObject args;
-            String argsStr = toolCall.getArguments();
-            if (argsStr != null && !argsStr.isEmpty()) {
+
+        // ── Parse arguments ──────────────────────────────────────────────────
+        JsonObject args;
+        String argsStr = toolCall.getArguments();
+        if (argsStr != null && !argsStr.isEmpty()) {
+            try {
                 args = JsonParser.parseString(argsStr).getAsJsonObject();
-            } else {
-                args = new JsonObject();
+            } catch (Exception e) {
+                return ToolResult.failure(toolCall.getId(),
+                        "Malformed JSON arguments for '" + toolCall.getName() + "': "
+                        + e.getMessage() + ". Regenerate with valid JSON.");
             }
-            ToolResult result = tool.execute(args, toolContext);
-            if (result == null) {
-                return ToolResult.failure(toolCall.getId(), "Tool returned no result");
-            }
-            // Ensure the toolCallId is always populated
-            if (result.getToolCallId() == null || result.getToolCallId().isEmpty()) {
-                return new ToolResult(toolCall.getId(), result.isSuccess(),
-                        result.getOutput(), result.getError());
-            }
-            return result;
-        } catch (Exception e) {
-            return ToolResult.failure(toolCall.getId(), "Tool execution error: " + e.getMessage());
+        } else {
+            args = new JsonObject();
         }
+
+        // ── Schema validation (Phase 8) ──────────────────────────────────────
+        ToolCallValidator.ValidationResult validation =
+                ToolCallValidator.validate(args, tool.getParametersSchema());
+        if (!validation.valid) {
+            return ToolResult.failure(toolCall.getId(),
+                    "Invalid arguments for '" + toolCall.getName() + "': "
+                    + validation.errorMessage + ". Fix the arguments and retry.");
+        }
+
+        // ── Execute with timeout + telemetry (Phase 6) ───────────────────────
+        return ToolExecutionGuard.executeWithTimeout(tool, args, toolContext, toolCall.getId());
     }
 
     // ── System prompt builder ───────────────────────────────────────────────
@@ -1105,7 +1164,9 @@ public class AgentExecutor {
     }
 
     private void postError(AgentCallback callback, String error) {
-        mainHandler.post(() -> callback.onError(error));
+        // Redact any sensitive data (API keys, tokens) before surfacing to UI or logs.
+        String safeError = PromptSanitizer.redactForLog(error);
+        mainHandler.post(() -> callback.onError(safeError));
     }
 
     /**

@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.tabs.TabLayout;
@@ -37,6 +38,13 @@ import pro.sketchware.R;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.adapters.ChatAdapter;
 import pro.sketchware.ai.adapters.ModelSelectorAdapter;
+import pro.sketchware.ai.core.AiError;
+import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.ChatState;
+import pro.sketchware.ai.core.ProviderCapabilities;
+import pro.sketchware.ai.engine.ModelRouter;
+import pro.sketchware.ai.engine.TokenEstimator;
+import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.engine.TokenOptimizer;
 import pro.sketchware.ai.models.AiProvider;
@@ -82,7 +90,13 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     private AiProvider currentProvider;
     private String currentModelId;
-    private boolean isAgentRunning = false;
+
+    /** Single source of truth for chat lifecycle. Replaces the old boolean flag. */
+    private ChatState chatState = ChatState.IDLE;
+
+    /** Debouncer for persisting the in-progress draft message to preferences. */
+    private final android.os.Handler draftHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private static final long DRAFT_DEBOUNCE_MS = 800L;
 
     private static final int REQUEST_SPEECH_INPUT = 1001;
     private static final int REQUEST_FILE_PICK    = 1002;
@@ -215,7 +229,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     private void setupInput() {
         binding.btnSend.setOnClickListener(v -> {
-            if (isAgentRunning) {
+            if (chatState.isActive()) {
                 stopAgent();
             } else {
                 sendMessage();
@@ -235,6 +249,15 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
             @Override
             public void afterTextChanged(Editable s) {
+                updateInputTokenHint(s.toString());
+                // Debounced draft persistence — save after 800 ms of no typing
+                draftHandler.removeCallbacksAndMessages(null);
+                if (conversationId != null && !chatState.isActive()) {
+                    String text = s.toString();
+                    draftHandler.postDelayed(
+                            () -> preferences.saveDraft(conversationId, text),
+                            DRAFT_DEBOUNCE_MS);
+                }
             }
         });
 
@@ -447,17 +470,65 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     /**
-     * Updates the token badge in the toolbar showing the optimised vs raw message count.
-     * Visible only when TokenOptimizer actually reduced the history.
+     * Shows a subtle token estimate on the toolbar badge when the user is typing
+     * a large message (≥ 200 estimated tokens ≈ 800 chars). Clears on send or empty.
+     */
+    private void updateInputTokenHint(String input) {
+        if (tokenBadge == null || input == null) return;
+        int inputTokens = TokenEstimator.estimate(input);
+        if (inputTokens >= 200) {
+            // Large input — warn before history tokens are even counted
+            tokenBadge.setText("⌨ ~" + inputTokens + " tok");
+            tokenBadge.setTextColor(inputTokens >= 800 ? 0xFFFF8F00 : 0xFF9d8ec0);
+            tokenBadge.setVisibility(android.view.View.VISIBLE);
+        } else if (!chatState.isActive() && input.isEmpty()) {
+            // Input cleared — refresh with history context view
+            updateTokenBadge();
+        }
+    }
+
+    /**
+     * Updates the token badge in the toolbar.
+     *
+     * <p>Shows estimated token usage and a warning when the context window is
+     * approaching its limit (≥85%). The badge turns amber at 85% and red at 95%.
      */
     private void updateTokenBadge() {
         if (tokenBadge == null || conversationId == null || conversationManager == null) return;
         List<ChatMessage> history = conversationManager.getMessages(conversationId);
-        if (history == null || history.isEmpty()) return;
-        int raw  = history.size();
-        int opts = TokenOptimizer.optimise(new java.util.ArrayList<>(history)).size();
-        if (opts < raw) {
-            tokenBadge.setText("⚡ " + opts + "/" + raw + " msgs");
+        if (history == null || history.isEmpty()) {
+            tokenBadge.setVisibility(android.view.View.GONE);
+            return;
+        }
+
+        List<ChatMessage> optimised = (currentProvider != null)
+                ? TokenOptimizer.optimise(new java.util.ArrayList<>(history), currentProvider)
+                : TokenOptimizer.optimise(new java.util.ArrayList<>(history));
+
+        int estTokens   = TokenEstimator.estimate(optimised);
+        int maxCtx      = (currentProvider != null)
+                ? ProviderCapabilities.of(currentProvider).maxContextTokens : 0;
+
+        if (maxCtx > 0) {
+            int pct = (int) ((estTokens / (double) maxCtx) * 100);
+            if (pct >= 95) {
+                tokenBadge.setText("⚠ " + pct + "% ctx");
+                tokenBadge.setTextColor(0xFFE53935); // red
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else if (pct >= 85) {
+                tokenBadge.setText("⚡ " + pct + "% ctx");
+                tokenBadge.setTextColor(0xFFFF8F00); // amber
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else if (optimised.size() < history.size()) {
+                tokenBadge.setText("⚡ " + optimised.size() + "/" + history.size() + " msgs");
+                tokenBadge.setTextColor(0xFF9d8ec0); // purple (original)
+                tokenBadge.setVisibility(android.view.View.VISIBLE);
+            } else {
+                tokenBadge.setVisibility(android.view.View.GONE);
+            }
+        } else if (optimised.size() < history.size()) {
+            tokenBadge.setText("⚡ " + optimised.size() + "/" + history.size() + " msgs");
+            tokenBadge.setTextColor(0xFF9d8ec0);
             tokenBadge.setVisibility(android.view.View.VISIBLE);
         } else {
             tokenBadge.setVisibility(android.view.View.GONE);
@@ -465,7 +536,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void refreshComposerState() {
-        if (isAgentRunning) {
+        if (chatState.isActive()) {
             binding.btnSend.setEnabled(true);
             binding.btnSend.setIconResource(R.drawable.ic_mtrl_cancel);
             binding.btnSend.setContentDescription("Stop");
@@ -529,18 +600,50 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         if (!messages.isEmpty()) {
             binding.messagesList.scrollToPosition(chatAdapter.getItemCount() - 1);
         }
+        // Restore draft — if the user had a partially typed message last session
+        String draft = preferences.getDraft(conversationId);
+        if (draft != null && !draft.isEmpty()
+                && (binding.inputMessage.getText() == null
+                    || binding.inputMessage.getText().length() == 0)) {
+            binding.inputMessage.setText(draft);
+            binding.inputMessage.setSelection(draft.length());
+        }
+    }
+
+    /**
+     * Shows a brief Snackbar if ModelRouter recommends a different profile than
+     * the one currently active. The Snackbar is advisory — user can dismiss.
+     * Only fires when profiles clearly differ (e.g. typing a build request on Quick).
+     */
+    private void suggestProfileIfNeeded(String text) {
+        String recommended = ModelRouter.recommendProfile(text);
+        String current     = preferences.getActiveProfile();
+        if (recommended.equalsIgnoreCase(current)) return;
+
+        boolean toDeep = ModelRouter.PROFILE_DEEP.equals(recommended);
+        String hint = toDeep
+                ? "Coding task detected — Deep profile gives better results"
+                : "Simple question — Quick profile is faster";
+        String action = toDeep ? "Use Deep" : "Use Quick";
+
+        Snackbar.make(binding.getRoot(), hint, Snackbar.LENGTH_LONG)
+                .setAction(action, v -> preferences.prefs().edit()
+                        .putString("ai_profile", recommended)
+                        .apply())
+                .show();
     }
 
     private void updateEmptyState() {
-        boolean showEmpty = chatAdapter.getItemCount() == 0 && !isAgentRunning;
+        boolean showEmpty = chatAdapter.getItemCount() == 0 && !chatState.isActive();
         binding.emptyState.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
         binding.messagesList.setVisibility(showEmpty ? View.INVISIBLE : View.VISIBLE);
     }
 
     private void sendMessage() {
-        String text = binding.inputMessage.getText() != null
-                ? binding.inputMessage.getText().toString().trim() : "";
-        if (text.isEmpty() || isAgentRunning) return;
+        String raw = binding.inputMessage.getText() != null
+                ? binding.inputMessage.getText().toString() : "";
+        String text = PromptSanitizer.sanitizeUserInput(raw);
+        if (text.isEmpty() || chatState.isActive()) return;
 
         if (currentModelId == null || currentModelId.isEmpty()) {
             // Toast removed
@@ -553,6 +656,13 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
             // Toast removed
             return;
         }
+
+        // Clear draft — message is now being sent
+        draftHandler.removeCallbacksAndMessages(null);
+        preferences.clearDraft(conversationId);
+
+        // Model routing hint — non-intrusive Snackbar if profile mismatch
+        suggestProfileIfNeeded(text);
 
         binding.inputMessage.setText("");
 
@@ -576,8 +686,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
         updateEmptyState();
         scrollToBottom();
 
-        setAgentRunning(true);
-        binding.typingText.setText("Thinking\u2026");
+        transitionState(ChatState.PREPARING);
 
         List<ChatMessage> history = conversationManager.getMessages(conversationId);
         String systemPrompt = preferences.getSystemPrompt();
@@ -603,12 +712,29 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void setAgentRunning(boolean running) {
-        isAgentRunning = running;
-        binding.inputMessage.setEnabled(!running);
-        binding.typingIndicator.setVisibility(running ? View.VISIBLE : View.GONE);
-        if (running) {
-            binding.emptyDescription.setText("The agent is planning and executing tools in this workspace.");
-            // Start background service
+        transitionState(running ? ChatState.PREPARING : ChatState.IDLE);
+    }
+
+    /**
+     * Central state transition point. All UI updates are driven from here.
+     * This is the only place that should update {@link #chatState}.
+     */
+    private void transitionState(@NonNull ChatState newState) {
+        chatState = newState;
+        boolean active = chatState.isActive();
+
+        binding.inputMessage.setEnabled(!active);
+        binding.typingIndicator.setVisibility(active ? View.VISIBLE : View.GONE);
+
+        String statusLabel = chatState.getStatusLabel(
+                currentProvider != null ? currentProvider.getDisplayName() : null);
+        if (statusLabel != null) {
+            binding.typingText.setText(statusLabel);
+        }
+
+        if (active) {
+            binding.emptyDescription.setText(
+                    "The agent is planning and executing tools in this workspace.");
             Intent serviceIntent = new Intent(this, pro.sketchware.ai.engine.AiBackgroundService.class);
             serviceIntent.putExtra(EXTRA_CONVERSATION_ID, conversationId);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -617,11 +743,12 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
                 startService(serviceIntent);
             }
         } else {
-            binding.emptyDescription.setText("Create or open a conversation and ask for a Sketchware-compatible app, feature, fix, or refactor.");
-            // Stop background service
+            binding.emptyDescription.setText(
+                    "Create or open a conversation and ask for a Sketchware-compatible app, feature, fix, or refactor.");
             Intent serviceIntent = new Intent(this, pro.sketchware.ai.engine.AiBackgroundService.class);
             stopService(serviceIntent);
         }
+
         refreshComposerState();
         updateEmptyState();
     }
@@ -828,52 +955,38 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     @Override
     public void onResponseComplete(ChatMessage assistantMessage) {
-        setAgentRunning(false);
+        transitionState(ChatState.COMPLETED);
+        transitionState(ChatState.IDLE);
         pro.sketchware.ai.engine.AiBackgroundService.notifyCompletion(this, conversationId);
     }
 
     @Override
     public void onCancelled() {
-        setAgentRunning(false);
+        transitionState(ChatState.CANCELLED);
         binding.typingText.setText("Stopped");
-        // Toast removed: "Agent stopped"
+        transitionState(ChatState.IDLE);
     }
 
     @Override
     public void onError(String error) {
-        setAgentRunning(false);
+        transitionState(ChatState.ERROR);
+        // Use AiError taxonomy for consistent, user-friendly error messages with action hints
+        AiError aiError = AiError.fromRawError(error,
+                currentProvider != null ? currentProvider.getDisplayName() : null);
+        String displayMsg = aiError.toChatMessage();
 
-        // Build user-friendly message — shown inline in the chat, no Toast
-        String displayError = (error != null && !error.isEmpty()) ? error : "An unexpected error occurred.";
-        String hint = null;
-        if (displayError.contains("403") || displayError.contains("rate limit") || displayError.contains("Rate Limit") || displayError.contains("429")) {
-            hint = "\uD83D\uDCA1 Tip: Switch to Groq \u221e (unlimited) or Cerebras (free) — tap the model chip.";
-        } else if (displayError.contains("401") || displayError.contains("Invalid API Key")) {
-            hint = "\uD83D\uDCA1 Check your API key in AI Settings.";
-        } else if (displayError.contains("timeout") || displayError.contains("failed to connect")
-                || displayError.contains("Unable to resolve host")) {
-            hint = "\uD83D\uDCA1 Check your internet connection and try again.";
-        } else if (displayError.contains("404") || displayError.contains("Model Not Found")) {
-            hint = "\uD83D\uDCA1 The selected model may be unavailable. Try refreshing models in AI Settings.";
-        } else if (displayError.contains("503") || displayError.contains("Service Unavailable")) {
-            hint = "\uD83D\uDCA1 The AI provider is temporarily overloaded. Please try again in a moment.";
-        }
-
-        StringBuilder msg = new StringBuilder("\u26a0\ufe0f ").append(displayError);
-        if (hint != null) msg.append("\n\n").append(hint);
-
-        ChatMessage errorMessage = new ChatMessage(conversationId, msg.toString(), null);
+        ChatMessage errorMessage = new ChatMessage(conversationId, displayMsg, null);
         conversationManager.saveMessage(conversationId, errorMessage);
         updateConversationTimestamp();
         chatAdapter.replaceStreamingAssistantMessage(errorMessage);
         updateEmptyState();
         scrollToBottom();
-        // No Toast — error is displayed inline in the chat for a cleaner UX
+        transitionState(ChatState.IDLE);
     }
 
     @Override
     public void onThinking(String status) {
-        binding.typingText.setText(status);
+        if (status != null) binding.typingText.setText(status);
     }
 
     @Override
@@ -901,6 +1014,7 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        draftHandler.removeCallbacksAndMessages(null);
         if (agentExecutor != null) {
             agentExecutor.shutdown();
         }

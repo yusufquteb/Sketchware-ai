@@ -9,8 +9,10 @@ import androidx.annotation.Nullable;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
+import pro.sketchware.ai.security.SecureKeyStore;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -179,10 +181,31 @@ public class AiPreferences {
     private static volatile AiPreferences instance;
     private final SharedPreferences prefs;
     private final Gson gson;
+    private final SecureKeyStore secureStore;
 
     private AiPreferences(@NonNull Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Context appCtx = context.getApplicationContext();
+        prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         gson = new Gson();
+        secureStore = SecureKeyStore.getInstance(appCtx);
+        migratePlainApiKeys();
+    }
+
+    /**
+     * One-time migration: moves any API keys stored in plain SharedPreferences
+     * into SecureKeyStore. Removes the old plain-text entries afterward.
+     */
+    private void migratePlainApiKeys() {
+        for (AiProvider provider : AiProvider.values()) {
+            String legacyKey = KEY_API_KEY_PREFIX + provider.name();
+            if (prefs.contains(legacyKey)) {
+                String value = prefs.getString(legacyKey, null);
+                if (value != null && !value.isEmpty()) {
+                    secureStore.put(legacyKey, value);
+                }
+                prefs.edit().remove(legacyKey).apply();
+            }
+        }
     }
 
     @NonNull
@@ -201,12 +224,13 @@ public class AiPreferences {
     public SharedPreferences prefs() { return prefs; }
 
     public void setApiKey(@NonNull AiProvider provider, @NonNull String key) {
-        prefs.edit().putString(KEY_API_KEY_PREFIX + provider.name(), key).apply();
+        secureStore.put(KEY_API_KEY_PREFIX + provider.name(), key.trim());
+        CircuitBreaker.getInstance().reset(provider.name());
     }
 
     @Nullable
     public String getApiKey(@NonNull AiProvider provider) {
-        return prefs.getString(KEY_API_KEY_PREFIX + provider.name(), null);
+        return secureStore.get(KEY_API_KEY_PREFIX + provider.name());
     }
 
     public boolean hasApiKey(@NonNull AiProvider provider) {
@@ -228,7 +252,8 @@ public class AiPreferences {
     }
 
     public void clearApiKey(@NonNull AiProvider provider) {
-        prefs.edit().remove(KEY_API_KEY_PREFIX + provider.name()).apply();
+        secureStore.remove(KEY_API_KEY_PREFIX + provider.name());
+        CircuitBreaker.getInstance().reset(provider.name());
     }
 
     public void setCachedModels(@NonNull AiProvider provider, @NonNull List<ModelInfo> models) {
@@ -405,5 +430,41 @@ public class AiPreferences {
 
     public void setRequestTimeoutSecs(int secs) {
         prefs.edit().putInt(KEY_REQUEST_TIMEOUT, Math.max(30, secs)).apply();
+    }
+
+    // ── Active profile ────────────────────────────────────────────────────────
+
+    private static final String KEY_AI_PROFILE = "ai_profile";
+
+    /**
+     * Returns the currently active profile key ("QUICK" or "DEEP").
+     * Matches the constant stored by AiSettingsActivity's profile toggle.
+     */
+    public String getActiveProfile() {
+        return prefs.getString(KEY_AI_PROFILE, "QUICK");
+    }
+
+    // ── Draft message persistence ─────────────────────────────────────────────
+
+    private static final String KEY_DRAFT_PREFIX = "ai_draft_";
+
+    /** Saves the user's in-progress input for a conversation. Pass null/empty to clear. */
+    public void saveDraft(@NonNull String conversationId, @Nullable String text) {
+        if (text == null || text.trim().isEmpty()) {
+            prefs.edit().remove(KEY_DRAFT_PREFIX + conversationId).apply();
+        } else {
+            prefs.edit().putString(KEY_DRAFT_PREFIX + conversationId, text).apply();
+        }
+    }
+
+    /** Returns the saved draft for a conversation, or null if none. */
+    @Nullable
+    public String getDraft(@NonNull String conversationId) {
+        return prefs.getString(KEY_DRAFT_PREFIX + conversationId, null);
+    }
+
+    /** Removes the saved draft for a conversation (call after the message is sent). */
+    public void clearDraft(@NonNull String conversationId) {
+        prefs.edit().remove(KEY_DRAFT_PREFIX + conversationId).apply();
     }
 }
