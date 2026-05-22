@@ -24,6 +24,7 @@ import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamBuffer;
 import pro.sketchware.ai.api.StreamingResponseHandler;
 import pro.sketchware.ai.api.ToolDefinition;
+import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ToolCall;
@@ -1152,7 +1153,9 @@ public class AgentExecutor {
     }
 
     private void postError(AgentCallback callback, String error) {
-        mainHandler.post(() -> callback.onError(error));
+        // Redact any sensitive data (API keys, tokens) before surfacing to UI or logs.
+        String safeError = PromptSanitizer.redactForLog(error);
+        mainHandler.post(() -> callback.onError(safeError));
     }
 
     /**
