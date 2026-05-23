@@ -202,12 +202,15 @@ public final class BlockApiTools {
         @Override public String getName() { return "add_block"; }
 
         @Override public String getDescription() {
-            return "Adds a new block to an event in a Sketchware Pro project's logic. "
-                 + "Required fields: sc_id, activity_name, event_name, opCode, spec, type. "
-                 + "Optional: parameters (array of strings), after_block_id (-1 to prepend). "
-                 + "Common opCodes: 'addSourceDirectly' (raw Java), 'ifElse', 'doWhile', "
-                 + "'initializeVariable', 'setBoolean', 'setInt', 'setString', 'callFunc', "
-                 + "'showToast', 'showAlertDialog', 'startActivity', 'finish'.";
+            return "Adds ONE block to an event. "
+                 + "⚠ For multiple blocks use set_event_logic instead — it is faster and more reliable. "
+                 + "Required: sc_id, activity_name, event_name, opCode, spec, type. "
+                 + "Optional: parameters (array of strings), after_block_id (-1 to prepend, omit to append). "
+                 + "For addSourceDirectly: opCode='addSourceDirectly', "
+                 + "spec='add source directly %s.inputOnly', type=' ', parameters=['your java code;']. "
+                 + "Common opCodes: addSourceDirectly (raw Java), ifElse, doWhile, "
+                 + "initializeVariable, setBoolean, setInt, setString, callFunc, "
+                 + "showToast, showAlertDialog, startActivity, finish.";
         }
 
         @Override public JsonObject getParametersSchema() {

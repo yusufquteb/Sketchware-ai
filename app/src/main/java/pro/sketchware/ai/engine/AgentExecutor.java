@@ -26,6 +26,7 @@ import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.api.StreamBuffer;
 import pro.sketchware.ai.api.StreamingResponseHandler;
 import pro.sketchware.ai.api.ToolDefinition;
+import pro.sketchware.ai.diagnostics.AiSessionLogger;
 import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
@@ -91,6 +92,7 @@ public class AgentExecutor {
     private final Context context;
     private final ToolRegistry toolRegistry;
     private final AiPreferences preferences;
+    private AiSessionLogger sessionLogger;
     /** Latch used by pulse: UI counts down, then releases to let agent continue. */
     private volatile java.util.concurrent.CountDownLatch pulseLatch;
     /** Counts tool calls across all iterations for pulse trigger. */
@@ -138,6 +140,7 @@ public class AgentExecutor {
         this.executor    = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.isCancelled = new AtomicBoolean(false);
+        this.sessionLogger = AiSessionLogger.getInstance(this.context);
     }
 
     /**
@@ -187,6 +190,8 @@ public class AgentExecutor {
                     postError(callback, "Failed to create API client for " + provider.getDisplayName());
                     return;
                 }
+                sessionLogger.logSessionStart(provider.getDisplayName(),
+                        preferences.getSelectedModel(provider));
 
                 // mutable model holder for failover reassignment inside while loop
                 // (Java doesn't allow reassigning effectively-final params in lambdas)
@@ -203,7 +208,12 @@ public class AgentExecutor {
                 // Pass the provider so the budget adapts to its actual context window.
                 List<ChatMessage> messages = TokenOptimizer.optimise(
                         new ArrayList<>(conversationHistory), provider);
-                String effectiveSystemPrompt     = buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
+                // Use a compact system prompt for providers with small context windows
+                // to avoid consuming most of the context budget before the conversation starts.
+                ProviderCapabilities caps = ProviderCapabilities.of(provider);
+                String effectiveSystemPrompt = (caps.maxContextTokens > 0 && caps.maxContextTokens < 40_000)
+                        ? buildCompactSystemPrompt(systemPrompt, allowedProjectIds, pageContext)
+                        : buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
 
                 int iteration = 0;
@@ -222,6 +232,13 @@ public class AgentExecutor {
                     CountDownLatch streamLatch      = new CountDownLatch(1);
                     String[] streamError            = new String[1];
 
+                    // Log the user message on the first iteration
+                    if (iteration == 1 && !messages.isEmpty()) {
+                        ChatMessage lastUser = messages.get(messages.size() - 1);
+                        if ("user".equals(lastUser.getRole())) {
+                            sessionLogger.logUserMessage(lastUser.getContent());
+                        }
+                    }
                     mainHandler.post(() -> callback.onThinking("Thinking..."));
 
                     // Use conversationId from the first message as a Tag for cancellation
@@ -315,7 +332,9 @@ public class AgentExecutor {
                         if (failoverProvider != null && !isCancelled.get()) {
                             String failoverKey = preferences.getApiKey(failoverProvider);
                             String failoverModel = preferences.getSelectedModel(failoverProvider);
-                            mainHandler.post(() -> callback.onThinking(
+                            sessionLogger.logFailover(provider.getDisplayName(),
+                                failoverProvider.getDisplayName(), failReason);
+                        mainHandler.post(() -> callback.onThinking(
                                     "⚡ " + provider.getDisplayName() + " " + failReason
                                     + " → switching to " + failoverProvider.getDisplayName() + "..."));
                             try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
@@ -338,6 +357,9 @@ public class AgentExecutor {
                             fullResponse.toString(),
                             pendingToolCalls.isEmpty() ? null : pendingToolCalls);
                     messages.add(assistantMsg);
+                    if (fullResponse.length() > 0) {
+                        sessionLogger.logAiResponse(fullResponse.toString());
+                    }
                     mainHandler.post(() -> callback.onAssistantMessage(assistantMsg));
 
                     AiHealthMonitor.getInstance().recordSuccess(provider, healthToken);
@@ -356,10 +378,13 @@ public class AgentExecutor {
                         }
 
                         mainHandler.post(() -> callback.onThinking("Running \"" + tc.getName() + "\"..."));
+                        sessionLogger.logToolCall(tc.getName(), tc.getArguments());
                         toolContext.beginToolCall(tc.getId());
                         toolContext.reportProgress("Starting...", -1, true);
                         ToolResult result = executeTool(tc, toolContext);
                         toolContext.endToolCall();
+                        sessionLogger.logToolResult(tc.getName(), result.isSuccess(),
+                                result.isSuccess() ? result.getOutput() : result.getError());
 
                         ToolResult finalResult = result;
                         mainHandler.post(() -> callback.onToolCallCompleted(tc, finalResult));
@@ -491,6 +516,38 @@ public class AgentExecutor {
     }
 
     // ── System prompt builder ───────────────────────────────────────────────
+
+    /**
+     * Compact system prompt for providers with context windows under 40k tokens.
+     * Keeps only essential routing rules and a brief tool name list.
+     * Saves ~5,000 tokens compared to the full system prompt.
+     */
+    private String buildCompactSystemPrompt(String userSystemPrompt, List<String> projectIds,
+                                             String pageContext) {
+        StringBuilder sb = new StringBuilder();
+        if (userSystemPrompt != null && !userSystemPrompt.isEmpty()) {
+            sb.append(userSystemPrompt.trim());
+        } else {
+            sb.append(AiPreferences.DEFAULT_SYSTEM_PROMPT.trim());
+        }
+        sb.append("\n\nYou are an AI assistant for Sketchware Pro. Use the available tools to help.\n");
+        sb.append("TOOLS: generate_layout, add_view_xml, describe_layout, build_project, ");
+        sb.append("get_event_blocks, set_event_logic, add_block, read_file, write_file, ");
+        sb.append("patch_file, list_files, add_string_resource, add_color_resource, ");
+        sb.append("search_maven, add_library, analyze_build_error, get_compile_logs.\n");
+        sb.append("UI edits: describe_layout → generate_layout. Never use write_file for UI.\n");
+        sb.append("Blocks: prefer set_event_logic over add_block for multiple blocks.\n");
+        sb.append("Always call tools directly — don't narrate before calling.\n");
+
+        if (projectIds != null && projectIds.size() == 1) {
+            sb.append("Project sc_id: ").append(projectIds.get(0)).append("\n");
+        }
+        if (pageContext != null && !pageContext.trim().isEmpty()) {
+            sb.append("Context: ").append(pageContext.trim(), 0,
+                    Math.min(200, pageContext.trim().length())).append("\n");
+        }
+        return sb.toString();
+    }
 
     private String buildSystemPrompt(String userSystemPrompt, List<String> projectIds) {
         return buildSystemPrompt(userSystemPrompt, projectIds, null);
@@ -1169,6 +1226,7 @@ public class AgentExecutor {
     private void postError(AgentCallback callback, String error) {
         // Redact any sensitive data (API keys, tokens) before surfacing to UI or logs.
         String safeError = PromptSanitizer.redactForLog(error);
+        sessionLogger.logError(safeError);
         mainHandler.post(() -> callback.onError(safeError));
     }
 

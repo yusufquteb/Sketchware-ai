@@ -38,6 +38,7 @@ import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.core.ToolTelemetry;
+import pro.sketchware.ai.diagnostics.AiSessionLogger;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.storage.AiPreferences;
@@ -125,6 +126,7 @@ public class AiSettingsActivity extends AppCompatActivity {
         setupAdvancedSettings();
         setupToolTelemetry();
         setupHealthDashboard();
+        setupDiagnosticLog();
         handleIncomingIntent();
     }
 
@@ -657,6 +659,43 @@ public class AiSettingsActivity extends AppCompatActivity {
     private void updatePulseStepsLabel(int steps) {
         binding.tvPulseStepsLabel.setText(
                 "Pulse confirmation every: " + steps + " tool call" + (steps == 1 ? "" : "s"));
+    }
+
+    // ── Diagnostic Session Log ────────────────────────────────────────────────
+
+    private void setupDiagnosticLog() {
+        AiSessionLogger logger = AiSessionLogger.getInstance(this);
+        binding.tvLogPath.setText(logger.getCurrentLogPath());
+
+        updateLoggingToggleLabel(logger);
+        binding.btnToggleLogging.setOnClickListener(v -> {
+            logger.setEnabled(!logger.isEnabled());
+            updateLoggingToggleLabel(logger);
+        });
+
+        binding.btnShareLog.setOnClickListener(v -> {
+            java.io.File[] logs = logger.listLogs();
+            if (logs.length == 0) {
+                Toast.makeText(this, "No log file yet. Start a chat first.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            java.io.File latest = logs[0];
+            try {
+                android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                        this, getPackageName() + ".provider", latest);
+                Intent share = new Intent(Intent.ACTION_SEND);
+                share.setType("text/plain");
+                share.putExtra(Intent.EXTRA_STREAM, uri);
+                share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(Intent.createChooser(share, "Share AI session log"));
+            } catch (Exception e) {
+                Toast.makeText(this, "Cannot share: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void updateLoggingToggleLabel(AiSessionLogger logger) {
+        binding.btnToggleLogging.setText(logger.isEnabled() ? "Logging: ON" : "Logging: OFF");
     }
 
     // ── Tool Telemetry ────────────────────────────────────────────────────────
