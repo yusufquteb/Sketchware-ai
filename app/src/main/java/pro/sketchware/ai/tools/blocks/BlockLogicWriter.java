@@ -4,6 +4,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -99,6 +102,9 @@ public final class BlockLogicWriter {
         }
 
         ev.rawContent.add(blockJson);
+        // Keep blocksById in sync so validate() and subsequent orderedBlocks() see the new block.
+        BlockLogicReader.BlockEntry newEntry = new BlockLogicReader.BlockEntry(blockJson);
+        ev.blocksById.put(newEntry.id, newEntry);
         return write(lf);
     }
 
@@ -294,7 +300,11 @@ public final class BlockLogicWriter {
                 raf.setLength(0);
                 raf.write(encrypted);
             }
-            try { a.a.a.jC.a(scId, true); } catch (Throwable ignored) {}
+            // jC.a() reloads Sketchware's in-memory project cache so the Design
+            // editor reflects the change immediately. It must run on the main thread.
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try { a.a.a.jC.a(scId, true); } catch (Throwable ignored) {}
+            });
         } catch (Exception e) {
             throw new IOException("Encryption failed: " + e.getMessage(), e);
         }
