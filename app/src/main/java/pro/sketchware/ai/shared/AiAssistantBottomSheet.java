@@ -31,9 +31,11 @@ import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ChatMessage;
+import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.models.ToolCall;
 import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.storage.AiPreferences;
+import pro.sketchware.ai.storage.ConversationManager;
 import pro.sketchware.databinding.DesignAiBottomSheetBinding;
 import pro.sketchware.utility.SketchwareUtil;
 
@@ -74,9 +76,11 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
     private DesignAiBottomSheetBinding binding;
     private boolean sidebarExpanded = true;  // open by default
     private final List<ChatMessage> chatHistory = new ArrayList<>();
-    private AiChatAdapter    chatAdapter;
-    private AiSidebarAdapter sidebarAdapter;
-    private AiPreferences    preferences;
+    private AiChatAdapter      chatAdapter;
+    private AiSidebarAdapter   sidebarAdapter;
+    private AiPreferences      preferences;
+    private ConversationManager conversationManager;
+    private String              conversationId;
     @Nullable private String pendingDirectKey = null; // set when user taps a DIRECT tool
 
     // Agent executor
@@ -95,7 +99,29 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         super.onCreate(savedInstanceState);
         setStyle(STYLE_NORMAL,
             com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog);
-        if (getContext() != null) preferences = AiPreferences.getInstance(getContext());
+        if (getContext() != null) {
+            preferences         = AiPreferences.getInstance(getContext());
+            conversationManager = new ConversationManager(getContext());
+            // Restore persisted conversation for this page so dismiss→reopen preserves history.
+            String pageKey = config != null
+                    ? (config.pageTitle + "_" + config.workspaceId).replaceAll("[^A-Za-z0-9_-]", "_")
+                    : "assistant";
+            String wsId = "assistant_" + pageKey;
+            java.util.List<Conversation> existing = conversationManager
+                    .getConversationsForWorkspace(wsId);
+            if (!existing.isEmpty()) {
+                Conversation cv = existing.get(existing.size() - 1);
+                conversationId = cv.getId();
+                java.util.List<ChatMessage> saved = conversationManager.getMessages(conversationId);
+                chatHistory.addAll(saved);
+            } else {
+                Conversation cv = new Conversation(wsId,
+                        config != null ? config.pageTitle : "AI Assistant",
+                        null, null);
+                conversationManager.saveConversation(cv);
+                conversationId = cv.getId();
+            }
+        }
     }
 
     @Nullable @Override
@@ -167,6 +193,9 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             int oldSize = chatHistory.size();
             chatHistory.clear();
             chatAdapter.notifyItemRangeRemoved(0, oldSize);
+            if (conversationManager != null && conversationId != null) {
+                conversationManager.deleteMessages(conversationId);
+            }
             showEmpty(true);
         });
         binding.aiSheetBtnClose.setOnClickListener(v -> dismiss());
@@ -536,13 +565,21 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
 
     // ── UI helpers ────────────────────────────────────────────────────────────
     private void pushUser(String text) {
-        chatHistory.add(ChatMessage.userMessage(null, text));
+        ChatMessage msg = ChatMessage.userMessage(conversationId, text);
+        chatHistory.add(msg);
+        if (conversationManager != null && conversationId != null) {
+            conversationManager.saveMessage(conversationId, msg);
+        }
         notifyInsert();
         showEmpty(false);
     }
 
     private void pushAssistant(String text) {
-        chatHistory.add(ChatMessage.assistantMessage(text, null));
+        ChatMessage msg = ChatMessage.assistantMessage(text, null);
+        chatHistory.add(msg);
+        if (conversationManager != null && conversationId != null) {
+            conversationManager.saveMessage(conversationId, msg);
+        }
         notifyInsert();
         showEmpty(false);
     }

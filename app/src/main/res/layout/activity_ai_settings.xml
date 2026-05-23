@@ -486,6 +486,73 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- ── Diagnostic Session Log ─────────────────────────────── -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/diagnostic_log_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Session Diagnostic Log"
+                            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Logs all tool calls, AI responses, and errors to a Markdown file."
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                        <TextView
+                            android:id="@+id/tv_log_path"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="monospace"
+                            android:textSize="11sp"
+                            android:text="(log path will appear here)"
+                            android:textColor="?attr/colorPrimary" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_toggle_logging"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Logging: ON" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_share_log"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:text="Share Log" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
