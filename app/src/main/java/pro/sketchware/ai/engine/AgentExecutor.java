@@ -29,6 +29,7 @@ import pro.sketchware.ai.api.ToolDefinition;
 import pro.sketchware.ai.diagnostics.AiSessionLogger;
 import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.models.AiProvider;
+import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.ToolCall;
 import pro.sketchware.ai.models.ToolResult;
@@ -211,10 +212,14 @@ public class AgentExecutor {
                 // Use a compact system prompt for providers with small context windows
                 // to avoid consuming most of the context budget before the conversation starts.
                 ProviderCapabilities caps = ProviderCapabilities.of(provider);
-                String effectiveSystemPrompt = (caps.maxContextTokens > 0 && caps.maxContextTokens < 40_000)
+                boolean usingCompactPrompt = (caps.maxContextTokens > 0 && caps.maxContextTokens < 40_000);
+                String effectiveSystemPrompt = usingCompactPrompt
                         ? buildCompactSystemPrompt(systemPrompt, allowedProjectIds, pageContext)
                         : buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
+                // Tracks which provider is currently active (changes on failover).
+                final pro.sketchware.ai.models.AiProvider[] currentProviderHolder = {provider};
+                int modelNotFoundRetries = 0;
 
                 int iteration = 0;
                 while (!isCancelled.get()) {
@@ -323,6 +328,56 @@ public class AgentExecutor {
                                 : (!completed ? "timed out after " + (streamTimeoutMs / 1000) + "s"
                                              : "request error");
 
+                        // ── Smart retries on the SAME provider before failing over ───────
+                        if (streamError[0] != null && !isCancelled.get()) {
+                            String err = streamError[0];
+
+                            // Retry with compact prompt when the message is too long.
+                            // Groq (131k context) gets the full prompt by default, but its
+                            // free tier still imposes a hard per-request input limit (~8k tokens).
+                            boolean isTooLong = err.contains("Message Too Long")
+                                    || err.contains("message too long")
+                                    || err.contains("Request too large")
+                                    || err.contains("context_length_exceeded")
+                                    || err.contains("tokens_limit_reached");
+                            if (isTooLong && !usingCompactPrompt) {
+                                usingCompactPrompt = true;
+                                effectiveSystemPrompt = buildCompactSystemPrompt(
+                                        systemPrompt, allowedProjectIds, pageContext);
+                                sessionLogger.logFailover(
+                                        currentProviderHolder[0].getDisplayName(),
+                                        currentProviderHolder[0].getDisplayName(),
+                                        err + " → retrying with compact prompt");
+                                mainHandler.post(() -> callback.onThinking(
+                                        "📏 Message too long → switching to compact prompt..."));
+                                continue;
+                            }
+
+                            // Stale cached model: reset to the verified default and retry.
+                            // Happens when a model ID saved from an API fetch is later removed.
+                            boolean isModelNotFound = err.contains("Model Not Found")
+                                    || err.contains("model_not_found")
+                                    || err.contains("model not found")
+                                    || err.contains("does not exist");
+                            if (isModelNotFound && modelNotFoundRetries < 2) {
+                                pro.sketchware.ai.models.AiProvider currProv = currentProviderHolder[0];
+                                String defaultModel = AiProviderModels.getDefaultModel(currProv);
+                                if (!defaultModel.isEmpty() && !defaultModel.equals(modelHolder[0])) {
+                                    modelNotFoundRetries++;
+                                    preferences.clearCachedModels(currProv);
+                                    sessionLogger.logFailover(currProv.getDisplayName(),
+                                            currProv.getDisplayName(),
+                                            "Model not found: " + modelHolder[0]
+                                            + " → retrying with " + defaultModel);
+                                    modelHolder[0] = defaultModel;
+                                    mainHandler.post(() -> callback.onThinking(
+                                            "🔄 Model not found → retrying with default model..."));
+                                    continue;
+                                }
+                            }
+                        }
+                        // ── End smart retries ─────────────────────────────────────────────
+
                         AiHealthMonitor.getInstance().recordFailure(provider,
                                 AiError.fromRawError(failReason, provider.getDisplayName()));
 
@@ -340,6 +395,7 @@ public class AgentExecutor {
                             try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
                             currentClient = pro.sketchware.ai.api.AiClientFactory
                                     .createClient(context, failoverProvider, failoverKey);
+                            currentProviderHolder[0] = failoverProvider;
                             modelHolder[0] = failoverModel;
                             continue; // retry this iteration with new provider
                         }
@@ -538,6 +594,13 @@ public class AgentExecutor {
         sb.append("UI edits: describe_layout → generate_layout. Never use write_file for UI.\n");
         sb.append("Blocks: prefer set_event_logic over add_block for multiple blocks.\n");
         sb.append("Always call tools directly — don't narrate before calling.\n");
+        sb.append("BLOCK SPEC FORMAT (add_block — exact values required):\n");
+        sb.append("  showToast       → spec='show toast %s.text',              type=' ', parameters=['msg']\n");
+        sb.append("  addSourceDir.   → spec='add source directly %s.inputOnly', type=' ', parameters=['code;']\n");
+        sb.append("  startActivity   → spec='start activity %m.activity',      type=' ', parameters=['actName']\n");
+        sb.append("  finish          → spec='finish',                           type=' ', parameters=[]\n");
+        sb.append("  setVariable(s)  → spec='set %s.name = %s.value',          type=' ', parameters=['var','val']\n");
+        sb.append("  ifElse          → spec='if %b.condition then',             type=' ', parameters=['']\n");
 
         if (projectIds != null && projectIds.size() == 1) {
             sb.append("Project sc_id: ").append(projectIds.get(0)).append("\n");
@@ -689,6 +752,24 @@ public class AgentExecutor {
         sb.append("║ Read logic    ║ get_event_blocks(sc_id, activity, event) ║\n");
         sb.append("║ Add block     ║ add_block(...) — always read first       ║\n");
         sb.append("║ Edit block    ║ modify_block(sc_id, ...)                 ║\n");
+        sb.append("╠═══════════════╩═══════════════════════════════════════════╣\n");
+        sb.append("║  BLOCK SPEC REFERENCE — exact values for add_block        ║\n");
+        sb.append("╠═══════════════╦═══════════════════════════════════════════╣\n");
+        sb.append("║ showToast     ║ spec='show toast %s.text'                ║\n");
+        sb.append("║               ║ type=' '  parameters=['Hello']           ║\n");
+        sb.append("║ addSrcDirect  ║ spec='add source directly %s.inputOnly'  ║\n");
+        sb.append("║               ║ type=' '  parameters=['code;']           ║\n");
+        sb.append("║ startActivity ║ spec='start activity %m.activity'        ║\n");
+        sb.append("║               ║ type=' '  parameters=['activityName']    ║\n");
+        sb.append("║ finish        ║ spec='finish'  type=' '  params=[]       ║\n");
+        sb.append("║ setVariable   ║ spec='set %s.name = %s.value'            ║\n");
+        sb.append("║  (String)     ║ type=' '  parameters=['varName','val']   ║\n");
+        sb.append("║ ifElse        ║ spec='if %b.condition then'              ║\n");
+        sb.append("║               ║ type=' '  parameters=['']                ║\n");
+        sb.append("║ doWhile       ║ spec='repeat while %b.condition'         ║\n");
+        sb.append("║               ║ type=' '  parameters=['']                ║\n");
+        sb.append("║ showDialog    ║ spec='show message %s.text title %s.title'║\n");
+        sb.append("║               ║ type=' '  parameters=['msg','title']     ║\n");
         sb.append("╠═══════════════╬═══════════════════════════════════════════╣\n");
         sb.append("║ Build APK     ║ build_project(sc_id)                     ║\n");
         sb.append("║ Unused res.   ║ scan_unused_resources → show user →      ║\n");
