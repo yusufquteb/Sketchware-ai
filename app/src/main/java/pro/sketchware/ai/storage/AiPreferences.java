@@ -11,6 +11,7 @@ import com.google.gson.reflect.TypeToken;
 
 import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.models.AiProvider;
+import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.security.SecureKeyStore;
 
@@ -284,8 +285,22 @@ public class AiPreferences {
     @Nullable
     public String getSelectedModel(@NonNull AiProvider provider) {
         String saved = prefs.getString(KEY_SELECTED_MODEL_PREFIX + provider.name(), null);
-        if (saved != null && !saved.isEmpty()) return saved;
-        
+        if (saved != null && !saved.isEmpty()) {
+            List<String> staticList = AiProviderModels.getStaticModels(provider);
+            if (staticList.isEmpty()) {
+                // No curated list for this provider — trust whatever was saved.
+                return saved;
+            }
+            // Model is in the verified static list → always valid.
+            if (staticList.contains(saved)) return saved;
+            // Model came from a dynamic API fetch — valid only while still in the cache.
+            for (ModelInfo m : getCachedModels(provider)) {
+                if (saved.equals(m.getId())) return saved;
+            }
+            // Saved model ID is stale (API removed it). Clear it and fall through to default.
+            prefs.edit().remove(KEY_SELECTED_MODEL_PREFIX + provider.name()).apply();
+        }
+
         switch (provider) {
             case CHUTES:           return DEFAULT_CHUTES_MODEL;
             case DEEPINFRA:        return DEFAULT_DEEPINFRA_MODEL;
