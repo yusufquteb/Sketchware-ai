@@ -26,44 +26,42 @@ public final class AiProviderModels {
         if (provider == null) return Collections.emptyList();
         switch (provider) {
             // ── Group 1: Free, no API ──────────────────────────────────────────
+            // gpt-4o and gpt-4o-mini removed: AirForce AI returns "Invalid API Key"
+            // for these — they are no longer proxied by this provider.
             case CHUTES:           return Arrays.asList(
-                    "gpt-4o",
-                    "gpt-4o-mini",
-                    "claude-3-5-sonnet",
-                    "gemini-2.0-flash",
                     "meta-llama/llama-4-maverick",
                     "meta-llama/llama-4-scout",
+                    "claude-3-5-sonnet",
+                    "gemini-2.0-flash",
                     "deepseek-v3",
                     "Qwen/Qwen3-235B-A22B",
                     "mistral-small-latest");
 
             // ── Group 2: Free with API ─────────────────────────────────────────
+            // gemma-3-*-it models removed: all returned "Model Not Found" via AI Studio API.
+            // gemini-2.5-flash added as the latest available model.
             case GOOGLE_AI_STUDIO: return Arrays.asList(
                     "gemini-2.0-flash",
                     "gemini-2.0-flash-lite",
-                    "gemma-3-27b-it",
-                    "gemma-3-12b-it",
-                    "gemma-3-4b-it");
+                    "gemini-2.5-flash");
 
+            // Only Meta-Llama-3.3-70B-Instruct confirmed working.
+            // The other three returned "Request Error" consistently.
             case SAMBANOVA:        return Arrays.asList(
-                    "Meta-Llama-3.3-70B-Instruct",
-                    "Llama-4-Scout-17B-16E-Instruct",
-                    "DeepSeek-R1-Distill-Llama-70B",
-                    "Qwen2.5-72B-Instruct");
+                    "Meta-Llama-3.3-70B-Instruct");
 
             case CEREBRAS:         return Arrays.asList(
                     "llama-3.3-70b",
                     "llama-3.1-8b",
                     "qwen-3-32b");
 
-            // Groq: compound-beta models removed — they burn tokens via internal multi-calls.
-            // Use llama-3.3-70b-versatile as default (128k context, generous TPM).
+            // Removed: gemma2-9b-it (Bad Request), deepseek-r1-distill-llama-70b (Bad Request),
+            // llama-4-scout-17b-16e-preview (Model Not Found).
+            // Added: mixtral-8x7b-32768 (stable long-running Groq model).
             case GROQ:             return Arrays.asList(
                     "llama-3.3-70b-versatile",
                     "llama-3.1-8b-instant",
-                    "gemma2-9b-it",
-                    "deepseek-r1-distill-llama-70b",
-                    "llama-4-scout-17b-16e-preview");
+                    "mixtral-8x7b-32768");
 
             case HUGGINGFACE:      return Arrays.asList(
                     "Qwen/Qwen2.5-72B-Instruct",
@@ -117,13 +115,12 @@ public final class AiProviderModels {
                     "claude-3-5-sonnet-20241022",
                     "claude-3-5-haiku-20241022");
 
-            // Gemini models: full path required for direct Gemini API (models/ prefix).
-            // The GeminiApiClient adds this prefix automatically.
+            // gemini-1.5-pro and gemini-1.5-flash removed: both returned "Model Not Found".
+            // Google has retired the 1.5 series in the Gemini API.
             case GEMINI:           return Arrays.asList(
                     "gemini-2.0-flash",
                     "gemini-2.0-flash-lite",
-                    "gemini-1.5-pro",
-                    "gemini-1.5-flash");
+                    "gemini-2.5-flash");
 
             case DEEPSEEK:         return Arrays.asList(
                     "deepseek-chat",
@@ -133,18 +130,22 @@ public final class AiProviderModels {
                     "grok-3",
                     "grok-3-mini");
 
+            // nemotron-ultra-253b, gemma-3-27b, and phi-4 all failed (Model Not Found /
+            // Request Error). Only meta/llama-3.3-70b-instruct is confirmed working.
             case NVIDIA:           return Arrays.asList(
                     "meta/llama-3.3-70b-instruct",
-                    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-                    "google/gemma-3-27b-it",
-                    "microsoft/phi-4");
+                    "nvidia/llama-3.1-nemotron-70b-instruct");
 
+            // Updated stale IDs from diagnostic report:
+            //   anthropic/claude-3.5-sonnet   → versioned ID (Model Not Found)
+            //   google/gemini-2.0-flash-exp:free → removed (Model Not Found)
+            //   deepseek/deepseek-chat-v3-0324:free → removed (Model Not Found)
             case OPENROUTER:       return Arrays.asList(
-                    "openai/gpt-4o",
-                    "anthropic/claude-3.5-sonnet",
-                    "google/gemini-2.0-flash-exp:free",
                     "meta-llama/llama-3.3-70b-instruct:free",
-                    "deepseek/deepseek-chat-v3-0324:free");
+                    "deepseek/deepseek-r1:free",
+                    "qwen/qwen3-235b-a22b:free",
+                    "openai/gpt-4o",
+                    "anthropic/claude-3.5-sonnet-20241022");
 
             case DEEPINFRA:        return Arrays.asList(
                     "meta-llama/Llama-3.3-70B-Instruct-Turbo",
