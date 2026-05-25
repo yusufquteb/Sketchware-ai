@@ -990,6 +990,20 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     @Override
+    public void onFailover(String fromProvider, String toProvider, String toModel) {
+        // Update the model chip label for the duration of this request
+        String display = toModel != null && toModel.contains("/")
+                ? toModel.substring(toModel.lastIndexOf('/') + 1) : toModel;
+        binding.toolbarModel.setText(display != null && !display.isEmpty() ? display : toProvider);
+        // Add a visible notification in the chat
+        String note = "⚡ Switched to " + toModel + " (" + toProvider + ")";
+        ChatMessage nm = new ChatMessage(conversationId, note, null);
+        chatAdapter.addAssistantMessage(nm);
+        updateEmptyState();
+        scrollToBottom();
+    }
+
+    @Override
     public void onInstallArtifact(@NonNull String artifactPath) {
         try {
             File artifact = new File(artifactPath);
