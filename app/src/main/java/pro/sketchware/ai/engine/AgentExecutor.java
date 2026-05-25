@@ -115,6 +115,8 @@ public class AgentExecutor {
         void onCancelled();
         void onError(String error);
         void onThinking(String status);
+        /** Called when failover to a different provider occurs. Default no-op for backwards compat. */
+        default void onFailover(String fromProvider, String toProvider, String toModel) {}
     }
 
     /** Scope constants — passed from ChatActivity via Intent extras. */
@@ -219,6 +221,12 @@ public class AgentExecutor {
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
                 // Tracks which provider is currently active (changes on failover).
                 final pro.sketchware.ai.models.AiProvider[] currentProviderHolder = {provider};
+                // All providers tried in this request — prevents infinite failover loops.
+                // When provider P fails and we failover to Q, Q is added here so the next
+                // failure looks past Q instead of cycling back to it.
+                final java.util.Set<pro.sketchware.ai.models.AiProvider> triedProviders =
+                        new java.util.HashSet<>();
+                triedProviders.add(provider);
                 int modelNotFoundRetries = 0;
 
                 int iteration = 0;
@@ -381,21 +389,27 @@ public class AgentExecutor {
                         AiHealthMonitor.getInstance().recordFailure(provider,
                                 AiError.fromRawError(failReason, provider.getDisplayName()));
 
-                        // Try to failover to next available provider
+                        // Try to failover to next untried provider
                         pro.sketchware.ai.models.AiProvider failoverProvider =
-                                findFailoverProvider(provider, preferences);
+                                findFailoverProvider(triedProviders, preferences);
                         if (failoverProvider != null && !isCancelled.get()) {
                             String failoverKey = preferences.getApiKey(failoverProvider);
                             String failoverModel = preferences.getSelectedModel(failoverProvider);
-                            sessionLogger.logFailover(provider.getDisplayName(),
+                            pro.sketchware.ai.models.AiProvider fromProvider = currentProviderHolder[0];
+                            sessionLogger.logFailover(fromProvider.getDisplayName(),
                                 failoverProvider.getDisplayName(), failReason);
-                        mainHandler.post(() -> callback.onThinking(
-                                    "⚡ " + provider.getDisplayName() + " " + failReason
+                            mainHandler.post(() -> callback.onThinking(
+                                    "⚡ " + fromProvider.getDisplayName() + " failed"
                                     + " → switching to " + failoverProvider.getDisplayName() + "..."));
+                            mainHandler.post(() -> callback.onFailover(
+                                    fromProvider.getDisplayName(),
+                                    failoverProvider.getDisplayName(),
+                                    failoverModel != null ? failoverModel : ""));
                             try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
                             currentClient = pro.sketchware.ai.api.AiClientFactory
                                     .createClient(context, failoverProvider, failoverKey);
                             currentProviderHolder[0] = failoverProvider;
+                            triedProviders.add(failoverProvider);
                             modelHolder[0] = failoverModel;
                             continue; // retry this iteration with new provider
                         }
@@ -1312,16 +1326,13 @@ public class AgentExecutor {
     }
 
     /**
-     * Finds the next available provider from FAILOVER_ORDER that has an API key
-     * and is different from the current provider.
-     */
-    /**
-     * Finds next available provider: different from current, enabled by user, has API key.
+     * Finds the next available provider from FAILOVER_ORDER that has not been tried yet.
+     * Uses a set of already-tried providers to prevent infinite failover cycles.
      */
     private static pro.sketchware.ai.models.AiProvider findFailoverProvider(
-            pro.sketchware.ai.models.AiProvider current, AiPreferences prefs) {
+            java.util.Set<pro.sketchware.ai.models.AiProvider> tried, AiPreferences prefs) {
         for (pro.sketchware.ai.models.AiProvider p : FAILOVER_ORDER) {
-            if (p == current) continue;
+            if (tried.contains(p)) continue;
             if (!prefs.isProviderEnabled(p)) continue;
             if (!p.requiresApiKey()) return p;
             if (prefs.hasApiKey(p)) return p;
