@@ -833,12 +833,28 @@ public final class FileTools {
 
     public static class GetRecentLogsTool implements AgentTool {
         @Override public String getName() { return "get_recent_logs"; }
-        @Override public String getDescription() { return "Get recent logcat entries for debugging."; }
-        @Override public JsonObject getParametersSchema() { return new JsonObject(); }
+        @Override public String getDescription() {
+            return "Get recent logcat entries for debugging. "
+                 + "Optional tag filter (e.g. 'AndroidRuntime', 'System.err') narrows output.";
+        }
+        @Override public JsonObject getParametersSchema() {
+            JsonObject props = new JsonObject();
+            JsonObject tagP = new JsonObject();
+            tagP.addProperty("type", "string");
+            tagP.addProperty("description", "Optional logcat tag filter, e.g. 'AndroidRuntime'");
+            props.add("tag", tagP);
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            schema.add("properties", props);
+            return schema;
+        }
         @Override
         public ToolResult execute(JsonObject args, ToolContext context) {
             try {
-                return success(pro.sketchware.util.LogcatManager.getRecentLogs(null));
+                String tag = (args.has("tag") && !args.get("tag").isJsonNull())
+                        ? args.get("tag").getAsString().trim() : null;
+                return success(pro.sketchware.util.LogcatManager.getRecentLogs(
+                        (tag != null && !tag.isEmpty()) ? tag : null));
             } catch (Exception e) { return error(e.getMessage()); }
         }
     }
