@@ -6,20 +6,19 @@
     android:orientation="vertical"
     android:paddingTop="8dp">
 
-    <!-- Provider tabs -->
+    <!-- Provider tabs — scrollable so all providers fit horizontally -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/provider_tabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        app:tabGravity="fill"
-        app:tabMode="fixed" />
+        app:tabGravity="start"
+        app:tabMode="scrollable" />
 
     <!-- Models list -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/models_list"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
+        android:layout_height="380dp"
         android:clipToPadding="false"
         android:padding="8dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
