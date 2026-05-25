@@ -25,6 +25,8 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
+import pro.sketchware.ai.adapters.ModelProviderPagerAdapter;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,7 +39,6 @@ import java.util.Locale;
 import pro.sketchware.R;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.adapters.ChatAdapter;
-import pro.sketchware.ai.adapters.ModelSelectorAdapter;
 import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.ChatState;
@@ -48,7 +49,6 @@ import pro.sketchware.ai.security.PromptSanitizer;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.engine.TokenOptimizer;
 import pro.sketchware.ai.models.AiProvider;
-import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.models.ModelInfo;
@@ -766,82 +766,53 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
     }
 
     private void showModelSelector() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        DialogModelSelectorBinding dialogBinding = DialogModelSelectorBinding.inflate(getLayoutInflater());
-        dialog.setContentView(dialogBinding.getRoot());
-
-        // Only providers that are ENABLED in AI Settings AND ready (key or free)
         List<AiProvider> availableProviders = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            // Default-enabled mirrors AiSettingsActivity defaults
             boolean defaultEnabled = (p == AiProvider.GOOGLE_AI_STUDIO
                     || p == AiProvider.SAMBANOVA
                     || p == AiProvider.CHUTES);
             boolean enabled = preferences.prefs().getBoolean("provider_enabled_" + p.name(), defaultEnabled);
             if (!enabled) continue;
-            if (!p.requiresApiKey() || preferences.hasApiKey(p)) {
-                availableProviders.add(p);
-            }
+            if (!p.requiresApiKey() || preferences.hasApiKey(p)) availableProviders.add(p);
         }
-
         if (availableProviders.isEmpty()) {
-            dialogBinding.emptyState.setVisibility(View.VISIBLE);
-            dialogBinding.modelsList.setVisibility(View.GONE);
-            dialogBinding.emptyText.setText("No providers enabled.\nGo to AI Settings to enable a provider and add an API key.");
-            dialog.show();
+            startActivity(new android.content.Intent(this, pro.sketchware.ai.activities.AiSettingsActivity.class));
             return;
         }
 
-        // Tabs show "Groq \u221e" / "DeepInfra \uD83C\uDD13" labels
-        for (AiProvider p : availableProviders) {
-            dialogBinding.providerTabs.addTab(
-                    dialogBinding.providerTabs.newTab().setText(p.getSelectorLabel()).setTag(p));
-        }
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        DialogModelSelectorBinding dialogBinding = DialogModelSelectorBinding.inflate(getLayoutInflater());
+        dialog.setContentView(dialogBinding.getRoot());
 
-        ModelSelectorAdapter modelAdapter = new ModelSelectorAdapter(model -> {
-            currentProvider = model.getProvider();
-            currentModelId  = model.getId();
-            conversation.setModelId(currentModelId);
-            conversation.setProviderName(currentProvider.name());
-            conversationManager.saveConversation(conversation);
-            preferences.setSelectedModel(currentProvider, currentModelId);
-            preferences.setSelectedProvider(currentProvider);
-            updateModelDisplay();
-            dialog.dismiss();
-        });
+        ModelProviderPagerAdapter pagerAdapter = new ModelProviderPagerAdapter(
+                availableProviders, preferences, currentModelId, model -> {
+                    currentProvider = model.getProvider();
+                    currentModelId  = model.getId();
+                    conversation.setModelId(currentModelId);
+                    conversation.setProviderName(currentProvider.name());
+                    conversationManager.saveConversation(conversation);
+                    preferences.setSelectedModel(currentProvider, currentModelId);
+                    preferences.setSelectedProvider(currentProvider);
+                    updateModelDisplay();
+                    dialog.dismiss();
+                });
 
-        // Long-press a model → show info dialog
-        modelAdapter.setOnModelLongClickListener(model -> {
-            showModelInfoDialog(model);
-            return true;
-        });
+        dialogBinding.pager.setAdapter(pagerAdapter);
+        new TabLayoutMediator(dialogBinding.providerTabs, dialogBinding.pager,
+                (tab, position) -> tab.setText(availableProviders.get(position).getSelectorLabel()))
+                .attach();
 
-        modelAdapter.setSelectedModelId(currentModelId);
-        dialogBinding.modelsList.setAdapter(modelAdapter);
-
-        AiProvider firstProvider = availableProviders.get(0);
         for (int i = 0; i < availableProviders.size(); i++) {
             if (availableProviders.get(i) == currentProvider) {
-                TabLayout.Tab tab = dialogBinding.providerTabs.getTabAt(i);
-                if (tab != null) { tab.select(); firstProvider = currentProvider; }
+                dialogBinding.pager.setCurrentItem(i, false);
                 break;
             }
         }
-        loadModelsForProvider(firstProvider, modelAdapter, dialogBinding);
-
-        dialogBinding.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) {
-                AiProvider p = (AiProvider) tab.getTag();
-                if (p != null) loadModelsForProvider(p, modelAdapter, dialogBinding);
-            }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
-        });
 
         dialog.show();
     }
 
-    /** Long-press model \u2192 brief info dialog with provider description */
+    /** Long-press model → brief info dialog with provider description */
     private void showModelInfoDialog(ModelInfo model) {
         AiProvider provider = model.getProvider();
         String title = (model.getName() != null && !model.getName().isEmpty())
@@ -873,35 +844,6 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
-    }
-
-    private void loadModelsForProvider(AiProvider provider, ModelSelectorAdapter adapter,
-                                       DialogModelSelectorBinding dialogBinding) {
-        List<ModelInfo> cached = preferences.getCachedModels(provider);
-        if (cached != null && !cached.isEmpty()) {
-            adapter.setModels(cached);
-            dialogBinding.modelsList.setVisibility(View.VISIBLE);
-            dialogBinding.emptyState.setVisibility(View.GONE);
-        } else {
-            // FIX: Fall back to static built-in model list so BottomSheet always shows models
-            // even before the user has refreshed in AI Settings.
-            List<String> staticIds = AiProviderModels.getStaticModels(provider);
-            if (!staticIds.isEmpty()) {
-                List<ModelInfo> staticModels = new ArrayList<>();
-                for (String id : staticIds) {
-                    staticModels.add(new ModelInfo(id, id, provider, 0, "Built-in model"));
-                }
-                adapter.setModels(staticModels);
-                dialogBinding.modelsList.setVisibility(View.VISIBLE);
-                dialogBinding.emptyState.setVisibility(View.GONE);
-            } else {
-                adapter.setModels(new ArrayList<>());
-                dialogBinding.modelsList.setVisibility(View.GONE);
-                dialogBinding.emptyState.setVisibility(View.VISIBLE);
-                dialogBinding.emptyText.setText("No models found for " + provider.getSelectorLabel()
-                        + ".\nTap Refresh in AI Settings \u21bb to load models.");
-            }
-        }
     }
 
     @Override
