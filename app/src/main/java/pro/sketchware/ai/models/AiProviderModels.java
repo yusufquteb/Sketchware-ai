@@ -28,8 +28,8 @@ public final class AiProviderModels {
             // ── Group 1: Free, no API ──────────────────────────────────────────
             // gpt-4o and gpt-4o-mini removed: AirForce AI returns "Invalid API Key"
             // for these — they are no longer proxied by this provider.
+            // llama-4-maverick removed: still returning "Invalid API Key" as of 2nd diagnostic.
             case CHUTES:           return Arrays.asList(
-                    "meta-llama/llama-4-maverick",
                     "meta-llama/llama-4-scout",
                     "claude-3-5-sonnet",
                     "gemini-2.0-flash",
@@ -56,12 +56,10 @@ public final class AiProviderModels {
                     "qwen-3-32b");
 
             // Removed: gemma2-9b-it (Bad Request), deepseek-r1-distill-llama-70b (Bad Request),
-            // llama-4-scout-17b-16e-preview (Model Not Found).
-            // Added: mixtral-8x7b-32768 (stable long-running Groq model).
+            // llama-4-scout-17b-16e-preview (Model Not Found), mixtral-8x7b-32768 (Bad Request).
             case GROQ:             return Arrays.asList(
                     "llama-3.3-70b-versatile",
-                    "llama-3.1-8b-instant",
-                    "mixtral-8x7b-32768");
+                    "llama-3.1-8b-instant");
 
             case HUGGINGFACE:      return Arrays.asList(
                     "Qwen/Qwen2.5-72B-Instruct",
@@ -130,22 +128,17 @@ public final class AiProviderModels {
                     "grok-3",
                     "grok-3-mini");
 
-            // nemotron-ultra-253b, gemma-3-27b, and phi-4 all failed (Model Not Found /
-            // Request Error). Only meta/llama-3.3-70b-instruct is confirmed working.
+            // nemotron-ultra-253b, gemma-3-27b, phi-4, and nvidia/llama-3.1-nemotron-70b-instruct
+            // all failed (Model Not Found / Request Error). Only meta/llama-3.3-70b-instruct confirmed.
             case NVIDIA:           return Arrays.asList(
-                    "meta/llama-3.3-70b-instruct",
-                    "nvidia/llama-3.1-nemotron-70b-instruct");
+                    "meta/llama-3.3-70b-instruct");
 
-            // Updated stale IDs from diagnostic report:
-            //   anthropic/claude-3.5-sonnet   → versioned ID (Model Not Found)
-            //   google/gemini-2.0-flash-exp:free → removed (Model Not Found)
-            //   deepseek/deepseek-chat-v3-0324:free → removed (Model Not Found)
+            // 2nd diagnostic: deepseek/deepseek-r1:free, qwen/qwen3-235b-a22b:free, and
+            // anthropic/claude-3.5-sonnet-20241022 all returned Model Not Found.
+            // Only meta-llama/llama-3.3-70b-instruct:free and openai/gpt-4o confirmed working.
             case OPENROUTER:       return Arrays.asList(
                     "meta-llama/llama-3.3-70b-instruct:free",
-                    "deepseek/deepseek-r1:free",
-                    "qwen/qwen3-235b-a22b:free",
-                    "openai/gpt-4o",
-                    "anthropic/claude-3.5-sonnet-20241022");
+                    "openai/gpt-4o");
 
             case DEEPINFRA:        return Arrays.asList(
                     "meta-llama/Llama-3.3-70B-Instruct-Turbo",

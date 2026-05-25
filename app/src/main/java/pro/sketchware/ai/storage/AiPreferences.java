@@ -47,8 +47,8 @@ public class AiPreferences {
     private static final String KEY_PROFILE_PROVIDER_PREFIX = "profile_provider_";
 
     /** Default models per provider */
-    // gpt-4o removed from AirForce AI (returns "Invalid API Key") — use llama-4-maverick
-    public static final String DEFAULT_CHUTES_MODEL           = "meta-llama/llama-4-maverick";
+    // llama-4-maverick removed from Chutes (still "Invalid API Key" in 2nd diagnostic) — use llama-4-scout
+    public static final String DEFAULT_CHUTES_MODEL           = "meta-llama/llama-4-scout";
     public static final String DEFAULT_DEEPINFRA_MODEL        = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
     // compound-beta-mini removed: it uses multi-call internally and exhausts tokens/min quickly.
     public static final String DEFAULT_GROQ_MODEL             = "llama-3.3-70b-versatile";

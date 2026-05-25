@@ -538,6 +538,20 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
                 if (isAdded()) requireActivity().runOnUiThread(() ->
                         binding.aiSheetTypingText.setText(status != null ? status : "Thinking…"));
             }
+            @Override public void onFailover(String fromProvider, String toProvider, String toModel) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> {
+                    // Update provider / model chip in header
+                    if (binding != null) {
+                        binding.aiSheetProviderName.setText(toProvider);
+                        String display = toModel != null && toModel.length() > 18
+                                ? toModel.substring(0, 15) + "…" : toModel;
+                        if (display != null) binding.aiSheetModelChip.setText(display);
+                    }
+                    // Post a system notification in chat so the user can see the switch
+                    pushAssistant("⚡ Switched to " + toModel + " (" + toProvider + ")");
+                });
+            }
         });
     }
 
