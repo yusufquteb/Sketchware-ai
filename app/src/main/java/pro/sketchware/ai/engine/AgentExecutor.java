@@ -935,6 +935,17 @@ public class AgentExecutor {
         sb.append("If the user request is unclear or contains gibberish, ask for\n");
         sb.append("clarification. Never guess intent for destructive operations.\n");
 
+        // ── Greeting / small-talk guard ────────────────────────────────────
+        sb.append("\n");
+        sb.append("═══════════════════════════════════════════════\n");
+        sb.append("  CONVERSATIONAL MESSAGES — NO TOOLS\n");
+        sb.append("═══════════════════════════════════════════════\n");
+        sb.append("If the user says hi, hello, how are you, thanks, ok, bye, or any\n");
+        sb.append("short social/greeting message — REPLY IN TEXT ONLY. Do NOT call\n");
+        sb.append("any tools. Do NOT call describe_layout, get_screen_source, or any\n");
+        sb.append("other tool. Just reply naturally in 1-2 sentences.\n");
+        sb.append("Only call tools when the user asks you to do something specific.\n");
+
         // ── Page context ───────────────────────────────────────────────────
         if (pageContext != null && !pageContext.trim().isEmpty()) {
             sb.append("\n");
