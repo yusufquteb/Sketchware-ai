@@ -38,6 +38,7 @@ import pro.sketchware.ai.api.AiClientFactory;
 import pro.sketchware.ai.core.AiHealthMonitor;
 import pro.sketchware.ai.core.CircuitBreaker;
 import pro.sketchware.ai.core.ToolTelemetry;
+import pro.sketchware.ai.diagnostics.AiDiagnosticRunner;
 import pro.sketchware.ai.diagnostics.AiSessionLogger;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ModelInfo;
@@ -126,6 +127,7 @@ public class AiSettingsActivity extends AppCompatActivity {
         setupAdvancedSettings();
         setupToolTelemetry();
         setupHealthDashboard();
+        setupDiagnosticRunner();
         setupDiagnosticLog();
         handleIncomingIntent();
     }
@@ -659,6 +661,105 @@ public class AiSettingsActivity extends AppCompatActivity {
     private void updatePulseStepsLabel(int steps) {
         binding.tvPulseStepsLabel.setText(
                 "Pulse confirmation every: " + steps + " tool call" + (steps == 1 ? "" : "s"));
+    }
+
+    // ── Full Diagnostic Runner ────────────────────────────────────────────────
+
+    private AiDiagnosticRunner diagnosticRunner;
+    private java.io.File       lastDiagnosticReport;
+
+    private void setupDiagnosticRunner() {
+        diagnosticRunner = new AiDiagnosticRunner(this);
+
+        AiDiagnosticRunner.ProgressCallback cb = new AiDiagnosticRunner.ProgressCallback() {
+            @Override
+            public void onStatusUpdate(String status, int done, int total) {
+                runOnUiThread(() -> {
+                    binding.tvDiagnosticStatus.setVisibility(android.view.View.VISIBLE);
+                    binding.tvDiagnosticStatus.setText(status);
+                    if (total > 0) {
+                        binding.pbDiagnosticProgress.setVisibility(android.view.View.VISIBLE);
+                        binding.pbDiagnosticProgress.setProgress((int) (done * 100L / total));
+                    }
+                });
+            }
+            @Override
+            public void onComplete(java.io.File report) {
+                lastDiagnosticReport = report;
+                runOnUiThread(() -> {
+                    setDiagnosticRunning(false);
+                    binding.tvDiagnosticStatus.setText("✅ Done — " + report.getName());
+                    binding.btnShareDiagnosticReport.setVisibility(android.view.View.VISIBLE);
+                    Toast.makeText(AiSettingsActivity.this,
+                            "Report saved: " + report.getName(), Toast.LENGTH_LONG).show();
+                });
+            }
+            @Override
+            public void onCancelled() {
+                runOnUiThread(() -> {
+                    setDiagnosticRunning(false);
+                    binding.tvDiagnosticStatus.setText("Cancelled.");
+                });
+            }
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    setDiagnosticRunning(false);
+                    binding.tvDiagnosticStatus.setText("❌ " + message);
+                    Toast.makeText(AiSettingsActivity.this, message, Toast.LENGTH_LONG).show();
+                });
+            }
+        };
+
+        binding.btnRunModelTests.setOnClickListener(v -> {
+            setDiagnosticRunning(true);
+            diagnosticRunner.runModelTests(cb);
+        });
+
+        binding.btnRunToolTests.setOnClickListener(v -> {
+            setDiagnosticRunning(true);
+            diagnosticRunner.runToolTests(cb);
+        });
+
+        binding.btnRunAllDiagnostics.setOnClickListener(v -> {
+            setDiagnosticRunning(true);
+            diagnosticRunner.runAll(cb);
+        });
+
+        binding.btnCancelDiagnostic.setOnClickListener(v -> diagnosticRunner.cancel());
+
+        binding.btnShareDiagnosticReport.setOnClickListener(v -> shareReport(lastDiagnosticReport));
+    }
+
+    private void setDiagnosticRunning(boolean running) {
+        binding.pbDiagnosticProgress.setVisibility(running
+                ? android.view.View.VISIBLE : android.view.View.GONE);
+        binding.tvDiagnosticStatus.setVisibility(running
+                ? android.view.View.VISIBLE : android.view.View.VISIBLE);
+        binding.btnCancelDiagnostic.setVisibility(running
+                ? android.view.View.VISIBLE : android.view.View.GONE);
+        binding.btnRunModelTests.setEnabled(!running);
+        binding.btnRunToolTests.setEnabled(!running);
+        binding.btnRunAllDiagnostics.setEnabled(!running);
+        if (running) binding.btnShareDiagnosticReport.setVisibility(android.view.View.GONE);
+    }
+
+    private void shareReport(java.io.File report) {
+        if (report == null || !report.exists()) {
+            Toast.makeText(this, "No report yet. Run a test first.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    this, getPackageName() + ".provider", report);
+            Intent share = new Intent(Intent.ACTION_SEND);
+            share.setType("text/plain");
+            share.putExtra(Intent.EXTRA_STREAM, uri);
+            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(share, "Share diagnostic report"));
+        } catch (Exception e) {
+            Toast.makeText(this, "Cannot share: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     // ── Diagnostic Session Log ────────────────────────────────────────────────
