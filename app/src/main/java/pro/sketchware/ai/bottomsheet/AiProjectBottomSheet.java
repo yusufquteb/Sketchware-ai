@@ -52,11 +52,14 @@ import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.models.ModelInfo;
+import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ToolCall;
 import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
+import pro.sketchware.databinding.DialogModelSelectorBinding;
+import com.google.android.material.tabs.TabLayout;
 import pro.sketchware.ai.storage.WorkspaceManager;
 
 /**
@@ -1562,33 +1565,26 @@ public class AiProjectBottomSheet
     // ── Model Selector ────────────────────────────────────────────────────
 
     private void showModelSelector() {
-        List<ModelInfo> all = new ArrayList<>();
+        List<AiProvider> availableProviders = new ArrayList<>();
         for (AiProvider p : AiProvider.values()) {
-            if (!preferences.prefs().getBoolean("provider_enabled_" + p.name(), true)) continue;
-            if (p.requiresApiKey() && !preferences.hasApiKey(p)) continue;
-
-            // Task 1: Use cached models first; fall back to static list so selector
-            // is never empty even before the user has fetched models from the network.
-            List<ModelInfo> cached = preferences.getCachedModels(p);
-            if (cached != null && !cached.isEmpty()) {
-                all.addAll(cached);
-            } else {
-                List<String> staticIds = pro.sketchware.ai.models.AiProviderModels.getStaticModels(p);
-                for (String id : staticIds) {
-                    all.add(new ModelInfo(id, id, p, 0L, null));
-                }
-            }
+            if (!preferences.isProviderEnabled(p)) continue;
+            if (!p.requiresApiKey() || preferences.hasApiKey(p)) availableProviders.add(p);
         }
-        if (all.isEmpty()) {
+        if (availableProviders.isEmpty()) {
             context.startActivity(new Intent(context, AiSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             return;
         }
         BottomSheetDialog dialog = new BottomSheetDialog(context);
-        RecyclerView rv = new RecyclerView(context);
-        rv.setLayoutManager(new LinearLayoutManager(context));
-        rv.setPadding(0, 16, 0, 32);
-        ModelSelectorAdapter adapter = new ModelSelectorAdapter(model -> {
+        DialogModelSelectorBinding db = DialogModelSelectorBinding.inflate(
+                android.view.LayoutInflater.from(context));
+        dialog.setContentView(db.getRoot());
+
+        for (AiProvider p : availableProviders) {
+            db.providerTabs.addTab(db.providerTabs.newTab().setText(p.getSelectorLabel()).setTag(p));
+        }
+
+        ModelSelectorAdapter modelAdapter = new ModelSelectorAdapter(model -> {
             currentProvider = model.getProvider();
             currentModelId  = model.getId();
             preferences.setSelectedModel(currentProvider, currentModelId);
@@ -1599,14 +1595,56 @@ public class AiProjectBottomSheet
             conversationManager.saveConversation(conversation);
             dialog.dismiss();
         });
-        adapter.setOnModelLongClickListener(model -> {
+        modelAdapter.setOnModelLongClickListener(model -> {
             dialog.dismiss(); showModelInfo(model); return true;
         });
-        adapter.setSelectedModelId(currentModelId);
-        adapter.setModels(all);
-        rv.setAdapter(adapter);
-        dialog.setContentView(rv);
+        modelAdapter.setSelectedModelId(currentModelId);
+        db.modelsList.setAdapter(modelAdapter);
+
+        AiProvider initial = availableProviders.get(0);
+        for (int i = 0; i < availableProviders.size(); i++) {
+            if (availableProviders.get(i) == currentProvider) {
+                TabLayout.Tab tab = db.providerTabs.getTabAt(i);
+                if (tab != null) { tab.select(); initial = currentProvider; }
+                break;
+            }
+        }
+        loadModelsForProvider(initial, modelAdapter, db);
+
+        db.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override public void onTabSelected(TabLayout.Tab tab) {
+                AiProvider p = (AiProvider) tab.getTag();
+                if (p != null) loadModelsForProvider(p, modelAdapter, db);
+            }
+            @Override public void onTabUnselected(TabLayout.Tab tab) {}
+            @Override public void onTabReselected(TabLayout.Tab tab) {}
+        });
         dialog.show();
+    }
+
+    private void loadModelsForProvider(AiProvider provider, ModelSelectorAdapter adapter,
+                                        DialogModelSelectorBinding db) {
+        List<ModelInfo> cached = preferences.getCachedModels(provider);
+        if (cached != null && !cached.isEmpty()) {
+            adapter.setModels(cached);
+            db.modelsList.setVisibility(android.view.View.VISIBLE);
+            db.emptyState.setVisibility(android.view.View.GONE);
+        } else {
+            List<String> staticIds = AiProviderModels.getStaticModels(provider);
+            if (!staticIds.isEmpty()) {
+                List<ModelInfo> staticModels = new ArrayList<>();
+                for (String id : staticIds) staticModels.add(new ModelInfo(id, id, provider, 0, null));
+                adapter.setModels(staticModels);
+                db.modelsList.setVisibility(android.view.View.VISIBLE);
+                db.emptyState.setVisibility(android.view.View.GONE);
+            } else {
+                adapter.setModels(new ArrayList<>());
+                db.modelsList.setVisibility(android.view.View.GONE);
+                db.emptyState.setVisibility(android.view.View.VISIBLE);
+                db.emptyText.setText("No models for " + provider.getSelectorLabel()
+                        + ".\nRefresh in AI Settings ↻");
+            }
+        }
     }
 
     private void showModelInfo(ModelInfo model) {
@@ -1702,18 +1740,23 @@ public class AiProjectBottomSheet
     }
     @Override
     public void onThinking(String status) {
-        typingText.setText(status);
-        // Task 3: Update provider chip in real time when AgentExecutor switches provider
-        // AgentExecutor emits: "⚡ OldProvider <reason> → switching to NewProvider..."
-        if (status != null && status.startsWith("⚡") && status.contains("switching to ")) {
-            int switchIdx = status.indexOf("switching to ") + "switching to ".length();
-            int endIdx    = status.indexOf(".", switchIdx);
-            if (endIdx < 0) endIdx = status.length();
-            String newProviderName = status.substring(switchIdx, endIdx).trim();
-            if (!newProviderName.isEmpty() && providerNameView != null) {
-                providerNameView.setText(newProviderName);
-            }
+        if (typingText != null) typingText.setText(status);
+    }
+
+    @Override
+    public void onFailover(String fromProvider, String toProvider, String toModel) {
+        // Update the provider name + model chip in the header
+        if (providerNameView != null) providerNameView.setText(toProvider);
+        if (modelChipView != null) {
+            String display = toModel != null && toModel.length() > 22
+                    ? toModel.substring(0, 19) + "…" : toModel;
+            modelChipView.setText(display != null ? display : toProvider);
         }
+        // Post a visible switch notification in the chat
+        ChatMessage note = new ChatMessage(conversationId,
+                "⚡ Switched to " + toModel + " (" + toProvider + ")");
+        chatAdapter.addAssistantMessage(note);
+        scrollToBottom();
     }
 
     // ── OnArtifactActionListener ──────────────────────────────────────────
