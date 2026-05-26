@@ -244,6 +244,10 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         h.modelsCount.setText(state.modelsCountText);
         h.modelsCount.setVisibility(state.modelsCountText.isEmpty() ? View.GONE : View.VISIBLE);
 
+        String limitsText = provider.getLimitsText();
+        h.limits.setText(limitsText);
+        h.limits.setVisibility(limitsText.isEmpty() ? View.GONE : View.VISIBLE);
+
         // Switch
         h.toggle.setOnCheckedChangeListener(null);
         h.toggle.setChecked(state.enabled);
@@ -435,6 +439,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         final TextView   badge;
         final TextView   status;
         final TextView   modelsCount;
+        final TextView   limits;
         final MaterialSwitch toggle;
         final View       layoutApiKey;
         final EditText   inputApiKey;
@@ -451,6 +456,7 @@ public class AiProviderAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             badge        = v.findViewById(R.id.provider_badge);
             status       = v.findViewById(R.id.provider_status);
             modelsCount  = v.findViewById(R.id.provider_models_count);
+            limits       = v.findViewById(R.id.provider_limits);
             toggle       = v.findViewById(R.id.provider_switch);
             layoutApiKey = v.findViewById(R.id.layout_api_key);
             inputApiKey  = v.findViewById(R.id.input_api_key);
