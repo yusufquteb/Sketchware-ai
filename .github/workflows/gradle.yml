@@ -20,9 +20,7 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
-
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+        cache: gradle
 
     - name: Make gradlew executable
       run: chmod +x gradlew
@@ -32,7 +30,6 @@ jobs:
 
     - name: Accept Android SDK licenses and install platform 36
       run: |
-        # Find sdkmanager wherever it is on this runner
         SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name "sdkmanager" -type f 2>/dev/null | head -1)
         if [ -z "$SDKMANAGER" ]; then
           SDKMANAGER=$(which sdkmanager 2>/dev/null || echo "")
