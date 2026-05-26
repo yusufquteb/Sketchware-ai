@@ -56,7 +56,7 @@ public class AiPreferences {
     public static final String DEFAULT_SAMBANOVA_MODEL        = "Meta-Llama-3.3-70B-Instruct";
     public static final String DEFAULT_GOOGLE_AI_STUDIO_MODEL = "gemini-2.0-flash";
     public static final String DEFAULT_DEEPSEEK_MODEL         = "deepseek-chat";
-    public static final String DEFAULT_ANTHROPIC_MODEL        = "claude-sonnet-4-5";
+    public static final String DEFAULT_ANTHROPIC_MODEL        = "claude-sonnet-4-6";
     public static final String DEFAULT_OPENAI_MODEL           = "gpt-4o-mini";
     public static final String DEFAULT_GEMINI_MODEL           = "gemini-2.0-flash";
     public static final String DEFAULT_CEREBRAS_MODEL         = "llama-3.3-70b";
