@@ -107,11 +107,12 @@ public final class AiProviderModels {
                     "o1-mini");
 
             case ANTHROPIC:        return Arrays.asList(
+                    "claude-opus-4-7",
+                    "claude-sonnet-4-6",
+                    "claude-haiku-4-5-20251001",
                     "claude-opus-4-5",
                     "claude-sonnet-4-5",
-                    "claude-haiku-4-5",
-                    "claude-3-5-sonnet-20241022",
-                    "claude-3-5-haiku-20241022");
+                    "claude-3-5-sonnet-20241022");
 
             // gemini-1.5-pro and gemini-1.5-flash removed: both returned "Model Not Found".
             // Google has retired the 1.5 series in the Gemini API.
@@ -133,11 +134,15 @@ public final class AiProviderModels {
             case NVIDIA:           return Arrays.asList(
                     "meta/llama-3.3-70b-instruct");
 
-            // 2nd diagnostic: deepseek/deepseek-r1:free, qwen/qwen3-235b-a22b:free, and
-            // anthropic/claude-3.5-sonnet-20241022 all returned Model Not Found.
-            // Only meta-llama/llama-3.3-70b-instruct:free and openai/gpt-4o confirmed working.
+            // Free models use the :free suffix (OpenRouter zero-cost tier).
+            // deepseek/deepseek-r1:free and qwen/qwen3-235b-a22b:free failed in prior diagnostics;
+            // distilled / smaller variants (below) are more stable on the free tier.
             case OPENROUTER:       return Arrays.asList(
                     "meta-llama/llama-3.3-70b-instruct:free",
+                    "google/gemma-2-9b-it:free",
+                    "mistralai/mistral-7b-instruct:free",
+                    "qwen/qwen-2.5-72b-instruct:free",
+                    "deepseek/deepseek-r1-distill-llama-70b:free",
                     "openai/gpt-4o");
 
             case DEEPINFRA:        return Arrays.asList(
