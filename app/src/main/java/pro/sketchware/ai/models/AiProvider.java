@@ -186,6 +186,40 @@ public enum AiProvider {
     public boolean isUnlimited()       { return unlimited; }
     public String  getDescription()    { return description; }
 
+    /** Short rate-limit summary shown under the provider card in Settings. */
+    public String getLimitsText() {
+        switch (this) {
+            case CHUTES:
+                return "Completely free — no API key — no published rate limits";
+            case GOOGLE_AI_STUDIO:
+                return "Gemini 2.5 Flash: 5 RPM • 20 req/day • 250K TPM\n"
+                     + "Gemini 2.0 Flash: 15 RPM • 500 req/day • 250K TPM\n"
+                     + "Gemma 3 27B: 30 RPM • 14,400 req/day • 15K TPM";
+            case SAMBANOVA:
+                return "$5 free credit for 3 months (trial), then paid";
+            case CEREBRAS:
+                return "30 RPM • 60K TPM • 14,400 req/day • 1M tokens/day";
+            case GROQ:
+                return "Llama 3.3 70B: 1,000 req/day • 12K TPM\n"
+                     + "Llama 3.1 8B: 14,400 req/day • 6K TPM";
+            case HUGGINGFACE:
+                return "$0.10 / month in free credits (models under 10 GB)";
+            case MISTRAL:
+                return "Standard: 1 req/sec • 500K TPM • 1B tokens/month\n"
+                     + "Codestral: 30 RPM • 2,000 req/day";
+            case COHERE:
+                return "20 RPM • 1,000 req/month";
+            case GITHUB_MODELS:
+                return "Limits vary by Copilot tier — very restrictive on free GitHub accounts";
+            case SCALEWAY:
+                return "1M tokens one-time free trial credit";
+            case CLOUDFLARE:
+                return "10,000 neurons/day (~1,000–2,000 requests/day)";
+            default:
+                return "";
+        }
+    }
+
     // ── Provider Group ────────────────────────────────────────────────────────
 
     /** UI category used to separate providers into labelled sections. */
