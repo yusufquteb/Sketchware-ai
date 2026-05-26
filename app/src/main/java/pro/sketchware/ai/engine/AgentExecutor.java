@@ -64,31 +64,15 @@ public class AgentExecutor {
     private static final int  PULSE_STEPS_DEFAULT  = 6;
     /** Countdown seconds before Continue is auto-selected. */
     private static final int  PULSE_AUTO_SECS     = 10;
-    /** Ordered failover providers (tried in sequence on timeout/error). */
-    /**
-     * Failover order — only enabled providers with API keys (or no-key providers) are tried.
-     * Order: free-no-key → free-with-key → paid.
-     */
-    private static final pro.sketchware.ai.models.AiProvider[] FAILOVER_ORDER = {
-        // Group 1: Free, no API key
-        pro.sketchware.ai.models.AiProvider.CHUTES,
-        // Group 2: Free with API key
-        pro.sketchware.ai.models.AiProvider.GOOGLE_AI_STUDIO,
-        pro.sketchware.ai.models.AiProvider.SAMBANOVA,
-        pro.sketchware.ai.models.AiProvider.CEREBRAS,
-        pro.sketchware.ai.models.AiProvider.GROQ,
-        pro.sketchware.ai.models.AiProvider.HUGGINGFACE,
-        pro.sketchware.ai.models.AiProvider.MISTRAL,
-        pro.sketchware.ai.models.AiProvider.COHERE,
-        pro.sketchware.ai.models.AiProvider.GITHUB_MODELS,
-        // Group 3: Paid
-        pro.sketchware.ai.models.AiProvider.OPENAI,
-        pro.sketchware.ai.models.AiProvider.ANTHROPIC,
-        pro.sketchware.ai.models.AiProvider.DEEPSEEK,
-        pro.sketchware.ai.models.AiProvider.GEMINI,
-        pro.sketchware.ai.models.AiProvider.TOGETHER,
-        pro.sketchware.ai.models.AiProvider.DEEPINFRA,
-    };
+
+    /** A (provider, modelId) pair used in the dynamic failover queue. */
+    private static final class ProviderModelPair {
+        final pro.sketchware.ai.models.AiProvider provider;
+        final String modelId;
+        ProviderModelPair(pro.sketchware.ai.models.AiProvider p, String m) {
+            provider = p; modelId = m;
+        }
+    }
 
     private final Context context;
     private final ToolRegistry toolRegistry;
@@ -196,9 +180,14 @@ public class AgentExecutor {
                 sessionLogger.logSessionStart(provider.getDisplayName(),
                         preferences.getSelectedModel(provider));
 
+                // Resolve initial model; fall back to provider's first static model if unset.
+                String _initialModel = preferences.getSelectedModel(provider);
+                if (_initialModel == null || _initialModel.isEmpty()) {
+                    _initialModel = pro.sketchware.ai.models.AiProviderModels.getDefaultModel(provider);
+                }
                 // mutable model holder for failover reassignment inside while loop
                 // (Java doesn't allow reassigning effectively-final params in lambdas)
-                final String[] modelHolder = {preferences.getSelectedModel(provider)};
+                final String[] modelHolder = {_initialModel};
 
                 ToolContext toolContext = new ToolContext(context, allowedProjectIds, workspaceId);
                 toolContext.setCancellationChecker(isCancelled::get);
@@ -221,12 +210,11 @@ public class AgentExecutor {
                 List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
                 // Tracks which provider is currently active (changes on failover).
                 final pro.sketchware.ai.models.AiProvider[] currentProviderHolder = {provider};
-                // All providers tried in this request — prevents infinite failover loops.
-                // When provider P fails and we failover to Q, Q is added here so the next
-                // failure looks past Q instead of cycling back to it.
-                final java.util.Set<pro.sketchware.ai.models.AiProvider> triedProviders =
-                        new java.util.HashSet<>();
-                triedProviders.add(provider);
+                // Pre-built ordered queue of (provider, model) pairs to try on failure.
+                // Exhausts all models in the current provider before moving to the next.
+                final java.util.List<ProviderModelPair> failoverQueue =
+                        buildProviderModelQueue(provider, modelHolder[0], preferences);
+                final int[] queueIndex = {0};
                 int modelNotFoundRetries = 0;
 
                 int iteration = 0;
@@ -260,7 +248,7 @@ public class AgentExecutor {
                         currentClient.cancelByTag(conversationIdTag);
                     }
 
-                    final long healthToken = AiHealthMonitor.getInstance().recordRequestStart(provider);
+                    final long healthToken = AiHealthMonitor.getInstance().recordRequestStart(currentProviderHolder[0]);
 
                     // Adaptive chunk buffer: batches I/O-thread chunks at ~20 fps
                     // to reduce UI-thread scheduling overhead on low-end devices.
@@ -386,37 +374,45 @@ public class AgentExecutor {
                         }
                         // ── End smart retries ─────────────────────────────────────────────
 
-                        AiHealthMonitor.getInstance().recordFailure(provider,
-                                AiError.fromRawError(failReason, provider.getDisplayName()));
+                        AiHealthMonitor.getInstance().recordFailure(currentProviderHolder[0],
+                                AiError.fromRawError(failReason, currentProviderHolder[0].getDisplayName()));
 
-                        // Try to failover to next untried provider
-                        pro.sketchware.ai.models.AiProvider failoverProvider =
-                                findFailoverProvider(triedProviders, preferences);
-                        if (failoverProvider != null && !isCancelled.get()) {
-                            String failoverKey = preferences.getApiKey(failoverProvider);
-                            String failoverModel = preferences.getSelectedModel(failoverProvider);
+                        // Advance to next (provider, model) in the pre-built queue
+                        queueIndex[0]++;
+                        ProviderModelPair nextPair = (queueIndex[0] < failoverQueue.size())
+                                ? failoverQueue.get(queueIndex[0]) : null;
+                        if (nextPair != null && !isCancelled.get()) {
                             pro.sketchware.ai.models.AiProvider fromProvider = currentProviderHolder[0];
+                            String fromModel = modelHolder[0];
+                            boolean sameProvider = nextPair.provider == fromProvider;
                             sessionLogger.logFailover(fromProvider.getDisplayName(),
-                                failoverProvider.getDisplayName(), failReason);
-                            mainHandler.post(() -> callback.onThinking(
-                                    "⚡ " + fromProvider.getDisplayName() + " failed"
-                                    + " → switching to " + failoverProvider.getDisplayName() + "..."));
+                                    nextPair.provider.getDisplayName(), failReason);
+                            String switchMsg = sameProvider
+                                    ? "⚡ " + fromProvider.getDisplayName() + ": "
+                                      + shortModel(fromModel) + " failed → trying "
+                                      + shortModel(nextPair.modelId) + "..."
+                                    : "⚡ " + fromProvider.getDisplayName() + " failed → "
+                                      + nextPair.provider.getDisplayName()
+                                      + " (" + shortModel(nextPair.modelId) + ")...";
+                            mainHandler.post(() -> callback.onThinking(switchMsg));
                             mainHandler.post(() -> callback.onFailover(
                                     fromProvider.getDisplayName(),
-                                    failoverProvider.getDisplayName(),
-                                    failoverModel != null ? failoverModel : ""));
+                                    nextPair.provider.getDisplayName(),
+                                    nextPair.modelId));
                             try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
-                            currentClient = pro.sketchware.ai.api.AiClientFactory
-                                    .createClient(context, failoverProvider, failoverKey);
-                            currentProviderHolder[0] = failoverProvider;
-                            triedProviders.add(failoverProvider);
-                            modelHolder[0] = failoverModel;
-                            continue; // retry this iteration with new provider
+                            if (!sameProvider) {
+                                String key = preferences.getApiKey(nextPair.provider);
+                                currentClient = pro.sketchware.ai.api.AiClientFactory
+                                        .createClient(context, nextPair.provider, key != null ? key : "");
+                                currentProviderHolder[0] = nextPair.provider;
+                            }
+                            modelHolder[0] = nextPair.modelId;
+                            continue;
                         }
 
-                        // No failover available
+                        // No more options in queue
                         if (!completed) {
-                            postError(callback, "⏱ Provider timed out and no failover is configured.");
+                            postError(callback, "⏱ All providers and models timed out or failed.");
                         } else {
                             postError(callback, streamError[0] != null ? streamError[0] : "Unknown AI error");
                         }
@@ -432,7 +428,7 @@ public class AgentExecutor {
                     }
                     mainHandler.post(() -> callback.onAssistantMessage(assistantMsg));
 
-                    AiHealthMonitor.getInstance().recordSuccess(provider, healthToken);
+                    AiHealthMonitor.getInstance().recordSuccess(currentProviderHolder[0], healthToken);
 
                     // ── No tool calls → conversation turn complete ──────────────────
                     if (pendingToolCalls.isEmpty()) {
@@ -1337,18 +1333,70 @@ public class AgentExecutor {
     }
 
     /**
-     * Finds the next available provider from FAILOVER_ORDER that has not been tried yet.
-     * Uses a set of already-tried providers to prevent infinite failover cycles.
+     * Builds the ordered failover queue for a request.
+     *
+     * <p>First exhausts all models of the initial provider, then iterates through
+     * every other enabled provider (free-no-key → free-with-api → paid) and
+     * appends all their models in turn. Skips providers without API keys (when required).
      */
-    private static pro.sketchware.ai.models.AiProvider findFailoverProvider(
-            java.util.Set<pro.sketchware.ai.models.AiProvider> tried, AiPreferences prefs) {
-        for (pro.sketchware.ai.models.AiProvider p : FAILOVER_ORDER) {
-            if (tried.contains(p)) continue;
-            if (!prefs.isProviderEnabled(p)) continue;
-            if (!p.requiresApiKey()) return p;
-            if (prefs.hasApiKey(p)) return p;
+    private static java.util.List<ProviderModelPair> buildProviderModelQueue(
+            pro.sketchware.ai.models.AiProvider initialProvider,
+            String initialModelId,
+            AiPreferences prefs) {
+
+        java.util.List<ProviderModelPair> queue = new java.util.ArrayList<>();
+        java.util.Set<String> addedProviders = new java.util.HashSet<>();
+
+        // Initial provider: selected model first, then remaining static models
+        queue.add(new ProviderModelPair(initialProvider, initialModelId));
+        addedProviders.add(initialProvider.name());
+        for (String m : pro.sketchware.ai.models.AiProviderModels.getStaticModels(initialProvider)) {
+            if (!m.equals(initialModelId)) {
+                queue.add(new ProviderModelPair(initialProvider, m));
+            }
         }
-        return null;
+
+        // Remaining enabled providers in group order: free-no-key → free-with-api → paid
+        pro.sketchware.ai.models.AiProvider.ProviderGroup[] groupOrder = {
+            pro.sketchware.ai.models.AiProvider.ProviderGroup.FREE_NO_API,
+            pro.sketchware.ai.models.AiProvider.ProviderGroup.FREE_WITH_API,
+            pro.sketchware.ai.models.AiProvider.ProviderGroup.PAID
+        };
+        for (pro.sketchware.ai.models.AiProvider.ProviderGroup group : groupOrder) {
+            for (pro.sketchware.ai.models.AiProvider p : pro.sketchware.ai.models.AiProvider.values()) {
+                if (p.getGroup() != group) continue;
+                if (addedProviders.contains(p.name())) continue;
+                if (!prefs.isProviderEnabled(p)) continue;
+                if (p.requiresApiKey() && !prefs.hasApiKey(p)) continue;
+
+                addedProviders.add(p.name());
+
+                // Put the user's selected model first, then the rest of the static list
+                String selected = prefs.getSelectedModel(p);
+                java.util.List<String> providerModels = new java.util.ArrayList<>();
+                if (selected != null && !selected.isEmpty()) {
+                    providerModels.add(selected);
+                }
+                for (String m : pro.sketchware.ai.models.AiProviderModels.getStaticModels(p)) {
+                    if (!m.equals(selected)) providerModels.add(m);
+                }
+                if (providerModels.isEmpty()) {
+                    String def = pro.sketchware.ai.models.AiProviderModels.getDefaultModel(p);
+                    if (!def.isEmpty()) providerModels.add(def);
+                }
+                for (String m : providerModels) {
+                    queue.add(new ProviderModelPair(p, m));
+                }
+            }
+        }
+        return queue;
+    }
+
+    /** Returns the short model name (part after the last '/'), or the full string if no '/'. */
+    private static String shortModel(String modelId) {
+        if (modelId == null) return "";
+        int slash = modelId.lastIndexOf('/');
+        return slash >= 0 ? modelId.substring(slash + 1) : modelId;
     }
 
     private void postCancelled(AgentCallback callback) {
