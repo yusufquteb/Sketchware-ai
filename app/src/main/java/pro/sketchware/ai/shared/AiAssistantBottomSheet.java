@@ -21,8 +21,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.tabs.TabLayout;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,7 +28,6 @@ import java.util.Locale;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.models.AiProvider;
-import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.databinding.DialogModelSelectorBinding;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.Conversation;

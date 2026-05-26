@@ -58,7 +58,6 @@ import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
 import pro.sketchware.databinding.DialogModelSelectorBinding;
-import com.google.android.material.tabs.TabLayout;
 import pro.sketchware.ai.storage.WorkspaceManager;
 
 /**
