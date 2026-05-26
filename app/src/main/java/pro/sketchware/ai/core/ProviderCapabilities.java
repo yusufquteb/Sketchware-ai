@@ -31,6 +31,8 @@ public final class ProviderCapabilities {
     public final int     maxOutputTokens;
     /** Approximate requests per minute on the free tier. -1 = unlimited/unknown. */
     public final int     freeRpmLimit;
+    /** Human-readable free-tier limits shown under the provider card (e.g. "30 RPM · 14,400 RPD"). Empty for paid providers. */
+    public final String  freeTierSummary;
 
     private ProviderCapabilities(Builder b) {
         this.supportsStreaming     = b.supportsStreaming;
@@ -43,6 +45,7 @@ public final class ProviderCapabilities {
         this.maxContextTokens      = b.maxContextTokens;
         this.maxOutputTokens       = b.maxOutputTokens;
         this.freeRpmLimit          = b.freeRpmLimit;
+        this.freeTierSummary       = b.freeTierSummary;
     }
 
     // ── Factory ───────────────────────────────────────────────────────────────
@@ -67,17 +70,24 @@ public final class ProviderCapabilities {
                         .maxContext(200_000).maxOutput(8_192).freeRpm(-1).build();
 
             case GEMINI:
+                return new Builder()
+                        .streaming(true).tools(true).vision(true)
+                        .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(1_000_000).maxOutput(8_192).freeRpm(-1).build();
+
             case GOOGLE_AI_STUDIO:
                 return new Builder()
                         .streaming(true).tools(true).vision(true)
                         .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(1_000_000).maxOutput(8_192).freeRpm(15).build();
+                        .maxContext(1_000_000).maxOutput(8_192).freeRpm(15)
+                        .freeTierSummary("Flash: 15 RPM · 500 RPD · 250K TPM · Gemma: 30 RPM · 14.4K RPD").build();
 
             case GROQ:
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(131_072).maxOutput(8_192).freeRpm(30).build();
+                        .maxContext(131_072).maxOutput(8_192).freeRpm(30)
+                        .freeTierSummary("30 RPM · 70B: 1K RPD · 8B: 14.4K RPD · 12K–30K TPM").build();
 
             case DEEPSEEK:
                 return new Builder()
@@ -89,31 +99,85 @@ public final class ProviderCapabilities {
                 return new Builder()
                         .streaming(true).tools(false).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(8_192).maxOutput(8_192).freeRpm(30).build();
+                        .maxContext(8_192).maxOutput(8_192).freeRpm(30)
+                        .freeTierSummary("30 RPM · 14,400 RPD · 1M TPD").build();
 
             case SAMBANOVA:
                 return new Builder()
                         .streaming(true).tools(false).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(32_768).maxOutput(4_096).freeRpm(30).build();
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(30)
+                        .freeTierSummary("$5 trial credits · 3-month validity").build();
 
             case CHUTES:
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(128_000).maxOutput(8_192).freeRpm(60).build();
+                        .maxContext(128_000).maxOutput(8_192).freeRpm(60)
+                        .freeTierSummary("Free · no key needed · community proxied").build();
 
             case MISTRAL:
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(32_768).maxOutput(8_192).freeRpm(20).build();
+                        .maxContext(32_768).maxOutput(8_192).freeRpm(20)
+                        .freeTierSummary("1 RPS · Codestral: 2K RPD · 500K TPM").build();
 
             case COHERE:
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(128_000).maxOutput(4_096).freeRpm(20).build();
+                        .maxContext(128_000).maxOutput(4_096).freeRpm(20)
+                        .freeTierSummary("20 RPM · 1K RPD shared quota").build();
+
+            case GITHUB_MODELS:
+                return new Builder()
+                        .streaming(true).tools(true).vision(true)
+                        .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(128_000).maxOutput(8_192).freeRpm(-1)
+                        .freeTierSummary("Rate limits vary by GitHub Copilot plan").build();
+
+            case SCALEWAY:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("1M free tokens/month").build();
+
+            case CLOUDFLARE:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("10,000 neurons/day free").build();
+
+            case NVIDIA:
+                return new Builder()
+                        .streaming(true).tools(true).vision(false)
+                        .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(128_000).maxOutput(8_192).freeRpm(40)
+                        .freeTierSummary("40 RPM free · phone verification required").build();
+
+            case OPENROUTER:
+                return new Builder()
+                        .streaming(true).tools(true).vision(true)
+                        .jsonMode(true).reasoning(true).systemPrompts(true).temperature(true)
+                        .maxContext(200_000).maxOutput(8_192).freeRpm(20)
+                        .freeTierSummary("20 RPM · 50 RPD (free models)").build();
+
+            case HUGGINGFACE:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("$0.10 free credits/month").build();
+
+            case HYPERBOLIC:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("$1 free credit on signup").build();
 
             case XAI_GROK:
                 return new Builder()
@@ -121,17 +185,32 @@ public final class ProviderCapabilities {
                         .jsonMode(true).reasoning(true).systemPrompts(true).temperature(true)
                         .maxContext(131_072).maxOutput(8_192).freeRpm(-1).build();
 
-            case OPENROUTER:
-                return new Builder()
-                        .streaming(true).tools(true).vision(true)
-                        .jsonMode(true).reasoning(true).systemPrompts(true).temperature(true)
-                        .maxContext(200_000).maxOutput(8_192).freeRpm(-1).build();
-
             case MORPH:
                 return new Builder()
                         .streaming(true).tools(false).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(false)
                         .maxContext(32_768).maxOutput(4_096).freeRpm(-1).build();
+
+            case OVH:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(12)
+                        .freeTierSummary("12 RPM on Llama & Mistral models").build();
+
+            case NOVITA:
+                return new Builder()
+                        .streaming(true).tools(false).vision(false)
+                        .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("$0.50 trial credit · 1-year validity").build();
+
+            case FIREWORKS:
+                return new Builder()
+                        .streaming(true).tools(true).vision(false)
+                        .jsonMode(true).reasoning(false).systemPrompts(true).temperature(true)
+                        .maxContext(32_768).maxOutput(4_096).freeRpm(-1)
+                        .freeTierSummary("$1 free trial credit").build();
 
             default:
                 return new Builder()
@@ -154,17 +233,19 @@ public final class ProviderCapabilities {
         int     maxContextTokens      = 32_768;
         int     maxOutputTokens       = 4_096;
         int     freeRpmLimit          = -1;
+        String  freeTierSummary       = "";
 
-        Builder streaming(boolean v)     { supportsStreaming = v;     return this; }
-        Builder tools(boolean v)         { supportsTools = v;         return this; }
-        Builder vision(boolean v)        { supportsVision = v;        return this; }
-        Builder jsonMode(boolean v)      { supportsJsonMode = v;      return this; }
-        Builder reasoning(boolean v)     { supportsReasoning = v;     return this; }
-        Builder systemPrompts(boolean v) { supportsSystemPrompts = v; return this; }
-        Builder temperature(boolean v)   { supportsTemperature = v;   return this; }
-        Builder maxContext(int v)        { maxContextTokens = v;      return this; }
-        Builder maxOutput(int v)         { maxOutputTokens = v;       return this; }
-        Builder freeRpm(int v)           { freeRpmLimit = v;          return this; }
+        Builder streaming(boolean v)      { supportsStreaming = v;     return this; }
+        Builder tools(boolean v)          { supportsTools = v;         return this; }
+        Builder vision(boolean v)         { supportsVision = v;        return this; }
+        Builder jsonMode(boolean v)       { supportsJsonMode = v;      return this; }
+        Builder reasoning(boolean v)      { supportsReasoning = v;     return this; }
+        Builder systemPrompts(boolean v)  { supportsSystemPrompts = v; return this; }
+        Builder temperature(boolean v)    { supportsTemperature = v;   return this; }
+        Builder maxContext(int v)         { maxContextTokens = v;      return this; }
+        Builder maxOutput(int v)          { maxOutputTokens = v;       return this; }
+        Builder freeRpm(int v)            { freeRpmLimit = v;          return this; }
+        Builder freeTierSummary(String v) { freeTierSummary = v != null ? v : ""; return this; }
 
         ProviderCapabilities build() { return new ProviderCapabilities(this); }
     }
