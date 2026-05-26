@@ -59,27 +59,3 @@ jobs:
 
     - name: Build debug (android26)
       run: ./gradlew assembleAndroid26Debug --stacktrace
-
-  dependency-submission:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-
-    - name: Make gradlew executable
-      run: chmod +x gradlew
-
-    - name: Set up Android SDK path
-      run: echo "sdk.dir=$ANDROID_HOME" > local.properties
-
-    - name: Generate and submit dependency graph
-      continue-on-error: true
-      uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
