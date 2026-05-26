@@ -47,6 +47,7 @@ sdklib33 = "26.4.3"
 staxApi = "1.0-2"
 swiperefreshlayout = "1.2.0"
 viewpager = "1.1.0"
+viewpager2 = "1.1.0"
 woodstoxCore = "6.5.1"
 zipalignJava = "1.2.2"
 zip4j = "2.11.5"
@@ -65,6 +66,7 @@ androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version
 androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
 androidx-viewpager = { module = "androidx.viewpager:viewpager", version.ref = "viewpager" }
+androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
 
 desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar_jdk_libs_nio" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
@@ -141,7 +143,7 @@ jgit = { module = "org.eclipse.jgit:org.eclipse.jgit", version.ref = "jgit" }
 
 [bundles]
 ui = ["androidx-activity-ktx", "androidx-appcompat", "androidx-splashscreen", "androidx-recyclerview",
-    "androidx-cardview", "androidx-viewpager", "androidx-swiperefreshlayout", "material", "lottie",
+    "androidx-cardview", "androidx-viewpager", "androidx-viewpager2", "androidx-swiperefreshlayout", "material", "lottie",
     "flexbox", "androidx-exifinterface", "androidx-preference-ktx", "androidx-constraintlayout"]
 image = ["glide", "circleimageview"]
 coil = ["coil", "coil-kt-coil-svg"]
