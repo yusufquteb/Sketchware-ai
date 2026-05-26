@@ -35,8 +35,9 @@ public enum AiProvider {
     GROQ("Groq",
             "https://api.groq.com",
             "/openai/v1/models", "/openai/v1/chat/completions", true, true,
-            "Groq — blazing fast inference on LPU hardware. Generous free tier: 14,400 req/day. " +
-            "Llama 3.3 70B Versatile recommended for best results."),
+            "Groq — blazing fast inference on LPU hardware. Free tier varies by model: " +
+            "Llama 3.3 70B ~1,000 req/day (12K tokens/min); Llama 3.1 8B ~14,400 req/day. " +
+            "Use 8B for high-frequency tasks, 70B for best quality."),
 
     HUGGINGFACE("HuggingFace",
             "https://api-inference.huggingface.co",
@@ -80,7 +81,7 @@ public enum AiProvider {
     ANTHROPIC("Anthropic Claude",
             "https://api.anthropic.com",
             "/v1/models", "/v1/messages", true, false,
-            "Anthropic Claude — excellent at following complex instructions. Claude 3.5 Sonnet excels at multi-step Android coding tasks."),
+            "Anthropic Claude — excellent at following complex instructions. Claude Sonnet 4.6 and Opus 4.7 excel at multi-step Android coding tasks."),
 
     GEMINI("Gemini",
             "https://generativelanguage.googleapis.com",
