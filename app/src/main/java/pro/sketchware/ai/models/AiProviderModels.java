@@ -58,6 +58,7 @@ public final class AiProviderModels {
             // llama-4-scout-17b-16e-preview (Model Not Found), mixtral-8x7b-32768 (Bad Request).
             case GROQ:             return Arrays.asList(
                     "llama-3.3-70b-versatile",
+                    "qwen-qwq-32b",
                     "llama-3.1-8b-instant");
 
             case HUGGINGFACE:      return Arrays.asList(
@@ -70,6 +71,7 @@ public final class AiProviderModels {
                     "mistral-small-latest",
                     "open-mistral-nemo",
                     "codestral-latest",
+                    "devstral-small-latest",
                     "mistral-large-latest");
 
             case COHERE:           return Arrays.asList(

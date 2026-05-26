@@ -36,7 +36,8 @@ public abstract class AiApiClient {
     // Individual requests can still be cancelled via Call.cancel() or
     // client.dispatcher().cancelAll() without affecting other in-flight requests.
 
-    private static final long TIMEOUT_SECONDS = 180;
+    private static final long CONNECT_TIMEOUT_SECONDS = 30;
+    private static final long WRITE_TIMEOUT_SECONDS   = 60;
 
     /** Lazily initialised singleton. Guarded by the class lock. */
     private static volatile OkHttpClient sharedClient;
@@ -46,9 +47,9 @@ public abstract class AiApiClient {
             synchronized (AiApiClient.class) {
                 if (sharedClient == null) {
                     sharedClient = new OkHttpClient.Builder()
-                            .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                            .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                            .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                            .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                            .readTimeout(0, TimeUnit.SECONDS)   // no read timeout — stream can be slow between chunks
+                            .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                             .build();
                 }
             }

@@ -103,7 +103,7 @@ public class SambaNovaApiClient extends AiApiClient {
             String effective = (modelId != null && !modelId.isEmpty())
                     ? modelId : "Gemma-3-27B-IT";
             JsonObject body = NvidiaApiClient.buildOpenAiRequestBody(
-                    messages, effective, systemPrompt, tools, 0f, 4096);
+                    messages, effective, systemPrompt, tools, 0f, 8192);
             Request.Builder builder = new Request.Builder()
                     .url(CHAT_URL)
                     .post(RequestBody.create(body.toString(), JSON))
