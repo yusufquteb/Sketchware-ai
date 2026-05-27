@@ -48,6 +48,10 @@ public class Material3LibraryManager {
         return isAppCompatEnabled && safeGetBoolean("material3");
     }
 
+    public boolean isMaterial3ExpressiveEnabled() {
+        return isMaterial3Enabled() && safeGetBoolean("material3_expressive");
+    }
+
     public boolean isDynamicColorsEnabled() {
         return (isMaterial3Enabled() || isEditingState) && safeGetBoolean("dynamic_colors");
     }
