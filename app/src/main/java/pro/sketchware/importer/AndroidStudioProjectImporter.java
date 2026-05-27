@@ -1323,12 +1323,42 @@ public class AndroidStudioProjectImporter {
                 continue;
             }
             String content = FileUtil.readFile(file.getAbsolutePath());
-            if (!content.contains("Material3Expressive")) {
+            if (TextUtils.isEmpty(content) || !content.contains("Material3Expressive")) {
                 continue;
             }
             String fixed = content.replace("Widget.Material3Expressive.", "Widget.Material3.");
             if (!fixed.equals(content)) {
                 FileUtil.writeFile(file.getAbsolutePath(), fixed);
+            }
+        }
+    }
+
+    /**
+     * Public version used by the build pipeline to fix styles before AAPT2 sees them.
+     */
+    public static void fixMaterial3ExpressiveStylesInDirStatic(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return;
+        }
+        fixMaterial3ExpressiveStylesInDirStaticRecursive(dir);
+    }
+
+    private static void fixMaterial3ExpressiveStylesInDirStaticRecursive(File dir) {
+        File[] children = dir.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File file : children) {
+            if (file.isDirectory()) {
+                fixMaterial3ExpressiveStylesInDirStaticRecursive(file);
+            } else if (file.isFile() && file.getName().endsWith(".xml")) {
+                String content = FileUtil.readFile(file.getAbsolutePath());
+                if (!TextUtils.isEmpty(content) && content.contains("Material3Expressive")) {
+                    String fixed = content.replace("Widget.Material3Expressive.", "Widget.Material3.");
+                    if (!fixed.equals(content)) {
+                        FileUtil.writeFile(file.getAbsolutePath(), fixed);
+                    }
+                }
             }
         }
     }
@@ -1353,10 +1383,13 @@ public class AndroidStudioProjectImporter {
                 continue;
             }
             for (File xmlFile : xmlFiles) {
-                if (!xmlFile.getName().endsWith(".xml")) {
+                if (!xmlFile.isFile() || !xmlFile.getName().endsWith(".xml")) {
                     continue;
                 }
                 String content = FileUtil.readFile(xmlFile.getAbsolutePath());
+                if (TextUtils.isEmpty(content)) {
+                    continue;
+                }
                 if (content.contains("PreferenceScreen")
                         || content.contains("<SwitchPreference")
                         || content.contains("<CheckBoxPreference")
