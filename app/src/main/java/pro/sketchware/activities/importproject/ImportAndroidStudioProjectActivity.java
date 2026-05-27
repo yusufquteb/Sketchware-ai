@@ -5,6 +5,8 @@ import androidx.core.content.FileProvider;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,6 +30,7 @@ import pro.sketchware.utility.SketchwareUtil;
 
 public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
     private static final int REQUEST_PICK_ZIP = 9101;
+    private static final int REQUEST_PICK_FOLDER = 9102;
     private static final String PREFS_IMPORTER = "import_android_studio_project";
     private static final String KEY_GITHUB_TOKEN = "github_token";
 
@@ -44,6 +47,7 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
     private TextInputEditText tokenInput;
     private Button pickZipButton;
     private Button importZipButton;
+    private Button browseFolderButton;
     private Button importFolderButton;
     private Button importGithubButton;
     private ImportProgressDialogController progressDialogController;
@@ -70,6 +74,7 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
         tokenInput = findViewById(R.id.et_token);
         pickZipButton = findViewById(R.id.btn_pick_zip);
         importZipButton = findViewById(R.id.btn_import_zip);
+        browseFolderButton = findViewById(R.id.btn_browse_folder);
         importFolderButton = findViewById(R.id.btn_import_folder);
         importGithubButton = findViewById(R.id.btn_import_github);
         progressDialogController = new ImportProgressDialogController();
@@ -77,6 +82,7 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
         restoreSavedGithubToken();
 
         pickZipButton.setOnClickListener(v -> pickZip());
+        browseFolderButton.setOnClickListener(v -> pickFolder());
         importZipButton.setOnClickListener(v -> {
             if (selectedZipUri == null) {
                 SketchwareUtil.toastError("Choose an Android Studio ZIP archive first");
@@ -159,6 +165,29 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
         startActivityForResult(intent, REQUEST_PICK_ZIP);
     }
 
+    private void pickFolder() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        startActivityForResult(intent, REQUEST_PICK_FOLDER);
+    }
+
+    private String getRealPathFromTreeUri(Uri treeUri) {
+        try {
+            String docId = DocumentsContract.getTreeDocumentId(treeUri);
+            String[] parts = docId.split(":", 2);
+            if (parts.length == 2) {
+                String type = parts[0];
+                String relativePath = parts[1];
+                if ("primary".equalsIgnoreCase(type)) {
+                    return Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + relativePath;
+                }
+                // SD card or other volume
+                return "/storage/" + type + "/" + relativePath;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -170,12 +199,22 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
                 getContentResolver().takePersistableUriPermission(selectedZipUri, takeFlags);
             } catch (Exception ignored) {
             }
+        } else if (requestCode == REQUEST_PICK_FOLDER && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri folderUri = data.getData();
+            String realPath = getRealPathFromTreeUri(folderUri);
+            if (realPath != null) {
+                folderPathInput.setText(realPath);
+            } else {
+                folderPathInput.setText(folderUri.toString());
+                SketchwareUtil.toastError("Could not resolve a file-system path; paste the path manually if import fails.");
+            }
         }
     }
 
     private void setImportUiEnabled(boolean enabled) {
         pickZipButton.setEnabled(enabled);
         importZipButton.setEnabled(enabled);
+        browseFolderButton.setEnabled(enabled);
         importFolderButton.setEnabled(enabled);
         importGithubButton.setEnabled(enabled);
         folderPathInput.setEnabled(enabled);
