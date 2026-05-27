@@ -475,7 +475,6 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         setAgentRunning(true);
         startPulse();
 
-        chatHistory.add(ChatMessage.userMessage(null, userText));
         String sysPrompt = config != null ? config.systemPrompt : "";
 
         agentExecutor = new AgentExecutor(requireContext(), projectIds, workspaceId, scope, scopedId);
@@ -495,10 +494,8 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             @Override public void onStreamingChunk(String chunk) {}
             @Override public void onAssistantMessage(ChatMessage msg) {
                 if (msg != null && msg.getContent() != null && !msg.getContent().isEmpty()) {
-                    if (isAdded()) requireActivity().runOnUiThread(() -> {
-                        chatHistory.add(msg);
-                        pushAssistant(msg.getContent());
-                    });
+                    if (isAdded()) requireActivity().runOnUiThread(() ->
+                            pushAssistant(msg.getContent()));
                 }
             }
             @Override public void onToolCallStarted(ToolCall tc) {

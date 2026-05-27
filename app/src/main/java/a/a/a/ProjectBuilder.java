@@ -475,6 +475,12 @@ public class ProjectBuilder {
             classpath.append(":").append(new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "core-lambda-stubs.jar").getAbsolutePath());
         }
 
+        /* Add Sketchware compile-time API stubs (BuildSettings, BuiltInLibraries, coil, R8) */
+        File sketchwareStubs = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "sketchware-compile-stubs.jar");
+        if (sketchwareStubs.exists()) {
+            classpath.append(":").append(sketchwareStubs.getAbsolutePath());
+        }
+
         /* Add used built-in libraries to the classpath */
         for (Jp library : builtInLibraryManager.getLibraries()) {
             classpath.append(":").append(BuiltInLibraries.getLibraryClassesJarPathString(library.getName()));
