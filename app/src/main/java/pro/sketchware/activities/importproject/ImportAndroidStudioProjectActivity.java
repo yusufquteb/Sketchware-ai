@@ -233,11 +233,20 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
     }
 
     private void showResult(AndroidStudioProjectImporter.ImportResult result) {
-        statusText.setText(result.toDisplayText());
+        String displayText = result.toDisplayText();
+        statusText.setText(displayText);
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Import completed")
-                .setMessage(result.toDisplayText() + "\n\nThe imported project is now available in your project list.")
-                .setPositiveButton("OK", null)
+                .setTitle("Import completed — " + (result.projectName != null ? result.projectName : ""))
+                .setMessage(displayText + "\n\nThe imported project is now available in your project list.")
+                .setPositiveButton("Open project list", (d, w) -> {
+                    // Let the user navigate to projects
+                    setResult(RESULT_OK);
+                    finish();
+                })
+                .setNegativeButton("Stay here", null)
                 .show();
     }
 
