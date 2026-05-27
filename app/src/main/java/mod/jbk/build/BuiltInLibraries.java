@@ -39,6 +39,7 @@ public class BuiltInLibraries {
     public static String ANDROIDX_CORE = "core-1.17.0";
     public static String ANDROIDX_CORE_COMMON = "core-common-2.2.0";
     public static String ANDROIDX_CORE_KTX = "core-ktx-1.17.0";
+    public static String ANDROIDX_CORE_SPLASHSCREEN = "core-splashscreen-1.0.1";
     public static String ANDROIDX_CORE_RUNTIME = "core-runtime-2.2.0";
     public static String ANDROIDX_CORE_VIEWTREE = "core-viewtree-1.0.0";
     public static String ANDROIDX_CURSORADAPTER = "cursoradapter-1.0.0";
@@ -118,6 +119,7 @@ public class BuiltInLibraries {
     public static String OKHTTP_ANDROID = "okhttp-android-5.1.0";
     public static String OKIO_JVM = "okio-jvm-3.15.0";
     public static String OTPVIEW = "OTPView-0.1.0";
+    public static String ANDROIDX_PREFERENCE = "preference-1.2.1";
     public static String PATTERN_LOCK_VIEW = "pattern-lock-view";
     public static String PLAY_SERVICES_ADS = "play-services-ads-22.2.0";
     public static String PLAY_SERVICES_ADS_BASE = "play-services-ads-base-22.2.0";

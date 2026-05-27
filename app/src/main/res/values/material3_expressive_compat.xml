@@ -10,6 +10,8 @@
     <style name="Theme.Material3Expressive.DynamicColors.Dark.NoActionBar" parent="Theme.Material3.Dark.NoActionBar" />
 
     <style name="MaterialAlertDialog.Material3Expressive" parent="MaterialAlertDialog.Material3" />
+    <style name="ThemeOverlay.Material3Expressive.Dialog" parent="ThemeOverlay.Material3.Dialog" />
+    <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog" parent="ThemeOverlay.Material3Expressive.Dialog" />
     <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered" parent="ThemeOverlay.Material3.MaterialAlertDialog.Centered" />
 
     <style name="Widget.Material3Expressive.Button" parent="Widget.Material3.Button" />
