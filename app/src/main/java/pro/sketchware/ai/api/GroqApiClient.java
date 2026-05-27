@@ -47,7 +47,7 @@ public class GroqApiClient extends AiApiClient {
     private static final String MODELS_URL = BASE + "/models";
     private static final String CHAT_URL   = BASE + "/chat/completions";
     private static final MediaType JSON    = MediaType.get("application/json; charset=utf-8");
-    private static final int MAX_OUTPUT_TOKENS = 4096;
+    private static final int MAX_OUTPUT_TOKENS = 8192;
 
     public GroqApiClient(String apiKey) {
         super(apiKey, AiProvider.GROQ);

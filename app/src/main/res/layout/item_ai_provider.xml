@@ -85,6 +85,18 @@
                     android:textAppearance="?attr/textAppearanceLabelSmall"
                     android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <!-- Rate limits -->
+                <TextView
+                    android:id="@+id/provider_limits"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceLabelSmall"
+                    android:textSize="9sp"
+                    android:textColor="?attr/colorTertiary"
+                    android:maxLines="3"
+                    android:layout_marginTop="2dp"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Enable switch -->

@@ -45,7 +45,6 @@ import java.util.List;
 import pro.sketchware.R;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.adapters.ChatAdapter;
-import pro.sketchware.ai.adapters.ModelSelectorAdapter;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 import pro.sketchware.ai.models.AiProvider;
@@ -59,7 +58,6 @@ import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
 import pro.sketchware.databinding.DialogModelSelectorBinding;
-import com.google.android.material.tabs.TabLayout;
 import pro.sketchware.ai.storage.WorkspaceManager;
 
 /**
@@ -476,6 +474,8 @@ public class AiProjectBottomSheet
                 return "Scan the '" + actName + "' screen for hardcoded strings and move them all to strings.xml";
             case "create_locale_strings":
                 return "Translate the app strings to Arabic (ar) — read all strings first, then translate and create values-ar/strings.xml";
+            case "transcribe_to_m3":
+                return "Convert the current '" + actName + "' screen layout to Material 3 design. Use Material 3 components (MaterialButton, TextInputLayout, MaterialCardView, etc.), apply Material You color tokens, and ensure proper elevation and shape theming.";
             default:
                 return "Use " + tool.name + " to help me: ";
         }
@@ -1576,76 +1576,40 @@ public class AiProjectBottomSheet
             return;
         }
         BottomSheetDialog dialog = new BottomSheetDialog(context);
-        DialogModelSelectorBinding db = DialogModelSelectorBinding.inflate(
-                android.view.LayoutInflater.from(context));
+        pro.sketchware.databinding.DialogModelSelectorBinding db =
+                pro.sketchware.databinding.DialogModelSelectorBinding.inflate(
+                        android.view.LayoutInflater.from(context));
         dialog.setContentView(db.getRoot());
 
-        for (AiProvider p : availableProviders) {
-            db.providerTabs.addTab(db.providerTabs.newTab().setText(p.getSelectorLabel()).setTag(p));
-        }
+        pro.sketchware.ai.adapters.ModelProviderPagerAdapter pagerAdapter =
+                new pro.sketchware.ai.adapters.ModelProviderPagerAdapter(
+                        availableProviders, preferences, currentModelId, model -> {
+                            currentProvider = model.getProvider();
+                            currentModelId  = model.getId();
+                            preferences.setSelectedModel(currentProvider, currentModelId);
+                            preferences.setSelectedProvider(currentProvider);
+                            updateModelChip();
+                            conversation.setModelId(currentModelId);
+                            conversation.setProviderName(currentProvider.name());
+                            conversationManager.saveConversation(conversation);
+                            dialog.dismiss();
+                        });
 
-        ModelSelectorAdapter modelAdapter = new ModelSelectorAdapter(model -> {
-            currentProvider = model.getProvider();
-            currentModelId  = model.getId();
-            preferences.setSelectedModel(currentProvider, currentModelId);
-            preferences.setSelectedProvider(currentProvider);
-            updateModelChip();
-            conversation.setModelId(currentModelId);
-            conversation.setProviderName(currentProvider.name());
-            conversationManager.saveConversation(conversation);
-            dialog.dismiss();
-        });
-        modelAdapter.setOnModelLongClickListener(model -> {
-            dialog.dismiss(); showModelInfo(model); return true;
-        });
-        modelAdapter.setSelectedModelId(currentModelId);
-        db.modelsList.setAdapter(modelAdapter);
+        db.pager.setAdapter(pagerAdapter);
+        new com.google.android.material.tabs.TabLayoutMediator(db.providerTabs, db.pager,
+                (tab, position) -> tab.setText(availableProviders.get(position).getSelectorLabel()))
+                .attach();
 
-        AiProvider initial = availableProviders.get(0);
         for (int i = 0; i < availableProviders.size(); i++) {
             if (availableProviders.get(i) == currentProvider) {
-                TabLayout.Tab tab = db.providerTabs.getTabAt(i);
-                if (tab != null) { tab.select(); initial = currentProvider; }
+                db.pager.setCurrentItem(i, false);
                 break;
             }
         }
-        loadModelsForProvider(initial, modelAdapter, db);
-
-        db.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) {
-                AiProvider p = (AiProvider) tab.getTag();
-                if (p != null) loadModelsForProvider(p, modelAdapter, db);
-            }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
-        });
         dialog.show();
     }
 
-    private void loadModelsForProvider(AiProvider provider, ModelSelectorAdapter adapter,
-                                        DialogModelSelectorBinding db) {
-        List<ModelInfo> cached = preferences.getCachedModels(provider);
-        if (cached != null && !cached.isEmpty()) {
-            adapter.setModels(cached);
-            db.modelsList.setVisibility(android.view.View.VISIBLE);
-            db.emptyState.setVisibility(android.view.View.GONE);
-        } else {
-            List<String> staticIds = AiProviderModels.getStaticModels(provider);
-            if (!staticIds.isEmpty()) {
-                List<ModelInfo> staticModels = new ArrayList<>();
-                for (String id : staticIds) staticModels.add(new ModelInfo(id, id, provider, 0, null));
-                adapter.setModels(staticModels);
-                db.modelsList.setVisibility(android.view.View.VISIBLE);
-                db.emptyState.setVisibility(android.view.View.GONE);
-            } else {
-                adapter.setModels(new ArrayList<>());
-                db.modelsList.setVisibility(android.view.View.GONE);
-                db.emptyState.setVisibility(android.view.View.VISIBLE);
-                db.emptyText.setText("No models for " + provider.getSelectorLabel()
-                        + ".\nRefresh in AI Settings ↻");
-            }
-        }
-    }
+
 
     private void showModelInfo(ModelInfo model) {
         AiProvider p   = model.getProvider();
