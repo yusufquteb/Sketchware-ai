@@ -317,11 +317,14 @@ public class AndroidStudioProjectImporter {
                 1, totalProgressSteps, false, "Preparing imported project structure");
         copySourceTree(detectedProject.sourceRoots, new File(filePathUtil.getPathJava(scId)));
         copyResources(detectedProject.resDirectories, new File(filePathUtil.getPathResource(scId)));
+        fixMaterial3ExpressiveStylesInDir(new File(filePathUtil.getPathResource(scId)));
         copyDirectories(detectedProject.assetsDirectories, new File(filePathUtil.getPathAssets(scId)));
         copyDirectories(detectedProject.jniLibsDirectories, new File(filePathUtil.getPathNativelibs(scId)));
         importLocalJarsAndAars(detectedProject.libsDirectories, scId);
 
-        DependencyResolutionReport dependencyReport = resolveAndRegisterDependencies(scId, gradle.dependencies, totalProgressSteps, 2);
+        List<String> allDependencies = new ArrayList<>(gradle.dependencies);
+        detectImplicitResourceDependencies(detectedProject.resDirectories, allDependencies);
+        DependencyResolutionReport dependencyReport = resolveAndRegisterDependencies(scId, allDependencies, totalProgressSteps, 2);
 
         if (!manifest.permissions.isEmpty()) {
             FileUtil.writeFile(filePathUtil.getPathPermission(scId), gson.toJson(manifest.permissions));
@@ -338,7 +341,7 @@ public class AndroidStudioProjectImporter {
         result.projectName = projectName;
         result.sourceType = sourceType;
         result.sourceLabel = sourceType.equals("android_studio_zip") ? detectedProject.archiveLabel : detectedProject.rootDirectory.getName();
-        result.importedDependencies.addAll(gradle.dependencies);
+        result.importedDependencies.addAll(allDependencies);
         result.satisfiedByBundledDependencies.addAll(dependencyReport.satisfiedByBundled);
         result.reusedLocalDependencies.addAll(dependencyReport.reusedLocal);
         result.downloadedDependencies.addAll(dependencyReport.downloaded);
@@ -1193,6 +1196,8 @@ public class AndroidStudioProjectImporter {
                 zipInputStream.closeEntry();
             }
         }
+        fixMaterial3ExpressiveStylesInDir(new File(localLibraryRoot, "res"));
+
         ArrayList<HashMap<String, Object>> localLibraries = LocalLibrariesUtil.getLocalLibraries(scId);
         boolean exists = false;
         for (HashMap<String, Object> library : localLibraries) {
@@ -1300,6 +1305,78 @@ public class AndroidStudioProjectImporter {
         for (File resDirectory : resDirectories) {
             if (resDirectory != null && resDirectory.isDirectory()) {
                 FileUtil.copyDirectory(resDirectory, targetRoot);
+            }
+        }
+    }
+
+    /**
+     * Replaces Widget.Material3Expressive.* style references with their Material3 equivalents.
+     * Material3Expressive styles require material:1.13.0+ which is newer than what Sketchware
+     * bundles; the Material3 equivalents are functionally identical for build purposes.
+     */
+    private void fixMaterial3ExpressiveStylesInDir(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return;
+        }
+        for (File file : collectFilesRecursively(dir)) {
+            if (!file.isFile() || !file.getName().endsWith(".xml")) {
+                continue;
+            }
+            String content = FileUtil.readFile(file.getAbsolutePath());
+            if (!content.contains("Material3Expressive")) {
+                continue;
+            }
+            String fixed = content.replace("Widget.Material3Expressive.", "Widget.Material3.");
+            if (!fixed.equals(content)) {
+                FileUtil.writeFile(file.getAbsolutePath(), fixed);
+            }
+        }
+    }
+
+    /**
+     * Scans res/xml/ directories for preference screen definitions and adds
+     * androidx.preference:preference as an implicit dependency when found.
+     * This fixes build errors for attribute key/summary/iconSpaceReserved.
+     */
+    private void detectImplicitResourceDependencies(List<File> resDirectories, List<String> dependencies) {
+        boolean needsPreference = false;
+        for (File resDir : resDirectories) {
+            if (resDir == null || !resDir.isDirectory()) {
+                continue;
+            }
+            File xmlDir = new File(resDir, "xml");
+            if (!xmlDir.isDirectory()) {
+                continue;
+            }
+            File[] xmlFiles = xmlDir.listFiles();
+            if (xmlFiles == null) {
+                continue;
+            }
+            for (File xmlFile : xmlFiles) {
+                if (!xmlFile.getName().endsWith(".xml")) {
+                    continue;
+                }
+                String content = FileUtil.readFile(xmlFile.getAbsolutePath());
+                if (content.contains("PreferenceScreen")
+                        || content.contains("<SwitchPreference")
+                        || content.contains("<CheckBoxPreference")
+                        || content.contains("<ListPreference")
+                        || content.contains("<EditTextPreference")
+                        || content.contains("<Preference ")
+                        || content.contains("iconSpaceReserved")) {
+                    needsPreference = true;
+                    break;
+                }
+            }
+            if (needsPreference) {
+                break;
+            }
+        }
+        if (needsPreference) {
+            String prefDep = "androidx.preference:preference:1.2.1";
+            if (!dependencies.contains(prefDep)) {
+                dependencies.add(prefDep);
+                Log.i(TAG, "Auto-added " + prefDep + " (detected preference XML resources)");
             }
         }
     }

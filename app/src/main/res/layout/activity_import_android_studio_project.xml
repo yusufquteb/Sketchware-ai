@@ -57,7 +57,7 @@
 
                     <Button
                         android:id="@+id/btn_pick_zip"
-                        style="@style/Widget.Material3Expressive.Button"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
@@ -65,7 +65,7 @@
 
                     <Button
                         android:id="@+id/btn_import_zip"
-                        style="@style/Widget.Material3Expressive.Button"
+                        style="@style/Widget.Material3.Button"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -104,11 +104,19 @@
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <Button
-                        android:id="@+id/btn_import_folder"
-                        style="@style/Widget.Material3Expressive.Button"
+                        android:id="@+id/btn_browse_folder"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="8dp"
+                        android:text="Browse folder" />
+
+                    <Button
+                        android:id="@+id/btn_import_folder"
+                        style="@style/Widget.Material3.Button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
                         android:text="Import project folder" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -168,7 +176,7 @@
 
                     <Button
                         android:id="@+id/btn_import_github"
-                        style="@style/Widget.Material3Expressive.Button"
+                        style="@style/Widget.Material3.Button"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
@@ -178,7 +186,6 @@
 
             <TextView
                 android:id="@+id/tv_import_status"
-                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
