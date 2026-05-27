@@ -105,6 +105,12 @@ public class ResourceCompiler {
          * Material3 Expressive tokens not present in material-1.13.0.  The stubs
          * are included first in the link step so that any later library (e.g. a
          * local copy of material-1.14.0) can legitimately override them.
+         *
+         * IMPORTANT: every style here must carry an explicit parent="" (or reference
+         * another style defined in THIS file) — never leave parent absent for a
+         * dotted style name.  AAPT2's implicit-parent rule would otherwise look for
+         * "A.B" as the parent of "A.B.C" and fail the link step for ALL projects,
+         * even those that do not use Material3 Expressive.
          */
         private static final String COMPAT_RES_XML =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -119,36 +125,55 @@ public class ResourceCompiler {
             + "    <!-- androidx.preference stubs -->\n"
             + "    <attr name=\"widgetLayout\" format=\"reference\" />\n"
             + "    <attr name=\"switchPreferenceCompatStyle\" format=\"reference\" />\n"
-            + "    <style name=\"Preference\" />\n"
+            + "    <style name=\"Preference\" parent=\"\" />\n"
             + "    <style name=\"Preference.SwitchPreferenceCompat\" parent=\"Preference\" />\n"
             + "    <style name=\"Preference.SwitchPreferenceCompat.Material\""
             + " parent=\"Preference.SwitchPreferenceCompat\" />\n"
-            + "    <!-- Material3 Expressive stubs (not present in material-1.13.0) -->\n"
-            + "    <style name=\"ThemeOverlay.Material3Expressive.Dialog\" />\n"
-            + "    <style name=\"MaterialAlertDialog.Material3Expressive\""
-            + " parent=\"MaterialAlertDialog.Material3\" />\n"
+            + "    <!-- Material3 Expressive stubs — self-contained hierarchy, no external deps.\n"
+            + "         Each dotted level is defined so AAPT2 never needs to resolve an implicit\n"
+            + "         parent that comes from an outside library. -->\n"
+            + "    <style name=\"ThemeOverlay.Material3Expressive\" parent=\"\" />\n"
+            + "    <style name=\"ThemeOverlay.Material3Expressive.Dialog\""
+            + " parent=\"ThemeOverlay.Material3Expressive\" />\n"
+            + "    <style name=\"MaterialAlertDialog.Material3Expressive\" parent=\"\" />\n"
             + "    <style name=\"ThemeOverlay.Material3Expressive.MaterialAlertDialog\""
             + " parent=\"ThemeOverlay.Material3Expressive.Dialog\" />\n"
             + "    <style name=\"ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered\""
-            + " parent=\"ThemeOverlay.Material3.MaterialAlertDialog.Centered\" />\n"
+            + " parent=\"ThemeOverlay.Material3Expressive.MaterialAlertDialog\" />\n"
+            + "    <style name=\"Theme.Material3Expressive\" parent=\"\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.Light\""
+            + " parent=\"Theme.Material3Expressive\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.Dark\""
+            + " parent=\"Theme.Material3Expressive\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.DynamicColors\""
+            + " parent=\"Theme.Material3Expressive\" />\n"
             + "    <style name=\"Theme.Material3Expressive.Light.NoActionBar\""
-            + " parent=\"Theme.Material3.Light.NoActionBar\" />\n"
+            + " parent=\"Theme.Material3Expressive.Light\" />\n"
             + "    <style name=\"Theme.Material3Expressive.Dark.NoActionBar\""
-            + " parent=\"Theme.Material3.Dark.NoActionBar\" />\n"
+            + " parent=\"Theme.Material3Expressive.Dark\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.DynamicColors.Light\""
+            + " parent=\"Theme.Material3Expressive.DynamicColors\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.DynamicColors.Dark\""
+            + " parent=\"Theme.Material3Expressive.DynamicColors\" />\n"
             + "    <style name=\"Theme.Material3Expressive.DynamicColors.Light.NoActionBar\""
-            + " parent=\"Theme.Material3.Light.NoActionBar\" />\n"
+            + " parent=\"Theme.Material3Expressive.DynamicColors.Light\" />\n"
             + "    <style name=\"Theme.Material3Expressive.DynamicColors.Dark.NoActionBar\""
-            + " parent=\"Theme.Material3.Dark.NoActionBar\" />\n"
+            + " parent=\"Theme.Material3Expressive.DynamicColors.Dark\" />\n"
+            + "    <style name=\"Widget.Material3Expressive\" parent=\"\" />\n"
             + "    <style name=\"Widget.Material3Expressive.Button\""
-            + " parent=\"Widget.Material3.Button\" />\n"
+            + " parent=\"Widget.Material3Expressive\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.CollapsingToolbar\""
+            + " parent=\"Widget.Material3Expressive\" />\n"
             + "    <style name=\"Widget.Material3Expressive.CollapsingToolbar.Large\""
-            + " parent=\"Widget.Material3.CollapsingToolbar\" />\n"
+            + " parent=\"Widget.Material3Expressive.CollapsingToolbar\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.Toolbar\""
+            + " parent=\"Widget.Material3Expressive\" />\n"
             + "    <style name=\"Widget.Material3Expressive.Toolbar.OnSurface\""
-            + " parent=\"Widget.Material3.Toolbar\" />\n"
+            + " parent=\"Widget.Material3Expressive.Toolbar\" />\n"
             + "    <style name=\"Widget.Material3Expressive.CircularProgressIndicator\""
-            + " parent=\"Widget.Material3.CircularProgressIndicator\" />\n"
+            + " parent=\"Widget.Material3Expressive\" />\n"
             + "    <style name=\"Widget.Material3Expressive.LinearProgressIndicator\""
-            + " parent=\"Widget.Material3.LinearProgressIndicator\" />\n"
+            + " parent=\"Widget.Material3Expressive\" />\n"
             + "</resources>\n";
 
         private final boolean buildAppBundle;
