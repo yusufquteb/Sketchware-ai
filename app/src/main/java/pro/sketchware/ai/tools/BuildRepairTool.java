@@ -186,6 +186,13 @@ public final class BuildRepairTool {
         // AAPT
         private static final Pattern AAPT = Pattern.compile(
                 "([\\w/.-]+\\.(xml|9\\.png|png)).*error.*|aapt2.*error");
+        // Missing style/attr from a library (e.g. "style/Theme.SplashScreen not found")
+        private static final Pattern MISSING_STYLE = Pattern.compile(
+                "resource style/([\\w.]+).*not found");
+        private static final Pattern MISSING_ATTR = Pattern.compile(
+                "style attribute 'attr/([\\w.]+).*not found");
+        private static final Pattern MISSING_RES_LINK = Pattern.compile(
+                "error: resource (style|attr)/([\\w.]+).*not found");
         // Duplicate class
         private static final Pattern DUP_CLASS = Pattern.compile(
                 "duplicate class (\\S+)");
@@ -206,6 +213,28 @@ public final class BuildRepairTool {
             Matcher m;
 
             // ── STAGE 1: AAPT / XML resource file errors ───────────────────
+
+            // Missing style or attr from a library — detected before generic AAPT handler
+            // so the diagnosis can name the required library.
+            m = MISSING_STYLE.matcher(line);
+            if (m.find()) {
+                String style = m.group(1);
+                String lib = inferLibraryForStyle(style);
+                return item(1, "MISSING_LIBRARY_STYLE", style, loc,
+                        "Style '" + style + "' not found — it comes from " + lib + " which is not enabled.",
+                        "Enable the '" + lib + "' built-in library for this project, or add it as a local library.",
+                        "add_library(sc_id=\"" + scId + "\", library=\"" + lib + "\")");
+            }
+            m = MISSING_ATTR.matcher(line);
+            if (m.find()) {
+                String attr = m.group(1);
+                String lib = inferLibraryForAttr(attr);
+                return item(1, "MISSING_LIBRARY_ATTR", attr, loc,
+                        "Attribute '" + attr + "' not found — it comes from " + lib + " which is not enabled.",
+                        "Enable the '" + lib + "' built-in library for this project.",
+                        "add_library(sc_id=\"" + scId + "\", library=\"" + lib + "\")");
+            }
+
             m = AAPT.matcher(line);
             if (m.find() || (line.contains("aapt2") && line.contains("error"))) {
                 String file = m.find() ? m.group(1) : "resource file";
@@ -379,6 +408,30 @@ public final class BuildRepairTool {
         }
 
         // ══ HELPERS ═══════════════════════════════════════════════════════════
+
+        private static String inferLibraryForStyle(String style) {
+            if (style.startsWith("Theme.SplashScreen") || style.startsWith("Theme.SplashScreen."))
+                return "core-splashscreen-1.0.1";
+            if (style.contains("Material3Expressive") || style.contains("Expressive"))
+                return "material3-expressive-compat-1.0";
+            if (style.startsWith("Preference.") || style.startsWith("PreferenceFragment"))
+                return "preference-1.2.1";
+            if (style.startsWith("Theme.Material3") || style.startsWith("Widget.Material3")
+                    || style.startsWith("ThemeOverlay.Material3") || style.startsWith("MaterialAlertDialog"))
+                return "material-1.13.0";
+            return "an appropriate library";
+        }
+
+        private static String inferLibraryForAttr(String attr) {
+            if (attr.startsWith("windowSplashScreen") || attr.equals("postSplashScreenTheme"))
+                return "core-splashscreen-1.0.1";
+            if (attr.equals("widgetLayout") || attr.equals("switchPreferenceCompatStyle")
+                    || attr.equals("preferenceStyle") || attr.equals("seekBarPreferenceStyle"))
+                return "preference-1.2.1";
+            if (attr.startsWith("color") || attr.startsWith("shape") || attr.startsWith("textAppearance"))
+                return "material-1.13.0";
+            return "an appropriate library";
+        }
 
         private static RepairItem item(int stage, String category, String symbol,
                                        String location, String diagnosis,
