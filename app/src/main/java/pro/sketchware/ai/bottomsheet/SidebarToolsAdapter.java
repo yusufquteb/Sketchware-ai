@@ -302,7 +302,9 @@ public class SidebarToolsAdapter
                     new ToolEntry("remove_view",
                             "Remove View",      R.drawable.ic_mtrl_delete,      true),
                     new ToolEntry("validate_rtl_layout",
-                            "Validate RTL",     R.drawable.ic_mtrl_preview,     true)
+                            "Validate RTL",     R.drawable.ic_mtrl_preview,     true),
+                    new ToolEntry("transcribe_to_m3",
+                            "To Material 3",    R.drawable.ic_mtrl_style, true)
                 )));
 
         // ── 2. File ────────────────────────────────────────────────────────

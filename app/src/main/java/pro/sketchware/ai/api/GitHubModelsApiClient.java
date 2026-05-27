@@ -110,7 +110,7 @@ public class GitHubModelsApiClient extends AiApiClient {
             String effective = (modelId != null && !modelId.isEmpty())
                     ? modelId : "Meta-Llama-4-Scout-17B-16E-Instruct";
             JsonObject body = NvidiaApiClient.buildOpenAiRequestBody(
-                    messages, effective, systemPrompt, tools, 0.7f, 4096);
+                    messages, effective, systemPrompt, tools, 0.7f, 8192);
             Request.Builder builder = new Request.Builder()
                     .url(CHAT_URL)
                     .post(RequestBody.create(body.toString(), JSON))

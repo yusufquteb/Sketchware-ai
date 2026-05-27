@@ -21,8 +21,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.tabs.TabLayout;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,7 +28,6 @@ import java.util.Locale;
 import pro.sketchware.ai.activities.AiSettingsActivity;
 import pro.sketchware.ai.engine.AgentExecutor;
 import pro.sketchware.ai.models.AiProvider;
-import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.databinding.DialogModelSelectorBinding;
 import pro.sketchware.ai.models.ChatMessage;
 import pro.sketchware.ai.models.Conversation;
@@ -235,69 +232,33 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         DialogModelSelectorBinding db = DialogModelSelectorBinding.inflate(getLayoutInflater());
         dialog.setContentView(db.getRoot());
 
-        for (AiProvider p : availableProviders) {
-            db.providerTabs.addTab(db.providerTabs.newTab().setText(p.getSelectorLabel()).setTag(p));
-        }
-
         AiProvider currentProv = preferences.getSelectedProvider();
         String currentModel = preferences.getSelectedModel(currentProv);
 
-        pro.sketchware.ai.adapters.ModelSelectorAdapter modelAdapter =
-                new pro.sketchware.ai.adapters.ModelSelectorAdapter(model -> {
-                    preferences.setSelectedProvider(model.getProvider());
-                    preferences.setSelectedModel(model.getProvider(), model.getId());
-                    refreshProviderChip();
-                    dialog.dismiss();
-                });
-        modelAdapter.setSelectedModelId(currentModel);
-        db.modelsList.setAdapter(modelAdapter);
+        pro.sketchware.ai.adapters.ModelProviderPagerAdapter pagerAdapter =
+                new pro.sketchware.ai.adapters.ModelProviderPagerAdapter(
+                        availableProviders, preferences, currentModel, model -> {
+                            preferences.setSelectedProvider(model.getProvider());
+                            preferences.setSelectedModel(model.getProvider(), model.getId());
+                            refreshProviderChip();
+                            dialog.dismiss();
+                        });
 
-        AiProvider initial = availableProviders.get(0);
+        db.pager.setAdapter(pagerAdapter);
+        new com.google.android.material.tabs.TabLayoutMediator(db.providerTabs, db.pager,
+                (tab, position) -> tab.setText(availableProviders.get(position).getSelectorLabel()))
+                .attach();
+
         for (int i = 0; i < availableProviders.size(); i++) {
             if (availableProviders.get(i) == currentProv) {
-                TabLayout.Tab tab = db.providerTabs.getTabAt(i);
-                if (tab != null) { tab.select(); initial = currentProv; }
+                db.pager.setCurrentItem(i, false);
                 break;
             }
         }
-        loadModelsForProviderInSheet(initial, modelAdapter, db);
-
-        db.providerTabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) {
-                AiProvider p = (AiProvider) tab.getTag();
-                if (p != null) loadModelsForProviderInSheet(p, modelAdapter, db);
-            }
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
-        });
         dialog.show();
     }
 
-    private void loadModelsForProviderInSheet(AiProvider provider,
-            pro.sketchware.ai.adapters.ModelSelectorAdapter adapter, DialogModelSelectorBinding db) {
-        List<pro.sketchware.ai.models.ModelInfo> cached = preferences.getCachedModels(provider);
-        if (cached != null && !cached.isEmpty()) {
-            adapter.setModels(cached);
-            db.modelsList.setVisibility(View.VISIBLE);
-            db.emptyState.setVisibility(View.GONE);
-        } else {
-            List<String> staticIds = AiProviderModels.getStaticModels(provider);
-            if (!staticIds.isEmpty()) {
-                List<pro.sketchware.ai.models.ModelInfo> staticModels = new ArrayList<>();
-                for (String id : staticIds)
-                    staticModels.add(new pro.sketchware.ai.models.ModelInfo(id, id, provider, 0, null));
-                adapter.setModels(staticModels);
-                db.modelsList.setVisibility(View.VISIBLE);
-                db.emptyState.setVisibility(View.GONE);
-            } else {
-                adapter.setModels(new ArrayList<>());
-                db.modelsList.setVisibility(View.GONE);
-                db.emptyState.setVisibility(View.VISIBLE);
-                db.emptyText.setText("No models for " + provider.getSelectorLabel()
-                        + ".\nRefresh in AI Settings ↻");
-            }
-        }
-    }
+
 
     // ── Sidebar ───────────────────────────────────────────────────────────────
     private void setupSidebar() {
