@@ -723,6 +723,7 @@ public class BuiltInLibraries {
             new KB().a(libsArchivePath, libsDirectoryPath);
         }
         maybeExtractCoreLambdaStubsJar();
+        maybeExtractSketchwareCompileStubsJar();
         if (ProjectBuilder.hasFileChanged(baseAssetsPath + testkeyArchiveName, testkeyArchivePath)) {
             for (BuildProgressReceiver receiver : progressReceivers) {
                 receiver.onProgress("Extracting built-in signing keys...", 6);
@@ -754,6 +755,12 @@ public class BuiltInLibraries {
         String coreLambdaStubsJarName = "core-lambda-stubs.jar";
         String coreLambdaStubsJarPath = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, coreLambdaStubsJarName).getAbsolutePath();
         ProjectBuilder.hasFileChanged("libs" + File.separator + coreLambdaStubsJarName, coreLambdaStubsJarPath);
+    }
+
+    public static void maybeExtractSketchwareCompileStubsJar() {
+        String stubsJarName = "sketchware-compile-stubs.jar";
+        String stubsJarPath = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, stubsJarName).getAbsolutePath();
+        ProjectBuilder.hasFileChanged("libs" + File.separator + stubsJarName, stubsJarPath);
     }
 
     public static class BuiltInLibrary implements Parcelable {
