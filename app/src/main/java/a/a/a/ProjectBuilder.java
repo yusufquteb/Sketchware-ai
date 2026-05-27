@@ -199,6 +199,11 @@ public class ProjectBuilder {
      */
     public void compileResources() throws Exception {
         timestampResourceCompilationStarted = System.currentTimeMillis();
+        // Normalise Material3Expressive style references before AAPT2 sees them.
+        // Material3Expressive requires material:1.13.0+ which is not bundled; the
+        // Material3 equivalents are identical for layout/build purposes.
+        pro.sketchware.importer.AndroidStudioProjectImporter
+                .fixMaterial3ExpressiveStylesInDirStatic(new java.io.File(yq.resDirectoryPath));
         ResourceCompiler compiler = new ResourceCompiler(
                 this,
                 aapt2Binary,
