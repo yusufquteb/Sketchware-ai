@@ -97,11 +97,66 @@ public class ResourceCompiler {
      */
     static class Aapt2Compiler implements Compiler {
 
+        /**
+         * Compatibility resource stubs injected into every project build.
+         *
+         * Provides definitions for styles and attributes that live in libraries not
+         * bundled with Sketchware AI (core-splashscreen, preference) and for
+         * Material3 Expressive tokens not present in material-1.13.0.  The stubs
+         * are included first in the link step so that any later library (e.g. a
+         * local copy of material-1.14.0) can legitimately override them.
+         */
+        private static final String COMPAT_RES_XML =
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            + "<resources>\n"
+            + "    <!-- androidx.core:core-splashscreen stubs -->\n"
+            + "    <attr name=\"windowSplashScreenBackground\" format=\"reference|color\" />\n"
+            + "    <attr name=\"windowSplashScreenAnimatedIcon\" format=\"reference\" />\n"
+            + "    <attr name=\"windowSplashScreenIconMaskingColor\" format=\"reference|color\" />\n"
+            + "    <attr name=\"windowSplashScreenAnimationDuration\" format=\"integer\" />\n"
+            + "    <attr name=\"postSplashScreenTheme\" format=\"reference\" />\n"
+            + "    <style name=\"Theme.SplashScreen\" parent=\"android:Theme\" />\n"
+            + "    <!-- androidx.preference stubs -->\n"
+            + "    <attr name=\"widgetLayout\" format=\"reference\" />\n"
+            + "    <attr name=\"switchPreferenceCompatStyle\" format=\"reference\" />\n"
+            + "    <style name=\"Preference\" />\n"
+            + "    <style name=\"Preference.SwitchPreferenceCompat\" parent=\"Preference\" />\n"
+            + "    <style name=\"Preference.SwitchPreferenceCompat.Material\""
+            + " parent=\"Preference.SwitchPreferenceCompat\" />\n"
+            + "    <!-- Material3 Expressive stubs (not present in material-1.13.0) -->\n"
+            + "    <style name=\"ThemeOverlay.Material3Expressive.Dialog\" />\n"
+            + "    <style name=\"MaterialAlertDialog.Material3Expressive\""
+            + " parent=\"MaterialAlertDialog.Material3\" />\n"
+            + "    <style name=\"ThemeOverlay.Material3Expressive.MaterialAlertDialog\""
+            + " parent=\"ThemeOverlay.Material3Expressive.Dialog\" />\n"
+            + "    <style name=\"ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered\""
+            + " parent=\"ThemeOverlay.Material3.MaterialAlertDialog.Centered\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.Light.NoActionBar\""
+            + " parent=\"Theme.Material3.Light.NoActionBar\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.Dark.NoActionBar\""
+            + " parent=\"Theme.Material3.Dark.NoActionBar\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.DynamicColors.Light.NoActionBar\""
+            + " parent=\"Theme.Material3.Light.NoActionBar\" />\n"
+            + "    <style name=\"Theme.Material3Expressive.DynamicColors.Dark.NoActionBar\""
+            + " parent=\"Theme.Material3.Dark.NoActionBar\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.Button\""
+            + " parent=\"Widget.Material3.Button\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.CollapsingToolbar.Large\""
+            + " parent=\"Widget.Material3.CollapsingToolbar\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.Toolbar.OnSurface\""
+            + " parent=\"Widget.Material3.Toolbar\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.CircularProgressIndicator\""
+            + " parent=\"Widget.Material3.CircularProgressIndicator\" />\n"
+            + "    <style name=\"Widget.Material3Expressive.LinearProgressIndicator\""
+            + " parent=\"Widget.Material3.LinearProgressIndicator\" />\n"
+            + "</resources>\n";
+
         private final boolean buildAppBundle;
 
         private final File aapt2;
         private final ProjectBuilder buildHelper;
         private final File compiledBuiltInLibraryResourcesDirectory;
+        private File compiledCompatResourcesZip;
         private ProgressListener progressListener;
 
         public Aapt2Compiler(ProjectBuilder buildHelper, File aapt2, boolean buildAppBundle) {
@@ -120,6 +175,7 @@ public class ResourceCompiler {
             if (progressListener != null) {
                 progressListener.onProgressUpdate("Compiling resources with AAPT2...", 9);
             }
+            compileCompatibilityResources(outputPath);
             compileBuiltInLibraryResources();
             LogUtil.d(TAG + ":c", "Compiling built-in library resources took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
             savedTimeMillis = System.currentTimeMillis();
@@ -207,6 +263,12 @@ public class ResourceCompiler {
                 linkingAssertDirectoryExists(localLibraryAssetsDirectory);
                 args.add("-A");
                 args.add(localLibraryAssetsDirectory);
+            }
+
+            /* Include compat stubs first so built-in libraries can override them */
+            if (compiledCompatResourcesZip != null && compiledCompatResourcesZip.exists()) {
+                args.add("-R");
+                args.add(compiledCompatResourcesZip.getAbsolutePath());
             }
 
             /* Include compiled built-in library resources */
@@ -329,6 +391,54 @@ public class ResourceCompiler {
                         throw new zy(executor.getLog());
                     }
                 }
+            }
+        }
+
+        private void compileCompatibilityResources(String outputPath) {
+            File compatDir = new File(SketchApplication.getContext().getCacheDir(), "sketchware_compat_res");
+            File compatValuesDir = new File(compatDir, "values");
+            compatValuesDir.mkdirs();
+            compiledCompatResourcesZip = new File(compiledBuiltInLibraryResourcesDirectory, "sketchware-compat.zip");
+
+            boolean needsRecompile = !compiledCompatResourcesZip.exists();
+            if (!needsRecompile) {
+                try {
+                    Context context = SketchApplication.getContext();
+                    needsRecompile = context.getPackageManager()
+                            .getPackageInfo(context.getPackageName(), 0)
+                            .lastUpdateTime > compiledCompatResourcesZip.lastModified();
+                } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
+                    needsRecompile = true;
+                }
+            }
+
+            if (!needsRecompile) {
+                LogUtil.d(TAG + ":cCR", "Skipped compat resource recompilation");
+                return;
+            }
+
+            File compatXml = new File(compatValuesDir, "sketchware_compat.xml");
+            try (java.io.FileWriter writer = new java.io.FileWriter(compatXml)) {
+                writer.write(COMPAT_RES_XML);
+            } catch (IOException e) {
+                LogUtil.e(TAG + ":cCR", "Failed to write compat XML: " + e.getMessage());
+                compiledCompatResourcesZip = null;
+                return;
+            }
+
+            ArrayList<String> commands = new ArrayList<>();
+            commands.add(aapt2.getAbsolutePath());
+            commands.add("compile");
+            commands.add("--dir");
+            commands.add(compatDir.getAbsolutePath());
+            commands.add("-o");
+            commands.add(compiledCompatResourcesZip.getAbsolutePath());
+
+            LogUtil.d(TAG + ":cCR", "Compiling compat resources: " + commands);
+            BinaryExecutor executor = new BinaryExecutor();
+            executor.setCommands(commands);
+            if (!executor.execute().isEmpty()) {
+                LogUtil.w(TAG + ":cCR", "Compat resource compilation warnings: " + executor.getLog());
             }
         }
 
