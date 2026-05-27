@@ -47,10 +47,12 @@ public class Material3LibraryActivity extends BaseAppCompatActivity {
 
         binding.libSwitch.setChecked(material3LibraryManager.isMaterial3Enabled());
         binding.dynamicColorsSwitch.setChecked(material3LibraryManager.isDynamicColorsEnabled());
+        binding.expressiveSwitch.setChecked(material3LibraryManager.isMaterial3ExpressiveEnabled());
 
         if (!material3LibraryManager.isMaterial3Enabled()) {
             binding.toggleGroup.setEnabled(false);
             binding.dynamicColorsSwitch.setEnabled(false);
+            binding.expressiveSwitch.setEnabled(false);
         }
 
         binding.libSwitch.setOnCheckedChangeListener(getOnCheckedChangeListener());
@@ -59,6 +61,10 @@ public class Material3LibraryActivity extends BaseAppCompatActivity {
         binding.layoutSwitchDynamicColors.setOnClickListener(view -> {
             if (binding.libSwitch.isChecked())
                 binding.dynamicColorsSwitch.setChecked(!binding.dynamicColorsSwitch.isChecked());
+        });
+        binding.layoutSwitchExpressive.setOnClickListener(view -> {
+            if (binding.libSwitch.isChecked())
+                binding.expressiveSwitch.setChecked(!binding.expressiveSwitch.isChecked());
         });
 
         switch (material3LibraryManager.getTheme()) {
@@ -72,6 +78,7 @@ public class Material3LibraryActivity extends BaseAppCompatActivity {
             public void handleOnBackPressed() {
                 material3LibraryManager.getAppCombatLibraryBean().configurations.put("material3", binding.libSwitch.isChecked());
                 material3LibraryManager.getAppCombatLibraryBean().configurations.put("dynamic_colors", binding.dynamicColorsSwitch.isChecked());
+                material3LibraryManager.getAppCombatLibraryBean().configurations.put("material3_expressive", binding.expressiveSwitch.isChecked());
 
                 if (binding.selectDayNight.isChecked()) {
                     material3LibraryManager.getAppCombatLibraryBean().configurations.put("theme", "DayNight");
@@ -93,6 +100,10 @@ public class Material3LibraryActivity extends BaseAppCompatActivity {
         return (buttonView, isChecked) -> {
             binding.toggleGroup.setEnabled(isChecked);
             binding.dynamicColorsSwitch.setEnabled(isChecked);
+            binding.expressiveSwitch.setEnabled(isChecked);
+            if (!isChecked) {
+                binding.expressiveSwitch.setChecked(false);
+            }
         };
     }
 }
