@@ -426,7 +426,9 @@ public class ManageLibraryActivity extends BaseAppCompatActivity implements View
             originalFirebaseUseYn = firebaseLibraryBean.useYn;
 
             admobLibraryBean = jC.c(sc_id).b();
-            if (admobLibraryBean == null) {
+            if (admobLibraryBean == null || admobLibraryBean.libType != ProjectLibraryBean.PROJECT_LIB_TYPE_ADMOB) {
+                // The getter returned the wrong bean type (likely compat was stored here).
+                // Create a fresh admob bean so the library list does not show a duplicate AppCompat.
                 admobLibraryBean = new ProjectLibraryBean(ProjectLibraryBean.PROJECT_LIB_TYPE_ADMOB);
             }
             originalAdmobUseYn = admobLibraryBean.useYn;

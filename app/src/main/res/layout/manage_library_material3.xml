@@ -126,7 +126,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/select_day_night"
-                            style="@style/Widget.Material3Expressive.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -134,7 +134,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/select_light"
-                            style="@style/Widget.Material3Expressive.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -142,7 +142,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/select_dark"
-                            style="@style/Widget.Material3Expressive.Button.OutlinedButton"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -233,6 +233,66 @@
                     android:gravity="left"
                     android:textSize="14sp"
                     android:text="@string/design_library_dynamic_colors_description" />
+
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layout_switch_expressive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="16dp"
+                style="?attr/materialCardViewFilledStyle"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?selectableItemBackground"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="6dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:singleLine="true"
+                        android:textColor="?colorControlNormal"
+                        android:textSize="18sp"
+                        android:text="Enable Material3 Expressive" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/expressive_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="right"
+                        android:layout_marginLeft="8dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginRight="8dp"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_mtrl_design" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="left"
+                    android:textSize="14sp"
+                    android:text="Material3 Expressive uses springy animations and adaptive components. Requires material:1.13.0+. The importer enables this automatically when your project uses Widget.Material3Expressive styles." />
 
             </LinearLayout>
 

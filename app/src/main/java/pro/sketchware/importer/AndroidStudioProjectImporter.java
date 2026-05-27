@@ -317,7 +317,10 @@ public class AndroidStudioProjectImporter {
                 1, totalProgressSteps, false, "Preparing imported project structure");
         copySourceTree(detectedProject.sourceRoots, new File(filePathUtil.getPathJava(scId)));
         copyResources(detectedProject.resDirectories, new File(filePathUtil.getPathResource(scId)));
-        fixMaterial3ExpressiveStylesInDir(new File(filePathUtil.getPathResource(scId)));
+        boolean expressiveDetected = detectExpressiveUsage(detectedProject.resDirectories);
+        if (!expressiveDetected) {
+            fixMaterial3ExpressiveStylesInDir(new File(filePathUtil.getPathResource(scId)));
+        }
         copyDirectories(detectedProject.assetsDirectories, new File(filePathUtil.getPathAssets(scId)));
         copyDirectories(detectedProject.jniLibsDirectories, new File(filePathUtil.getPathNativelibs(scId)));
         importLocalJarsAndAars(detectedProject.libsDirectories, scId);
@@ -361,7 +364,7 @@ public class AndroidStudioProjectImporter {
         notifyProgress("Finalizing imported project",
                 "Applying detected library settings, writing import reports, and preparing the project for editing.",
                 finalizeStep, totalProgressSteps, false, "Saving import report and library state");
-        applyDetectedThemeAndLibraryState(scId, gradle, manifest, detectedProject, result);
+        applyDetectedThemeAndLibraryState(scId, gradle, manifest, detectedProject, result, expressiveDetected);
         writeImportedComponentIndexes(scId, manifest);
         writeImportMetadata(scId, sourceType, false);
         writeImportReport(result);
@@ -2709,7 +2712,8 @@ public class AndroidStudioProjectImporter {
     }
 
     private void applyDetectedThemeAndLibraryState(String scId, GradleSummary gradle, ManifestSummary manifest,
-                                                   DetectedProject detectedProject, ImportResult result) {
+                                                   DetectedProject detectedProject, ImportResult result,
+                                                   boolean expressiveDetected) {
         boolean appCompatDetected = gradle.appCompatDetected;
         boolean material3Detected = gradle.material3Detected;
         String themeMode = gradle.detectedThemeMode;
@@ -2768,11 +2772,16 @@ public class AndroidStudioProjectImporter {
             compatBean.configurations.put("material3", material3Detected);
             compatBean.configurations.put("dynamic_colors", material3Detected && detectDynamicColorsUsage(detectedProject.sourceRoots, detectedProject.resDirectories));
             compatBean.configurations.put("theme", TextUtils.isEmpty(themeMode) ? "DayNight" : themeMode);
+            boolean enableExpressive = material3Detected && expressiveDetected;
+            compatBean.configurations.put("material3_expressive", enableExpressive);
             libraryManager.a(compatBean);
             libraryManager.k();
-            result.warnings.add(material3Detected
+            String libraryNote = enableExpressive
+                    ? "Enabled AppCompat + Material3 + Material3 Expressive project library settings based on imported resources."
+                    : material3Detected
                     ? "Enabled AppCompat + Material3 project library settings based on imported Gradle/theme resources."
-                    : "Enabled AppCompat project library settings based on imported Gradle/theme resources.");
+                    : "Enabled AppCompat project library settings based on imported Gradle/theme resources.";
+            result.warnings.add(libraryNote);
         } catch (Throwable throwable) {
             Log.e(TAG, "Failed to apply detected library state", throwable);
             result.warnings.add("Imported project themes suggest AppCompat/Material3, but Sketchware library settings could not be updated automatically.");
@@ -2818,6 +2827,20 @@ public class AndroidStudioProjectImporter {
                             return true;
                         }
                     }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean detectExpressiveUsage(List<File> resDirectories) {
+        for (File resDir : resDirectories) {
+            if (resDir == null || !resDir.isDirectory()) continue;
+            for (File file : collectFilesRecursively(resDir)) {
+                if (!file.isFile() || !file.getName().endsWith(".xml")) continue;
+                String content = FileUtil.readFile(file.getAbsolutePath());
+                if (!TextUtils.isEmpty(content) && content.contains("Widget.Material3Expressive.")) {
+                    return true;
                 }
             }
         }
