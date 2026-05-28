@@ -553,6 +553,7 @@ public class yq {
                     case "WaveSideBar" -> N.x.isWaveSideBarUsed = true;
                     case "YouTubePlayerView" -> N.x.isYoutubePlayerUsed = true;
                     case "SwipeRefreshLayout" -> N.x.isSwipeRefreshLayoutUsed = true;
+                    case "RecyclerView" -> N.x.isRecyclerViewUsed = true;
                 }
             }
         }
@@ -626,6 +627,7 @@ public class yq {
                     case "WaveSideBar" -> N.x.isWaveSideBarUsed = true;
                     case "YouTubePlayerView" -> N.x.isYoutubePlayerUsed = true;
                     case "SwipeRefreshLayout" -> N.x.isSwipeRefreshLayoutUsed = true;
+                    case "RecyclerView" -> N.x.isRecyclerViewUsed = true;
                 }
             }
 
