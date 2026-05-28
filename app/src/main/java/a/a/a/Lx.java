@@ -189,6 +189,14 @@ public class Lx {
             content.append("implementation 'com.google.firebase:firebase-messaging'");
         }
 
+        if (isLibraryNotExcluded(BuiltInLibraries.ANDROIDX_RECYCLERVIEW, excludedLibraries) && extraMetadata.isRecyclerViewUsed && !metadata.g) {
+            content.append("implementation 'androidx.recyclerview:recyclerview:1.4.0'\r\n");
+        }
+
+        if (isLibraryNotExcluded(BuiltInLibraries.ANDROIDX_SWIPEREFRESHLAYOUT, excludedLibraries) && extraMetadata.isSwipeRefreshLayoutUsed) {
+            content.append("implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'\r\n");
+        }
+
         String sc_id = metadata.sc_id;
         String local_lib_file = FileUtil.getExternalStorageDir() + "/.sketchware/data/" + sc_id + "/local_library";
         String fileContent = FileUtil.readFile(local_lib_file);
