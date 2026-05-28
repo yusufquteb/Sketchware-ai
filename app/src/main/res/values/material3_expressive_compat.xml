@@ -10,7 +10,7 @@
     <style name="Theme.Material3Expressive.DynamicColors.Dark.NoActionBar" parent="Theme.Material3.Dark.NoActionBar" />
 
     <style name="MaterialAlertDialog.Material3Expressive" parent="MaterialAlertDialog.Material3" />
-    <style name="ThemeOverlay.Material3Expressive.Dialog" parent="ThemeOverlay.Material3.Dialog" />
+    <style name="ThemeOverlay.Material3Expressive.Dialog" parent="" />
     <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog" parent="ThemeOverlay.Material3Expressive.Dialog" />
     <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered" parent="ThemeOverlay.Material3.MaterialAlertDialog.Centered" />
 
@@ -18,6 +18,8 @@
     <style name="Widget.Material3Expressive.Button.OutlinedButton" parent="Widget.Material3.Button.OutlinedButton" />
     <style name="Widget.Material3Expressive.Button.TonalButton" parent="Widget.Material3.Button.TonalButton" />
     <style name="Widget.Material3Expressive.Button.ElevatedButton" parent="Widget.Material3.Button.ElevatedButton" />
+    <style name="Widget.Material3Expressive.Button.TextButton" parent="Widget.Material3.Button.TextButton" />
+    <style name="Widget.Material3Expressive.Button.IconButton" parent="Widget.Material3.Button.IconButton" />
     <style name="Widget.Material3Expressive.Button.IconButton.Filled" parent="Widget.Material3.Button.IconButton.Filled" />
     <style name="Widget.Material3Expressive.Button.IconButton.Tonal" parent="Widget.Material3.Button">
         <item name="backgroundTint">?attr/colorSecondaryContainer</item>
@@ -33,10 +35,54 @@
         <item name="android:paddingBottom">8dp</item>
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
+    <style name="Widget.Material3Expressive.Button.IconButton.Outlined" parent="Widget.Material3.Button.IconButton.Outlined" />
 
     <style name="Widget.Material3Expressive.CircularProgressIndicator" parent="Widget.Material3.CircularProgressIndicator" />
     <style name="Widget.Material3Expressive.CircularProgressIndicator.Wavy" parent="Widget.Material3.CircularProgressIndicator" />
     <style name="Widget.Material3Expressive.LinearProgressIndicator" parent="Widget.Material3.LinearProgressIndicator" />
+
+    <style name="Widget.Material3Expressive.FloatingActionButton" parent="Widget.MaterialComponents.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.FloatingActionButton.Small" parent="Widget.MaterialComponents.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.FloatingActionButton.Large" parent="Widget.MaterialComponents.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.ExtendedFloatingActionButton" parent="Widget.MaterialComponents.ExtendedFloatingActionButton" />
+    <style name="Widget.Material3Expressive.ExtendedFloatingActionButton.Icon" parent="Widget.MaterialComponents.ExtendedFloatingActionButton" />
+
+    <style name="Widget.Material3Expressive.CardView" parent="Widget.MaterialComponents.CardView" />
+    <style name="Widget.Material3Expressive.CardView.Elevated" parent="Widget.MaterialComponents.CardView" />
+    <style name="Widget.Material3Expressive.CardView.Filled" parent="Widget.MaterialComponents.CardView" />
+    <style name="Widget.Material3Expressive.CardView.Outlined" parent="Widget.Material3.CardView.Outlined" />
+
+    <style name="Widget.Material3Expressive.Chip.Assist" parent="Widget.Material3.Chip.Assist" />
+    <style name="Widget.Material3Expressive.Chip.Filter" parent="Widget.Material3.Chip.Filter" />
+    <style name="Widget.Material3Expressive.Chip.Input" parent="Widget.Material3.Chip.Input" />
+    <style name="Widget.Material3Expressive.Chip.Suggestion" parent="Widget.Material3.Chip.Suggestion" />
+
+    <style name="Widget.Material3Expressive.NavigationBar" parent="Widget.MaterialComponents.BottomNavigationView.Colored" />
+    <style name="Widget.Material3Expressive.NavigationBarView.ActiveIndicator" parent="" />
+
+    <style name="Widget.Material3Expressive.BottomAppBar" parent="Widget.Material3.BottomAppBar" />
+    <style name="Widget.Material3Expressive.BottomSheet.Modal" parent="Widget.Material3.BottomSheet.Modal" />
+    <style name="Widget.Material3Expressive.BottomSheet.Editable" parent="Widget.Material3.BottomSheet.Modal" />
+
+    <style name="Widget.Material3Expressive.TextInputLayout.FilledBox" parent="Widget.Material3.TextInputLayout.FilledBox" />
+    <style name="Widget.Material3Expressive.TextInputLayout.OutlinedBox" parent="Widget.Material3.TextInputLayout.OutlinedBox" />
+    <style name="Widget.Material3Expressive.TextInputLayout.FilledBox.Dense" parent="Widget.Material3.TextInputLayout.FilledBox.Dense" />
+    <style name="Widget.Material3Expressive.TextInputLayout.OutlinedBox.Dense" parent="Widget.Material3.TextInputLayout.OutlinedBox.Dense" />
+
+    <style name="Widget.Material3Expressive.Slider" parent="Widget.Material3.Slider" />
+    <style name="Widget.Material3Expressive.RangeSlider" parent="Widget.Material3.Slider" />
+
+    <style name="Widget.Material3Expressive.SwitchMaterial" parent="Widget.Material3.CompoundButton.Switch" />
+    <style name="Widget.Material3Expressive.CompoundButton.CheckBox" parent="Widget.Material3.CompoundButton.CheckBox" />
+    <style name="Widget.Material3Expressive.CompoundButton.RadioButton" parent="Widget.Material3.CompoundButton.RadioButton" />
+
+    <style name="Widget.Material3Expressive.TabLayout" parent="Widget.Material3.TabLayout" />
+    <style name="Widget.Material3Expressive.TabLayout.Secondary" parent="Widget.Material3.TabLayout.Secondary" />
+
+    <style name="Widget.Material3Expressive.Snackbar" parent="Widget.Material3.Snackbar" />
+
+    <style name="Widget.Material3Expressive.NavigationDrawer" parent="" />
+    <style name="Widget.Material3Expressive.NavigationDrawerItem" parent="Widget.MaterialComponents.NavigationView" />
 
     <style name="Widget.Material3Expressive.Toolbar.OnSurface" parent="Widget.Material3.Toolbar">
         <item name="android:background">?attr/colorSurface</item>

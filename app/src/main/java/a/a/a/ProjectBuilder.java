@@ -378,10 +378,15 @@ public class ProjectBuilder {
         if (isModernJavaEnabled()) {
             return true;
         }
+        String dexer = build_settings.getValue(BuildSettings.SETTING_DEXER, BuildSettings.SETTING_DEXER_DX);
+        return dexer.equals(BuildSettings.SETTING_DEXER_D8) || dexer.equals(BuildSettings.SETTING_DEXER_R8);
+    }
+
+    public boolean isR8DexerEnabled() {
         return build_settings.getValue(
                 BuildSettings.SETTING_DEXER,
                 BuildSettings.SETTING_DEXER_DX
-        ).equals(BuildSettings.SETTING_DEXER_D8);
+        ).equals(BuildSettings.SETTING_DEXER_R8);
     }
 
     public boolean isParallelEcjEnabled() {
@@ -392,6 +397,7 @@ public class ProjectBuilder {
     }
 
     public String getDxRunningText() {
+        if (isR8DexerEnabled()) return "R8 is running...";
         return (isD8Enabled() ? "D8" : "Dx") + " is running...";
     }
 
@@ -404,7 +410,16 @@ public class ProjectBuilder {
         FileUtil.makeDir(yq.binDirectoryPath + File.separator + "dex");
         if (proguard.isShrinkingEnabled() && proguard.isR8Enabled()) return;
 
-        if (isD8Enabled()) {
+        if (isR8DexerEnabled()) {
+            long savedTimeMillis = System.currentTimeMillis();
+            try {
+                runR8Dexer();
+                LogUtil.d(TAG, "R8 (dexer mode) took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
+            } catch (Exception e) {
+                LogUtil.e(TAG, "R8 (dexer mode) failed to process .class files", e);
+                throw e;
+            }
+        } else if (isD8Enabled()) {
             long savedTimeMillis = System.currentTimeMillis();
             try {
                 DexCompiler.compileDexFiles(this);
@@ -473,6 +488,12 @@ public class ProjectBuilder {
                         BuildSettings.SETTING_JAVA_VERSION_1_8)
                 .equals(BuildSettings.SETTING_JAVA_VERSION_1_7)) {
             classpath.append(":").append(new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "core-lambda-stubs.jar").getAbsolutePath());
+        }
+
+        /* Add Sketchware compile-time API stubs (BuildSettings, BuiltInLibraries, coil, R8) */
+        File sketchwareStubs = new File(BuiltInLibraries.EXTRACTED_COMPILE_ASSETS_PATH, "sketchware-compile-stubs.jar");
+        if (sketchwareStubs.exists()) {
+            classpath.append(":").append(sketchwareStubs.getAbsolutePath());
         }
 
         /* Add used built-in libraries to the classpath */
@@ -1407,6 +1428,27 @@ public class ProjectBuilder {
         sb.append("\n");
         sb.append("-keep class ").append(yq.packageName).append(".R { *; }").append('\n');
         return sb.toString();
+    }
+
+    private void runR8Dexer() throws IOException {
+        ArrayList<String> rules = new ArrayList<>();
+        rules.add("-dontshrink");
+        rules.add("-dontoptimize");
+        rules.add("-dontobfuscate");
+
+        try {
+            JarBuilder.INSTANCE.generateJar(new File(yq.compiledClassesPath));
+            new R8Compiler(
+                    rules,
+                    new String[]{ProguardHandler.ANDROID_PROGUARD_RULES_PATH, yq.proguardAaptRules},
+                    getProguardClasspath().split(":"),
+                    new String[]{yq.compiledClassesPath + ".jar"},
+                    settings.getMinSdkVersion(),
+                    yq
+            ).compile();
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 
     public void runR8() throws IOException {

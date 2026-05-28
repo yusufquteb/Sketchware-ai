@@ -3,6 +3,7 @@ package pro.sketchware.dialogs;
 import static mod.hey.studios.build.BuildSettings.SETTING_ANDROID_JAR_PATH;
 import static mod.hey.studios.build.BuildSettings.SETTING_CLASSPATH;
 import static mod.hey.studios.build.BuildSettings.SETTING_DEXER;
+import static mod.hey.studios.build.BuildSettings.SETTING_DEXER_R8;
 import static mod.hey.studios.build.BuildSettings.SETTING_ENABLE_LOGCAT;
 import static mod.hey.studios.build.BuildSettings.SETTING_JAVA_VERSION;
 import static mod.hey.studios.build.BuildSettings.SETTING_JAVA_VERSION_11;
@@ -59,12 +60,12 @@ public class BuildSettingsBottomSheet extends BottomSheetDialogFragment {
 
     public static String[] getAvailableJavaVersions() {
         return new String[]{SETTING_JAVA_VERSION_1_7, SETTING_JAVA_VERSION_1_8, SETTING_JAVA_VERSION_11,
-                SETTING_JAVA_VERSION_15, SETTING_JAVA_VERSION_16};
+                SETTING_JAVA_VERSION_15, SETTING_JAVA_VERSION_16, SETTING_JAVA_VERSION_17, SETTING_JAVA_VERSION_20};
     }
 
     public static void handleJavaVersionChange(String choice) {
         if (!choice.equals(SETTING_JAVA_VERSION_1_7)) {
-            SketchwareUtil.toast("Java 8+ automatically uses D8 for desugaring during builds.");
+            SketchwareUtil.toast("Java 8+ requires D8 or R8 for desugaring. Dx will be upgraded automatically.");
         }
     }
 
@@ -97,7 +98,7 @@ public class BuildSettingsBottomSheet extends BottomSheetDialogFragment {
         binding.tilAndroidJar.getEditText().setText(projectSettings.getValue(SETTING_ANDROID_JAR_PATH, ""));
         binding.tilClasspath.getEditText().setText(projectSettings.getValue(SETTING_CLASSPATH, ""));
 
-        setRadioGroupOptions(binding.rgDexer, new String[]{"Dx", "D8"}, SETTING_DEXER, "D8");
+        setRadioGroupOptions(binding.rgDexer, new String[]{"Dx", "D8", SETTING_DEXER_R8}, SETTING_DEXER, "D8");
         setRadioGroupOptions(binding.rgJavaVersion, getAvailableJavaVersions(), SETTING_JAVA_VERSION, "1.8");
 
         setCheckboxValue(binding.cbNoWarnings, SETTING_NO_WARNINGS, true);

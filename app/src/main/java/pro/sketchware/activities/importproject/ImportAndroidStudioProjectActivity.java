@@ -229,12 +229,10 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
         }
         progressDialogController.show();
         progressDialogController.update(progress);
-        statusText.setText(progress.toDisplayText());
     }
 
     private void showResult(AndroidStudioProjectImporter.ImportResult result) {
         String displayText = result.toDisplayText();
-        statusText.setText(displayText);
         if (isFinishing() || isDestroyed()) {
             return;
         }
@@ -326,8 +324,6 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
         protected void onProgressUpdate(String... values) {
             if (latestProgress != null) {
                 updateProgressUi(latestProgress);
-            } else if (values != null && values.length > 0 && values[0] != null) {
-                statusText.setText(values[0]);
             }
         }
 
