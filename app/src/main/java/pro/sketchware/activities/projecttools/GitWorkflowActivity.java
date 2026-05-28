@@ -10,13 +10,17 @@ import android.widget.TextView;
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +44,10 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
     private TextInputEditText inputCommitTitle, inputCommitDesc;
     private TextInputEditText inputPatch;
     private TextView outputView;
+    private TextView tvLoadingLabel;
+    private LinearProgressIndicator progressBar;
+    private MaterialCardView cardLoading;
+    private List<MaterialButton> actionButtons;
     private boolean advancedVisible = false;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -60,13 +68,28 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
         toolbar.setSubtitle("Project " + scId);
         toolbar.setNavigationOnClickListener(v -> finish());
 
-        inputUrl = findViewById(R.id.input_url);
-        inputToken = findViewById(R.id.input_token);
-        inputBranch = findViewById(R.id.input_branch);
-        inputCommitTitle = findViewById(R.id.input_commit_title);
-        inputCommitDesc = findViewById(R.id.input_commit_desc);
-        inputPatch = findViewById(R.id.input_patch);
-        outputView = findViewById(R.id.output_view);
+        progressBar   = findViewById(R.id.progress_bar);
+        cardLoading   = findViewById(R.id.card_loading);
+        tvLoadingLabel = findViewById(R.id.tv_loading_label);
+
+        inputUrl          = findViewById(R.id.input_url);
+        inputToken        = findViewById(R.id.input_token);
+        inputBranch       = findViewById(R.id.input_branch);
+        inputCommitTitle  = findViewById(R.id.input_commit_title);
+        inputCommitDesc   = findViewById(R.id.input_commit_desc);
+        inputPatch        = findViewById(R.id.input_patch);
+        outputView        = findViewById(R.id.output_view);
+
+        actionButtons = Arrays.asList(
+                (MaterialButton) findViewById(R.id.btn_pull),
+                (MaterialButton) findViewById(R.id.btn_push),
+                (MaterialButton) findViewById(R.id.btn_status),
+                (MaterialButton) findViewById(R.id.btn_log),
+                (MaterialButton) findViewById(R.id.btn_clone_mirror),
+                (MaterialButton) findViewById(R.id.btn_import_gradle),
+                (MaterialButton) findViewById(R.id.btn_switch_branch),
+                (MaterialButton) findViewById(R.id.btn_apply_patch)
+        );
 
         loadSavedConfig();
         wireButtons();
@@ -74,7 +97,7 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
 
         outputView.setText(
                 "Repository: " + ProjectToolPaths.getProjectDataDir(scId).getAbsolutePath()
-                + "\nMirror: " + ProjectToolPaths.getProjectGitMirrorDir(scId).getAbsolutePath()
+                + "\nMirror:     " + ProjectToolPaths.getProjectGitMirrorDir(scId).getAbsolutePath()
         );
     }
 
@@ -87,15 +110,15 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
     }
 
     private void wireButtons() {
-        MaterialButton btnSave = findViewById(R.id.btn_save_config);
-        MaterialButton btnPull = findViewById(R.id.btn_pull);
-        MaterialButton btnPush = findViewById(R.id.btn_push);
-        MaterialButton btnStatus = findViewById(R.id.btn_status);
-        MaterialButton btnLog = findViewById(R.id.btn_log);
-        MaterialButton btnCloneMirror = findViewById(R.id.btn_clone_mirror);
-        MaterialButton btnImportGradle = findViewById(R.id.btn_import_gradle);
-        MaterialButton btnSwitchBranch = findViewById(R.id.btn_switch_branch);
-        MaterialButton btnApplyPatch = findViewById(R.id.btn_apply_patch);
+        MaterialButton btnSave        = findViewById(R.id.btn_save_config);
+        MaterialButton btnPull        = actionButtons.get(0);
+        MaterialButton btnPush        = actionButtons.get(1);
+        MaterialButton btnStatus      = actionButtons.get(2);
+        MaterialButton btnLog         = actionButtons.get(3);
+        MaterialButton btnCloneMirror = actionButtons.get(4);
+        MaterialButton btnImportGradle = actionButtons.get(5);
+        MaterialButton btnSwitchBranch = actionButtons.get(6);
+        MaterialButton btnApplyPatch  = actionButtons.get(7);
         MaterialButton btnClearOutput = findViewById(R.id.btn_clear_output);
 
         btnSave.setOnClickListener(v -> {
@@ -104,42 +127,45 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
         });
 
         btnPull.setOnClickListener(v ->
-                runAsync("Pulling", () -> GitRepositoryCore.pull(ProjectToolPaths.getProjectDataDir(scId), readConfig()))
+                runAsync("Pulling from remote…",
+                        () -> GitRepositoryCore.pull(ProjectToolPaths.getProjectDataDir(scId), readConfig()))
         );
 
         btnPush.setOnClickListener(v -> confirmPush());
 
         btnStatus.setOnClickListener(v ->
-                runAsyncText("Reading status", this::statusSummary)
+                runAsyncText("Reading repository status…", this::statusSummary)
         );
 
         btnLog.setOnClickListener(v ->
-                runAsyncText("Reading log", this::recentCommits)
+                runAsyncText("Loading commit log…", this::recentCommits)
         );
 
         btnCloneMirror.setOnClickListener(v ->
-                runAsync("Cloning mirror", () -> GitRepositoryCore.cloneRepository(ProjectToolPaths.getProjectGitMirrorDir(scId), readConfig()))
+                runAsync("Cloning remote mirror…",
+                        () -> GitRepositoryCore.cloneRepository(ProjectToolPaths.getProjectGitMirrorDir(scId), readConfig()))
         );
 
         btnImportGradle.setOnClickListener(v ->
-                runAsyncText("Importing Gradle files", this::importGradleFilesFromMirror)
+                runAsyncText("Importing Gradle files…", this::importGradleFilesFromMirror)
         );
 
         btnSwitchBranch.setOnClickListener(v ->
-                runAsync("Switching branch", () -> GitRepositoryCore.switchBranch(ProjectToolPaths.getProjectDataDir(scId), readConfig(), getText(inputBranch)))
+                runAsync("Switching branch…",
+                        () -> GitRepositoryCore.switchBranch(ProjectToolPaths.getProjectDataDir(scId), readConfig(), getText(inputBranch)))
         );
 
         btnApplyPatch.setOnClickListener(v ->
-                runAsync("Applying patch", this::applyPatch)
+                runAsync("Applying patch…", this::applyPatch)
         );
 
         btnClearOutput.setOnClickListener(v -> outputView.setText(""));
     }
 
     private void setupAdvancedToggle() {
-        LinearLayout header = findViewById(R.id.advanced_header);
+        LinearLayout header  = findViewById(R.id.advanced_header);
         LinearLayout content = findViewById(R.id.advanced_content);
-        ImageView chevron = findViewById(R.id.advanced_chevron);
+        ImageView    chevron = findViewById(R.id.advanced_chevron);
 
         header.setOnClickListener(v -> {
             advancedVisible = !advancedVisible;
@@ -150,12 +176,55 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
         });
     }
 
+    // ── Loading state ─────────────────────────────────────────────────────────
+
+    private void setLoading(boolean busy, String label) {
+        progressBar.setVisibility(busy ? View.VISIBLE : View.GONE);
+        cardLoading.setVisibility(busy ? View.VISIBLE : View.GONE);
+        if (busy && label != null) tvLoadingLabel.setText(label);
+        for (MaterialButton btn : actionButtons) btn.setEnabled(!busy);
+    }
+
+    // ── Async helpers ─────────────────────────────────────────────────────────
+
+    private void runAsync(String label, GitCall call) {
+        setLoading(true, label);
+        GitConfigStore.save(this, readConfig());
+        executor.execute(() -> {
+            GitResult result = call.run();
+            runOnUiThread(() -> {
+                setLoading(false, null);
+                appendOutput((result.success ? "✓ " : "✗ ") + result.message);
+            });
+        });
+    }
+
+    private void runAsyncText(String label, TextCall call) {
+        setLoading(true, label);
+        GitConfigStore.save(this, readConfig());
+        executor.execute(() -> {
+            String text;
+            try {
+                text = call.run();
+            } catch (Exception e) {
+                text = "✗ " + e.getMessage();
+            }
+            String finalText = text;
+            runOnUiThread(() -> {
+                setLoading(false, null);
+                appendOutput(finalText);
+            });
+        });
+    }
+
+    // ── Git operations ────────────────────────────────────────────────────────
+
     private void confirmPush() {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Commit and push?")
                 .setMessage("Stages all project changes, creates a commit, and pushes to origin.")
                 .setPositiveButton("Push", (d, w) ->
-                        runAsync("Pushing", () -> GitRepositoryCore.push(
+                        runAsync("Pushing to remote…", () -> GitRepositoryCore.push(
                                 ProjectToolPaths.getProjectDataDir(scId),
                                 readConfig(),
                                 getText(inputCommitTitle),
@@ -168,30 +237,6 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
 
     private GitConfig readConfig() {
         return new GitConfig(scId, GitUrlNormalizer.normalize(getText(inputUrl)), getText(inputToken), getText(inputBranch));
-    }
-
-    private void runAsync(String label, GitCall call) {
-        appendOutput(label + "…");
-        GitConfigStore.save(this, readConfig());
-        executor.execute(() -> {
-            GitResult result = call.run();
-            runOnUiThread(() -> appendOutput((result.success ? "✓ " : "✗ ") + result.message));
-        });
-    }
-
-    private void runAsyncText(String label, TextCall call) {
-        appendOutput(label + "…");
-        GitConfigStore.save(this, readConfig());
-        executor.execute(() -> {
-            String text;
-            try {
-                text = call.run();
-            } catch (Exception e) {
-                text = "✗ " + e.getMessage();
-            }
-            String finalText = text;
-            runOnUiThread(() -> appendOutput(finalText));
-        });
     }
 
     private String importGradleFilesFromMirror() throws Exception {
@@ -219,11 +264,11 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
             StringBuilder out = new StringBuilder();
             out.append("Branch: ").append(git.getRepository().getBranch()).append('\n');
             out.append("Clean:  ").append(s.isClean()).append('\n');
-            appendSet(out, "Added", s.getAdded());
-            appendSet(out, "Changed", s.getChanged());
-            appendSet(out, "Modified", s.getModified());
-            appendSet(out, "Missing", s.getMissing());
-            appendSet(out, "Removed", s.getRemoved());
+            appendSet(out, "Added",     s.getAdded());
+            appendSet(out, "Changed",   s.getChanged());
+            appendSet(out, "Modified",  s.getModified());
+            appendSet(out, "Missing",   s.getMissing());
+            appendSet(out, "Removed",   s.getRemoved());
             appendSet(out, "Untracked", s.getUntracked());
             return out.toString();
         }
@@ -245,15 +290,14 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
         return out.toString();
     }
 
+    // ── Utilities ─────────────────────────────────────────────────────────────
+
     private void appendSet(StringBuilder out, String name, java.util.Set<String> values) {
         if (values.isEmpty()) return;
         out.append(name).append(": ").append(values.size()).append('\n');
         int count = 0;
         for (String value : values) {
-            if (count++ >= 10) {
-                out.append("    …").append(values.size() - 10).append(" more\n");
-                break;
-            }
+            if (count++ >= 10) { out.append("    …").append(values.size() - 10).append(" more\n"); break; }
             out.append("    • ").append(value).append('\n');
         }
     }
@@ -274,6 +318,6 @@ public class GitWorkflowActivity extends BaseAppCompatActivity {
         super.onDestroy();
     }
 
-    private interface GitCall { GitResult run(); }
+    private interface GitCall  { GitResult run(); }
     private interface TextCall { String run() throws Exception; }
 }
