@@ -12,6 +12,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
+      pull-requests: write
 
     steps:
     - uses: actions/checkout@v4
@@ -65,3 +66,23 @@ jobs:
         name: build-log
         path: build.log
         retention-days: 3
+
+    - name: Post build error to PR
+      if: failure() && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let log = '';
+          try { log = fs.readFileSync('build.log', 'utf8'); } catch(e) { log = 'build.log not found'; }
+          const lines = log.split('\n');
+          const errorStart = lines.findIndex(l => /FAILURE|error:|Error |Exception/.test(l));
+          const snippet = errorStart >= 0
+            ? lines.slice(Math.max(0, errorStart - 5), errorStart + 60).join('\n')
+            : lines.slice(-80).join('\n');
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: `### Build failure log\n\`\`\`\n${snippet.slice(0, 8000)}\n\`\`\``
+          });
