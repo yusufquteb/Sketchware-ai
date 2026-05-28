@@ -56,4 +56,12 @@ jobs:
           -dname "CN=Test,OU=Test,O=Test,L=Test,S=Test,C=US"
 
     - name: Build debug (android26)
-      run: ./gradlew assembleAndroid26Debug --stacktrace
+      run: ./gradlew assembleAndroid26Debug --stacktrace 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+
+    - name: Upload build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build.log
+        retention-days: 3
