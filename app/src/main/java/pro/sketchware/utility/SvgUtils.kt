@@ -7,7 +7,6 @@ import android.widget.ImageView
 import androidx.core.graphics.drawable.toBitmap
 import coil.ImageLoader
 import coil.decode.SvgDecoder
-import coil.load
 import coil.request.ImageRequest
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -101,9 +100,14 @@ class SvgUtils(private val context: Context) {
     }
 
     fun loadWithoutQueue(imageView: ImageView, filePath: String) {
-        imageView.load(filePath) {
-            decoderFactory { result, options, _ -> SvgDecoder(result.source, options) }
-        }
+        val file = File(filePath)
+        if (!file.exists()) return
+        val request = ImageRequest.Builder(context)
+            .data(file)
+            .decoderFactory(SvgDecoder.Factory())
+            .target(imageView)
+            .build()
+        imageLoader!!.enqueue(request)
     }
 
     fun convert(inputFilePath: String, outputDir: String, fillColor: String?) {

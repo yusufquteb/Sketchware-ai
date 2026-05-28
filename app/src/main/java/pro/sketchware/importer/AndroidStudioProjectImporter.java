@@ -1270,14 +1270,14 @@ public class AndroidStudioProjectImporter {
         String lowerCasePath = normalizedRelativePath.toLowerCase(Locale.US);
         String fileName = file.getName();
 
+        // Only skip top-level build output directories (build/, generated/, out/) to avoid
+        // incorrectly filtering Java source files whose package path contains these words
+        // (e.g. mod.jbk.build.* or com.example.generated.*).
         if ("build".equals(lowerCasePath)
                 || "generated".equals(lowerCasePath)
                 || "out".equals(lowerCasePath)
-                || lowerCasePath.contains("/build/")
                 || lowerCasePath.startsWith("build/")
-                || lowerCasePath.contains("/generated/")
                 || lowerCasePath.startsWith("generated/")
-                || lowerCasePath.contains("/out/")
                 || lowerCasePath.startsWith("out/")) {
             return true;
         }

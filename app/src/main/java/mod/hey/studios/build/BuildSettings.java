@@ -33,6 +33,7 @@ public class BuildSettings extends ProjectSettings implements Serializable {
 
     public static final String SETTING_DEXER_D8 = "D8";
     public static final String SETTING_DEXER_DX = "Dx";
+    public static final String SETTING_DEXER_R8 = "R8";
     public static final String SETTING_JAVA_VERSION_1_7 = "1.7";
     public static final String SETTING_JAVA_VERSION_1_8 = "1.8";
     public static final String SETTING_JAVA_VERSION_11 = "11";
