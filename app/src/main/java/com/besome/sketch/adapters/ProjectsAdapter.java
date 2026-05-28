@@ -38,6 +38,8 @@ import pro.sketchware.R;
 import pro.sketchware.project.ProjectCloneTool;
 
 import pro.sketchware.activities.main.fragments.projects.ProjectsFragment;
+import pro.sketchware.activities.projecttools.GitWorkflowActivity;
+import pro.sketchware.activities.projecttools.ProjectToolsHubActivity;
 import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 import pro.sketchware.ai.storage.WorkspaceManager;
 import pro.sketchware.databinding.BottomSheetProjectOptionsBinding;
@@ -319,6 +321,12 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
                     "AI • " + projectName,
                     "Audit and improve Sketchware project '" + projectName + "'. Understand its screens, logic, resources, libraries, and build setup, then help me make production-ready changes.");
             projectOptionsBSD.dismiss();
+        });
+
+        binding.projectGit.setOnClickListener(v -> {
+            projectOptionsBSD.dismiss();
+            activity.startActivity(new Intent(activity, GitWorkflowActivity.class)
+                    .putExtra(ProjectToolsHubActivity.EXTRA_SC_ID, yB.c(projectMap, "sc_id")));
         });
 
         binding.projectClone.setOnClickListener(v -> {
