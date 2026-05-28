@@ -50,7 +50,7 @@
     <style name="Widget.Material3Expressive.CardView" parent="Widget.MaterialComponents.CardView" />
     <style name="Widget.Material3Expressive.CardView.Elevated" parent="Widget.MaterialComponents.CardView" />
     <style name="Widget.Material3Expressive.CardView.Filled" parent="Widget.MaterialComponents.CardView" />
-    <style name="Widget.Material3Expressive.CardView.Outlined" parent="Widget.MaterialComponents.CardView.Outlined" />
+    <style name="Widget.Material3Expressive.CardView.Outlined" parent="Widget.Material3.CardView.Outlined" />
 
     <style name="Widget.Material3Expressive.Chip.Assist" parent="Widget.Material3.Chip.Assist" />
     <style name="Widget.Material3Expressive.Chip.Filter" parent="Widget.Material3.Chip.Filter" />
