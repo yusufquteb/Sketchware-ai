@@ -1,22 +1,20 @@
 package mod.jbk.export;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 
+import com.besome.sketch.tools.NewKeyStoreActivity;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.io.File;
 
 import a.a.a.wq;
-import kellinwood.security.zipsigner.optional.CertCreator;
-import kellinwood.security.zipsigner.optional.DistinguishedNameValues;
 import mod.hey.studios.util.Helper;
-import org.spongycastle.asn1.x500.style.BCStyle;
-import pro.sketchware.R;
 import pro.sketchware.databinding.DialogKeystoreCredentialsBinding;
 import pro.sketchware.utility.SketchwareUtil;
 
@@ -79,23 +77,28 @@ public class GetKeyStoreCredentialsDialog {
 
     private void updateSectionVisibility() {
         boolean isKeystore = mode == SigningMode.OWN_KEY_STORE;
-        boolean isCreate   = mode == SigningMode.CREATE_KEYSTORE;
         boolean isSigning  = mode != SigningMode.DONT_SIGN;
 
         binding.cardKeystore.setVisibility(isKeystore ? View.VISIBLE : View.GONE);
-        binding.cardCreate.setVisibility(isCreate   ? View.VISIBLE : View.GONE);
         binding.cardSchemes.setVisibility(isSigning  ? View.VISIBLE : View.GONE);
-
-        switch (mode) {
-            case CREATE_KEYSTORE: binding.btnBuild.setText("Create & Build"); break;
-            case DONT_SIGN:       binding.btnBuild.setText("Build unsigned"); break;
-            default:              binding.btnBuild.setText("Build"); break;
-        }
+        binding.btnBuild.setText(mode == SigningMode.DONT_SIGN ? "Build unsigned" : "Build");
     }
 
     private void setupButtons() {
         binding.btnCancel.setOnClickListener(v -> bottomSheet.dismiss());
         binding.btnBuild.setOnClickListener(v -> onBuildClick());
+        binding.btnCreateKeystore.setOnClickListener(v -> openCreateKeystore());
+    }
+
+    private void openCreateKeystore() {
+        // Pre-fill the path with the default release key location so the user
+        // can see where the new keystore will land once creation is complete.
+        binding.etKeystorePath.setText(wq.j());
+        // Switch to OWN_KEY_STORE mode so the credentials card is visible on return.
+        mode = SigningMode.OWN_KEY_STORE;
+        binding.actSigningMode.setText(mode.label, false);
+        updateSectionVisibility();
+        activity.startActivity(new Intent(activity, NewKeyStoreActivity.class));
     }
 
     private void onBuildClick() {
@@ -116,11 +119,6 @@ public class GetKeyStoreCredentialsDialog {
                 ));
                 break;
 
-            case CREATE_KEYSTORE:
-                if (!validateCreate()) return;
-                createAndBuild();
-                break;
-
             case TESTKEY:
                 preferences.edit().putString(PREF_SIGNING_MODE, mode.name()).apply();
                 bottomSheet.dismiss();
@@ -132,51 +130,6 @@ public class GetKeyStoreCredentialsDialog {
                 bottomSheet.dismiss();
                 receiver.gotCredentials(null);
                 break;
-        }
-    }
-
-    private void createAndBuild() {
-        String alias    = Helper.getText(binding.etNewAlias).trim();
-        String password = Helper.getText(binding.etNewPassword);
-        String validityStr = Helper.getText(binding.etValidity).trim();
-        int validity = 25;
-        try { validity = Integer.parseInt(validityStr); } catch (Exception ignored) {}
-
-        DistinguishedNameValues dn = new DistinguishedNameValues();
-        String cn      = Helper.getText(binding.etCn).trim();
-        String ou      = Helper.getText(binding.etOu).trim();
-        String org     = Helper.getText(binding.etOrg).trim();
-        String city    = Helper.getText(binding.etCity).trim();
-        String state   = Helper.getText(binding.etState).trim();
-        String country = Helper.getText(binding.etCountry).trim();
-        if (!cn.isEmpty())      dn.put(BCStyle.CN, cn);
-        if (!ou.isEmpty())      dn.put(BCStyle.OU, ou);
-        if (!org.isEmpty())     dn.put(BCStyle.O,  org);
-        if (!city.isEmpty())    dn.put(BCStyle.L,  city);
-        if (!state.isEmpty())   dn.put(BCStyle.ST, state);
-        if (!country.isEmpty()) dn.put(BCStyle.C,  country);
-
-        String keystorePath = wq.j();
-        try {
-            File dir = new File(keystorePath).getParentFile();
-            if (dir != null && !dir.exists()) dir.mkdirs();
-            CertCreator.createKeystoreAndKey(
-                    keystorePath, password.toCharArray(),
-                    "RSA", 2048, alias, password.toCharArray(),
-                    "SHA256withRSA", validity, dn);
-            preferences.edit()
-                    .putString(PREF_SIGNING_MODE, SigningMode.OWN_KEY_STORE.name())
-                    .putString(PREF_KEYSTORE_PATH, keystorePath)
-                    .putString(PREF_KEY_ALIAS, alias)
-                    .apply();
-            bottomSheet.dismiss();
-            receiver.gotCredentials(new Credentials(
-                    keystorePath, alias, password, password,
-                    binding.cbV1.isChecked(), binding.cbV2.isChecked(),
-                    binding.cbV3.isChecked(), binding.cbV4.isChecked()
-            ));
-        } catch (Exception e) {
-            SketchwareUtil.toastError("Failed to create keystore: " + e.getMessage());
         }
     }
 
@@ -214,41 +167,6 @@ public class GetKeyStoreCredentialsDialog {
         return ok;
     }
 
-    private boolean validateCreate() {
-        boolean ok = true;
-        String alias = Helper.getText(binding.etNewAlias).trim();
-        String pwd   = Helper.getText(binding.etNewPassword);
-        String pwd2  = Helper.getText(binding.etNewPasswordConfirm);
-
-        if (TextUtils.isEmpty(alias)) {
-            binding.tilNewAlias.setError("Certificate name can't be empty");
-            ok = false;
-        } else {
-            binding.tilNewAlias.setError(null);
-        }
-        if (pwd.length() < 6) {
-            binding.tilNewPassword.setError("Password must be at least 6 characters");
-            ok = false;
-        } else {
-            binding.tilNewPassword.setError(null);
-        }
-        if (!pwd.equals(pwd2)) {
-            binding.tilNewPasswordConfirm.setError("Passwords do not match");
-            ok = false;
-        } else {
-            binding.tilNewPasswordConfirm.setError(null);
-        }
-        String country = Helper.getText(binding.etCountry).trim();
-        if (!country.isEmpty() && country.length() != 2) {
-            binding.tilCountry.setError("Country code must be 2 letters");
-            ok = false;
-        } else {
-            binding.tilCountry.setError(null);
-        }
-        if (!ok) SketchwareUtil.toastError("Please fix the keystore inputs and try again.");
-        return ok;
-    }
-
     private void savePreferences() {
         preferences.edit()
                 .putString(PREF_SIGNING_MODE, mode.name())
@@ -267,7 +185,6 @@ public class GetKeyStoreCredentialsDialog {
 
     private enum SigningMode {
         OWN_KEY_STORE("Sign with keystore"),
-        CREATE_KEYSTORE("Create new keystore"),
         TESTKEY("Sign with test key"),
         DONT_SIGN("Don't sign");
 
