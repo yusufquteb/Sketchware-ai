@@ -14,27 +14,22 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import a.a.a.jC;
+import pro.sketchware.util.SketchwareFileDecryptor;
+import pro.sketchware.util.SketchwareFileEncryptor;
 import pro.sketchware.utility.SketchwareUtil;
 
+/**
+ * Manages activities in a Sketchware project: Import (add), Clone, Rename.
+ *
+ * Uses the jC.b(scId) API for file-metadata operations and
+ * SketchwareFileDecryptor / SketchwareFileEncryptor for view/logic files.
+ */
 public class ActivityManagerActivity extends BaseAppCompatActivity {
 
     private String scId;
@@ -53,6 +48,8 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         }
         buildUi();
     }
+
+    // ── UI ─────────────────────────────────────────────────────────────────────
 
     private void buildUi() {
         LinearLayout root = new LinearLayout(this);
@@ -100,24 +97,21 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         loadAndDisplayActivities();
     }
 
+    // ── List activities via jC API ─────────────────────────────────────────────
+
     private void loadAndDisplayActivities() {
         listContainer.removeAllViews();
-        File fileFile = new File(ProjectToolPaths.getProjectDataDir(scId), "file");
         try {
-            JsonArray arr = readJsonArray(fileFile);
-            if (arr.size() == 0) {
+            ArrayList<ProjectFileBean> beans = jC.b(scId).b();
+            if (beans == null || beans.isEmpty()) {
                 addEmptyLabel("No activities found.");
                 return;
             }
             boolean found = false;
-            for (JsonElement el : arr) {
-                if (!el.isJsonObject()) continue;
-                JsonObject obj = el.getAsJsonObject();
-                if (!obj.has("fileName")) continue;
-                int fileType = obj.has("fileType") ? obj.get("fileType").getAsInt() : 0;
-                if (fileType != ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY) continue;
+            for (ProjectFileBean bean : beans) {
+                if (bean.fileType != ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY) continue;
                 found = true;
-                listContainer.addView(buildActivityCard(obj.get("fileName").getAsString()));
+                listContainer.addView(buildActivityCard(bean.fileName));
             }
             if (!found) addEmptyLabel("No activities found.");
         } catch (Exception e) {
@@ -146,8 +140,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         box.setPadding(dp(16), dp(12), dp(16), dp(12));
 
         TextView nameView = new TextView(this);
-        String javaName = Character.toUpperCase(fileName.charAt(0)) + fileName.substring(1) + "Activity";
-        nameView.setText(javaName);
+        nameView.setText(ProjectFileBean.getActivityName(fileName));
         nameView.setTextSize(15f);
         nameView.setTypeface(nameView.getTypeface(), android.graphics.Typeface.BOLD);
         box.addView(nameView);
@@ -196,6 +189,8 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         return card;
     }
 
+    // ── Dialogs ─────────────────────────────────────────────────────────────────
+
     private void showImportActivityDialog() {
         EditText input = new EditText(this);
         input.setSingleLine(true);
@@ -230,7 +225,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         input.setPadding(p, p / 2, p, p / 2);
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Clone: " + src + "Activity")
+                .setTitle("Clone: " + ProjectFileBean.getActivityName(src))
                 .setMessage("Enter the base name for the cloned activity.")
                 .setView(input)
                 .setPositiveButton("Clone", (d, w) -> {
@@ -252,7 +247,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         input.setPadding(p, p / 2, p, p / 2);
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Rename: " + oldName + "Activity")
+                .setTitle("Rename: " + ProjectFileBean.getActivityName(oldName))
                 .setMessage("Enter the new base name.")
                 .setView(input)
                 .setPositiveButton("Rename", (d, w) -> {
@@ -265,34 +260,14 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 .show();
     }
 
-    private String sanitize(String raw) {
-        String name = raw.trim();
-        if (name.endsWith("Activity") && name.length() > "Activity".length()) {
-            name = name.substring(0, name.length() - "Activity".length());
-        }
-        return name;
-    }
+    // ── Operations ─────────────────────────────────────────────────────────────
 
-    private boolean isValidName(String name) {
-        return !name.isEmpty() && name.matches("[a-zA-Z][a-zA-Z0-9_]*");
-    }
-
-    private boolean isDuplicate(JsonArray arr, String name) {
-        for (JsonElement el : arr) {
-            if (el.isJsonObject()) {
-                JsonObject obj = el.getAsJsonObject();
-                if (obj.has("fileName") && name.equals(obj.get("fileName").getAsString())) return true;
-            }
-        }
-        return false;
-    }
-
+    /** Creates a blank activity using the jC API (handles encryption transparently). */
     private void createActivity(String name) {
         executor.execute(() -> {
             try {
-                File fileFile = new File(ProjectToolPaths.getProjectDataDir(scId), "file");
-                if (isDuplicate(readJsonArray(fileFile), name)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + name + "Activity' already exists."));
+                if (isDuplicate(name)) {
+                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(name) + "' already exists."));
                     return;
                 }
                 ProjectFileBean bean = new ProjectFileBean(
@@ -304,7 +279,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 jC.b(scId).j();
                 jC.b(scId).l();
                 runOnUiThread(() -> {
-                    SketchwareUtil.toast("Created " + name + "Activity");
+                    SketchwareUtil.toast("Created " + ProjectFileBean.getActivityName(name));
                     loadAndDisplayActivities();
                 });
             } catch (Exception e) {
@@ -313,37 +288,46 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         });
     }
 
+    /**
+     * Clones an activity: copies its file metadata, view layout sections,
+     * and logic sections using Sketchware's native encryption/decryption.
+     */
     private void cloneActivity(String src, String dst) {
         executor.execute(() -> {
             try {
-                File dataDir = ProjectToolPaths.getProjectDataDir(scId);
-                File fileFile = new File(dataDir, "file");
-                JsonArray arr = readJsonArray(fileFile);
-                if (isDuplicate(arr, dst)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + dst + "Activity' already exists."));
+                if (isDuplicate(dst)) {
+                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(dst) + "' already exists."));
                     return;
                 }
-                JsonObject srcEntry = null;
-                for (JsonElement el : arr) {
-                    if (el.isJsonObject()) {
-                        JsonObject o = el.getAsJsonObject();
-                        if (o.has("fileName") && src.equals(o.get("fileName").getAsString())) {
-                            srcEntry = o.deepCopy();
-                            break;
-                        }
+
+                // 1. Find source bean and add clone to file metadata
+                ArrayList<ProjectFileBean> beans = jC.b(scId).b();
+                ProjectFileBean srcBean = null;
+                if (beans != null) {
+                    for (ProjectFileBean b : beans) {
+                        if (src.equals(b.fileName)) { srcBean = b; break; }
                     }
                 }
-                if (srcEntry == null) {
+                if (srcBean == null) {
                     runOnUiThread(() -> SketchwareUtil.toastError("Source activity not found."));
                     return;
                 }
-                srcEntry.addProperty("fileName", dst);
-                arr.add(srcEntry);
-                writeJsonArray(fileFile, arr);
-                cloneArrayEntries(new File(dataDir, "view"), "id", src + ".xml", dst + ".xml");
-                cloneLogicEntries(new File(dataDir, "logic"), src + ".java_", dst + ".java_");
+                ProjectFileBean dstBean = new ProjectFileBean(
+                        srcBean.fileType, dst, srcBean.orientation,
+                        srcBean.keyboardSetting, srcBean.options);
+                dstBean.presetName = srcBean.presetName;
+                jC.b(scId).a(dstBean);
+                jC.b(scId).j();
+                jC.b(scId).l();
+
+                // 2. Clone view sections (@src.xml → @dst.xml)
+                cloneViewSections(src + ".xml", dst + ".xml");
+
+                // 3. Clone logic sections (@src.java_* → @dst.java_*)
+                cloneLogicSections(src + ".java_", dst + ".java_");
+
                 runOnUiThread(() -> {
-                    SketchwareUtil.toast("Cloned as " + dst + "Activity");
+                    SketchwareUtil.toast("Cloned as " + ProjectFileBean.getActivityName(dst));
                     loadAndDisplayActivities();
                 });
             } catch (Exception e) {
@@ -352,29 +336,36 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         });
     }
 
+    /**
+     * Renames an activity: updates its file metadata bean, view layout section
+     * headers, and logic section headers.
+     */
     private void renameActivity(String oldName, String newName) {
         executor.execute(() -> {
             try {
-                File dataDir = ProjectToolPaths.getProjectDataDir(scId);
-                File fileFile = new File(dataDir, "file");
-                JsonArray arr = readJsonArray(fileFile);
-                if (isDuplicate(arr, newName)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + newName + "Activity' already exists."));
+                if (isDuplicate(newName)) {
+                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(newName) + "' already exists."));
                     return;
                 }
-                for (JsonElement el : arr) {
-                    if (el.isJsonObject()) {
-                        JsonObject o = el.getAsJsonObject();
-                        if (o.has("fileName") && oldName.equals(o.get("fileName").getAsString())) {
-                            o.addProperty("fileName", newName);
-                        }
+
+                // 1. Update file metadata bean directly (mutable field)
+                ArrayList<ProjectFileBean> beans = jC.b(scId).b();
+                if (beans != null) {
+                    for (ProjectFileBean b : beans) {
+                        if (oldName.equals(b.fileName)) { b.fileName = newName; break; }
                     }
                 }
-                writeJsonArray(fileFile, arr);
-                renameArrayEntries(new File(dataDir, "view"), "id", oldName + ".xml", newName + ".xml");
-                renameLogicEntries(new File(dataDir, "logic"), oldName + ".java_", newName + ".java_");
+                jC.b(scId).j();
+                jC.b(scId).l();
+
+                // 2. Rename view sections (@old.xml → @new.xml)
+                renameViewSections(oldName + ".xml", newName + ".xml");
+
+                // 3. Rename logic sections (@old.java_* → @new.java_*)
+                renameLogicSections(oldName + ".java_", newName + ".java_");
+
                 runOnUiThread(() -> {
-                    SketchwareUtil.toast("Renamed to " + newName + "Activity");
+                    SketchwareUtil.toast("Renamed to " + ProjectFileBean.getActivityName(newName));
                     loadAndDisplayActivities();
                 });
             } catch (Exception e) {
@@ -383,95 +374,163 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         });
     }
 
-    private void cloneArrayEntries(File f, String key, String oldVal, String newVal) throws IOException {
-        if (!f.exists()) return;
-        JsonArray arr = readJsonArray(f);
-        JsonArray toAdd = new JsonArray();
-        for (JsonElement el : arr) {
-            if (el.isJsonObject()) {
-                JsonObject o = el.getAsJsonObject();
-                if (o.has(key) && oldVal.equals(o.get(key).getAsString())) {
-                    JsonObject copy = o.deepCopy();
-                    copy.addProperty(key, newVal);
-                    toAdd.add(copy);
+    // ── Encrypted section helpers ───────────────────────────────────────────────
+
+    /**
+     * Reads the decrypted view file, copies all lines belonging to {@code srcSection}
+     * under a new header {@code dstSection}, appends them, and writes back encrypted.
+     *
+     * View file format (decrypted):
+     *   @main.xml
+     *   {viewBeanJson}
+     *   @settings.xml
+     *   {viewBeanJson}
+     */
+    private void cloneViewSections(String srcSection, String dstSection) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "view");
+        if (content == null || content.isEmpty()) return;
+
+        String[] lines = content.split("\n", -1);
+        StringBuilder copied = new StringBuilder();
+        boolean inSrc = false;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("@")) {
+                inSrc = trimmed.equals("@" + srcSection);
+                if (inSrc) continue; // we'll re-add under new header
+            }
+            if (inSrc && !trimmed.isEmpty()) {
+                copied.append(line).append("\n");
+            }
+        }
+
+        if (copied.length() > 0) {
+            String appended = content.trim() + "\n@" + dstSection + "\n" + copied;
+            SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", appended);
+        }
+    }
+
+    /**
+     * Reads the decrypted view file and renames all section headers from
+     * {@code oldSection} to {@code newSection}.
+     */
+    private void renameViewSections(String oldSection, String newSection) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "view");
+        if (content == null || content.isEmpty()) return;
+
+        String updated = content.replace("@" + oldSection, "@" + newSection);
+        if (!updated.equals(content)) {
+            SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", updated);
+        }
+    }
+
+    /**
+     * Reads the decrypted logic file, copies all sections whose header starts
+     * with {@code srcPrefix} under the new prefix {@code dstPrefix}, and writes back.
+     *
+     * Logic file format (decrypted):
+     *   @main.java_onCreate
+     *   {blockJson}
+     *   @main.java_onClick_btn1
+     *   {blockJson}
+     */
+    private void cloneLogicSections(String srcPrefix, String dstPrefix) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "logic");
+        if (content == null || content.isEmpty()) return;
+
+        String[] lines = content.split("\n", -1);
+        StringBuilder copied = new StringBuilder();
+        String currentHeader = null;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("@")) {
+                if (trimmed.substring(1).startsWith(srcPrefix)) {
+                    String suffix = trimmed.substring(1 + srcPrefix.length());
+                    currentHeader = "@" + dstPrefix + suffix;
+                } else {
+                    currentHeader = null;
                 }
+                continue;
             }
-        }
-        for (JsonElement el : toAdd) arr.add(el);
-        writeJsonArray(f, arr);
-    }
-
-    private void cloneLogicEntries(File f, String oldPfx, String newPfx) throws IOException {
-        if (!f.exists()) return;
-        JsonArray arr = readJsonArray(f);
-        JsonArray toAdd = new JsonArray();
-        for (JsonElement el : arr) {
-            if (el.isJsonObject()) {
-                JsonObject o = el.getAsJsonObject();
-                if (o.has("name") && o.get("name").getAsString().startsWith(oldPfx)) {
-                    JsonObject copy = o.deepCopy();
-                    copy.addProperty("name", newPfx + copy.get("name").getAsString().substring(oldPfx.length()));
-                    toAdd.add(copy);
+            if (currentHeader != null && !trimmed.isEmpty()) {
+                if (copied.length() == 0 || !copied.toString().endsWith("\n" + currentHeader + "\n")) {
+                    copied.append(currentHeader).append("\n");
+                    currentHeader = null; // header appended, clear it
                 }
+                copied.append(line).append("\n");
             }
         }
-        for (JsonElement el : toAdd) arr.add(el);
-        writeJsonArray(f, arr);
-    }
-
-    private void renameArrayEntries(File f, String key, String oldVal, String newVal) throws IOException {
-        if (!f.exists()) return;
-        JsonArray arr = readJsonArray(f);
-        for (JsonElement el : arr) {
-            if (el.isJsonObject()) {
-                JsonObject o = el.getAsJsonObject();
-                if (o.has(key) && oldVal.equals(o.get(key).getAsString())) o.addProperty(key, newVal);
-            }
-        }
-        writeJsonArray(f, arr);
-    }
-
-    private void renameLogicEntries(File f, String oldPfx, String newPfx) throws IOException {
-        if (!f.exists()) return;
-        JsonArray arr = readJsonArray(f);
-        for (JsonElement el : arr) {
-            if (el.isJsonObject()) {
-                JsonObject o = el.getAsJsonObject();
-                if (o.has("name") && o.get("name").getAsString().startsWith(oldPfx)) {
-                    o.addProperty("name", newPfx + o.get("name").getAsString().substring(oldPfx.length()));
+        // Re-do: simpler pass
+        copied.setLength(0);
+        boolean inSection = false;
+        String pendingHeader = null;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("@")) {
+                String header = trimmed.substring(1);
+                if (header.startsWith(srcPrefix)) {
+                    inSection = true;
+                    pendingHeader = "@" + dstPrefix + header.substring(srcPrefix.length());
+                } else {
+                    inSection = false;
+                    pendingHeader = null;
                 }
+                continue;
+            }
+            if (inSection) {
+                if (pendingHeader != null) {
+                    copied.append(pendingHeader).append("\n");
+                    pendingHeader = null;
+                }
+                copied.append(line).append("\n");
             }
         }
-        writeJsonArray(f, arr);
+
+        if (copied.length() > 0) {
+            String appended = content.trim() + "\n" + copied;
+            SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", appended);
+        }
     }
 
-    private JsonArray readJsonArray(File file) throws IOException {
-        if (!file.exists()) return new JsonArray();
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
-            char[] buf = new char[8192];
-            int n;
-            while ((n = reader.read(buf)) != -1) sb.append(buf, 0, n);
+    /**
+     * Reads the decrypted logic file and renames all section headers from
+     * {@code oldPrefix} to {@code newPrefix}.
+     */
+    private void renameLogicSections(String oldPrefix, String newPrefix) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "logic");
+        if (content == null || content.isEmpty()) return;
+
+        String updated = content.replace("@" + oldPrefix, "@" + newPrefix);
+        if (!updated.equals(content)) {
+            SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", updated);
         }
-        String s = sb.toString();
-        if (!s.isEmpty() && s.charAt(0) == '\uFEFF') s = s.substring(1);
-        s = s.trim();
-        if (s.isEmpty()) return new JsonArray();
+    }
+
+    // ── Validation helpers ──────────────────────────────────────────────────────
+
+    private boolean isDuplicate(String name) {
         try {
-            JsonElement el = JsonParser.parseString(s);
-            return el.isJsonArray() ? el.getAsJsonArray() : new JsonArray();
-        } catch (JsonSyntaxException e) {
-            return new JsonArray();
-        }
+            ArrayList<ProjectFileBean> beans = jC.b(scId).b();
+            if (beans == null) return false;
+            for (ProjectFileBean b : beans) {
+                if (name.equals(b.fileName)) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
-    private void writeJsonArray(File file, JsonArray arr) throws IOException {
-        File parent = file.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
-        try (Writer w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
-            w.write(arr.toString());
+    private String sanitize(String raw) {
+        String name = raw.trim();
+        if (name.endsWith("Activity") && name.length() > "Activity".length()) {
+            name = name.substring(0, name.length() - "Activity".length());
         }
+        return name;
+    }
+
+    private boolean isValidName(String name) {
+        return !name.isEmpty() && name.matches("[a-zA-Z][a-zA-Z0-9_]*");
     }
 
     private int dp(int v) {

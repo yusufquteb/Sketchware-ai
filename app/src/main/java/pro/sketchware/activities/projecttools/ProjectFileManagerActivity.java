@@ -23,7 +23,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -39,11 +38,7 @@ import com.google.android.material.shape.CornerFamily;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,10 +47,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
-
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
 
 import mod.hey.studios.code.SrcCodeEditor;
 import pro.sketchware.R;
@@ -66,6 +57,7 @@ import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
 import pro.sketchware.ai.storage.WorkspaceManager;
+import pro.sketchware.util.SketchwareFileDecryptor;
 import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.utility.ThemeUtils;
@@ -91,11 +83,6 @@ import pro.sketchware.utility.ThemeUtils;
 public class ProjectFileManagerActivity extends BaseAppCompatActivity {
 
     private enum SortMode { NAME, SIZE, DATE }
-
-    // ── AES Encryption ────────────────────────────────────────────────────────
-    private static final String AES_ALGORITHM = "AES";
-    // 16-byte key (AES-128). In production, derive from user password via PBKDF2.
-    private static final byte[] AES_KEY_BYTES = "SketchwarePro16B".getBytes(StandardCharsets.UTF_8);
 
     // ── State ─────────────────────────────────────────────────────────────────
     private String scId;
@@ -404,7 +391,11 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void openForEdit(FileNode node) {
-        if (node.file.isFile()) {
+        if (!node.file.isFile()) return;
+        // For Sketchware project data files (encrypted, no extension), show decrypted content
+        if (isSketchwareDataFile(node.file)) {
+            openDecrypted(node);
+        } else {
             Intent intent = new Intent(this, SrcCodeEditor.class);
             intent.putExtra("content", node.file.getAbsolutePath());
             intent.putExtra("title", node.file.getName());
@@ -414,31 +405,65 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
         }
     }
 
-    /**
-     * Long-press context menu — the primary control center for file operations.
-     * Includes Encrypt/Decrypt for files, and folder management for directories.
-     */
+    private boolean isSketchwareDataFile(File file) {
+        // Project data files: no extension, inside .sketchware/data/{scId}/
+        if (file.getName().contains(".")) return false;
+        File dataDir = ProjectToolPaths.getProjectDataDir(scId);
+        return ProjectToolPaths.isUnder(file, dataDir);
+    }
+
+    private void openDecrypted(FileNode node) {
+        // Derive relative name for decryption (e.g. "view", "logic", "file")
+        File dataDir = ProjectToolPaths.getProjectDataDir(scId);
+        String relPath = ProjectToolPaths.relativize(dataDir, node.file);
+
+        new Thread(() -> {
+            String content = SketchwareFileDecryptor.decryptFile(scId, relPath);
+            runOnUiThread(() -> showDecryptedContentDialog(node, content));
+        }).start();
+    }
+
+    private void showDecryptedContentDialog(FileNode node, String content) {
+        if (content == null || content.isEmpty()) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle(node.label + " (empty or unreadable)")
+                    .setMessage("The file is empty or could not be decrypted.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        }
+
+        // Scrollable text viewer
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        TextView tv = new TextView(this);
+        tv.setText(content);
+        tv.setTextSize(11f);
+        tv.setTypeface(Typeface.MONOSPACE);
+        int p = dp(16);
+        tv.setPadding(p, p, p, p);
+        tv.setTextIsSelectable(true);
+        scroll.addView(tv);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(node.label + " (decrypted)")
+                .setView(scroll)
+                .setPositiveButton("Copy All", (d, w) -> {
+                    ClipboardManager cb = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    cb.setPrimaryClip(android.content.ClipData.newPlainText("content", content));
+                    SketchwareUtil.toast("Content copied");
+                })
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
     private void showFileMenu(FileNode node) {
         String[] options;
         if (node.file.isDirectory()) {
-            options = new String[]{
-                    "New File",
-                    "New Folder",
-                    "Rename",
-                    "Copy Path",
-                    "File Info",
-                    "Delete"
-            };
+            options = new String[]{"New File", "New Folder", "Rename", "Copy Path", "File Info", "Delete"};
+        } else if (isSketchwareDataFile(node.file)) {
+            options = new String[]{"View Decrypted", "Copy Path", "File Info"};
         } else {
-            options = new String[]{
-                    "Edit",
-                    "Rename",
-                    "Encrypt (AES-128)",
-                    "Decrypt (AES-128)",
-                    "Copy Path",
-                    "File Info",
-                    "Delete"
-            };
+            options = new String[]{"Edit", "Rename", "Copy Path", "File Info", "Delete"};
         }
 
         new MaterialAlertDialogBuilder(this)
@@ -452,14 +477,11 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
             case "Edit":
                 openForEdit(node);
                 break;
+            case "View Decrypted":
+                openDecrypted(node);
+                break;
             case "Rename":
                 renameFile(node);
-                break;
-            case "Encrypt (AES-128)":
-                confirmEncrypt(node);
-                break;
-            case "Decrypt (AES-128)":
-                confirmDecrypt(node);
                 break;
             case "Copy Path":
                 copyPath(node);
@@ -569,140 +591,6 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Encrypt / Decrypt (AES-128)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Shows a password dialog before encrypting.
-     * The password is used to derive a 16-byte AES key via simple padding/truncation.
-     * For production use, replace with PBKDF2WithHmacSHA256.
-     */
-    private void confirmEncrypt(FileNode node) {
-        EditText passwordInput = new EditText(this);
-        passwordInput.setHint("Enter encryption password");
-        passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Encrypt File")
-                .setMessage("File: " + node.file.getName()
-                        + "\n\nThis will encrypt the file content with AES-128.\n"
-                        + "Keep your password safe — you will need it to decrypt.")
-                .setView(passwordInput)
-                .setPositiveButton("Encrypt", (d, w) -> {
-                    String password = passwordInput.getText().toString();
-                    if (password.isEmpty()) {
-                        SketchwareUtil.toastError("Password cannot be empty");
-                        return;
-                    }
-                    encryptFile(node, password);
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void confirmDecrypt(FileNode node) {
-        EditText passwordInput = new EditText(this);
-        passwordInput.setHint("Enter decryption password");
-        passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Decrypt File")
-                .setMessage("File: " + node.file.getName()
-                        + "\n\nEnter the password used to encrypt this file.")
-                .setView(passwordInput)
-                .setPositiveButton("Decrypt", (d, w) -> {
-                    String password = passwordInput.getText().toString();
-                    if (password.isEmpty()) {
-                        SketchwareUtil.toastError("Password cannot be empty");
-                        return;
-                    }
-                    decryptFile(node, password);
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    /**
-     * Encrypts a file using AES-128 ECB mode.
-     * Reads raw bytes, encrypts, writes Base64-encoded result.
-     *
-     * @param node     the file node to encrypt
-     * @param password the user-supplied password (padded/truncated to 16 bytes)
-     */
-    private void encryptFile(FileNode node, String password) {
-        try {
-            byte[] keyBytes = deriveKey(password);
-            Key key = new SecretKeySpec(keyBytes, AES_ALGORITHM);
-            Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, key);
-
-            // Raw File API: read as bytes
-            byte[] fileBytes = readFileBytes(node.file);
-            byte[] encrypted = cipher.doFinal(fileBytes);
-
-            // Encode to Base64 and write back
-            String base64 = android.util.Base64.encodeToString(encrypted, android.util.Base64.DEFAULT);
-            writeFileBytes(node.file, base64.getBytes(StandardCharsets.UTF_8));
-
-            SketchwareUtil.toast("Encrypted: " + node.file.getName());
-        } catch (Exception e) {
-            SketchwareUtil.toastError("Encryption failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Decrypts a file previously encrypted with {@link #encryptFile}.
-     *
-     * @param node     the file node to decrypt
-     * @param password the user-supplied password (must match encryption password)
-     */
-    private void decryptFile(FileNode node, String password) {
-        try {
-            byte[] keyBytes = deriveKey(password);
-            Key key = new SecretKeySpec(keyBytes, AES_ALGORITHM);
-            Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key);
-
-            // Raw File API: read as bytes
-            byte[] fileBytes = readFileBytes(node.file);
-            byte[] decoded = android.util.Base64.decode(fileBytes, android.util.Base64.DEFAULT);
-            byte[] decrypted = cipher.doFinal(decoded);
-
-            writeFileBytes(node.file, decrypted);
-            SketchwareUtil.toast("Decrypted: " + node.file.getName());
-        } catch (Exception e) {
-            SketchwareUtil.toastError("Decryption failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Derives a 16-byte AES key from a password string.
-     * Pads with zeros if shorter, truncates if longer.
-     */
-    private byte[] deriveKey(String password) {
-        byte[] passBytes = password.getBytes(StandardCharsets.UTF_8);
-        byte[] key = new byte[16];
-        System.arraycopy(passBytes, 0, key, 0, Math.min(passBytes.length, 16));
-        return key;
-    }
-
-    private byte[] readFileBytes(File file) throws IOException {
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] data = new byte[(int) file.length()];
-            fis.read(data);
-            return data;
-        }
-    }
-
-    private void writeFileBytes(File file, byte[] data) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            fos.write(data);
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
