@@ -144,6 +144,7 @@ import pro.sketchware.utility.apk.ApkSignatures;
 import kellinwood.security.zipsigner.ZipSigner;
 import kellinwood.security.zipsigner.optional.CustomKeySigner;
 import kellinwood.security.zipsigner.optional.LoadKeystoreException;
+import mod.alucard.tn.apksigner.ApkSigner;
 import pro.sketchware.ai.tools.LayoutTools;
 import pro.sketchware.ai.uigenerator.AiUiGeneratorDialog;
 
@@ -1484,6 +1485,12 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
                             credentials.getKeyPassword().toCharArray(),
                             credentials.getSigningAlgorithm()
                     );
+                    request.configureSigningSchemes(
+                            credentials.isEnableV1(),
+                            credentials.isEnableV2(),
+                            credentials.isEnableV3(),
+                            credentials.isEnableV4()
+                    );
                 }
             }
             BuildTask buildTask = new BuildTask(this, request);
@@ -1510,6 +1517,12 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
                             credentials.getKeyAlias(),
                             credentials.getKeyPassword().toCharArray(),
                             credentials.getSigningAlgorithm()
+                    );
+                    request.configureSigningSchemes(
+                            credentials.isEnableV1(),
+                            credentials.isEnableV2(),
+                            credentials.isEnableV3(),
+                            credentials.isEnableV4()
                     );
                 }
             }
@@ -1670,6 +1683,10 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
         private String signingAliasName;
         private char[] signingAliasPassword;
         private String signingAlgorithm;
+        boolean signingV1 = true;
+        boolean signingV2 = true;
+        boolean signingV3 = false;
+        boolean signingV4 = false;
 
         private BuildRequest(OutputKind outputKind) {
             this.outputKind = outputKind;
@@ -1698,6 +1715,13 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
 
         void setSignWithTestkey(boolean signWithTestkey) {
             this.signWithTestkey = signWithTestkey;
+        }
+
+        void configureSigningSchemes(boolean v1, boolean v2, boolean v3, boolean v4) {
+            signingV1 = v1;
+            signingV2 = v2;
+            signingV3 = v3;
+            signingV4 = v4;
         }
 
         boolean isResultJarSigningEnabled() {
@@ -1989,17 +2013,38 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
             }
 
             if (buildRequest.isResultJarSigningEnabled()) {
-                Security.addProvider(new BouncyCastleProvider());
-                CustomKeySigner.signZip(
-                        new ZipSigner(),
-                        buildRequest.signingKeystorePath,
-                        buildRequest.signingKeystorePassword,
-                        buildRequest.signingAliasName,
-                        buildRequest.signingAliasPassword,
-                        buildRequest.signingAlgorithm,
-                        inputPath,
-                        outputPath
-                );
+                if (bundle) {
+                    // AAB signing uses ZipSigner/CustomKeySigner; APK signature schemes do not apply
+                    Security.addProvider(new BouncyCastleProvider());
+                    CustomKeySigner.signZip(
+                            new ZipSigner(),
+                            buildRequest.signingKeystorePath,
+                            buildRequest.signingKeystorePassword,
+                            buildRequest.signingAliasName,
+                            buildRequest.signingAliasPassword,
+                            buildRequest.signingAlgorithm,
+                            inputPath,
+                            outputPath
+                    );
+                } else {
+                    // APK signing — use ApkSigner with user-selected v1/v2/v3/v4 scheme flags
+                    boolean success = new ApkSigner().signWithKeyStore(
+                            inputPath,
+                            outputPath,
+                            buildRequest.signingKeystorePath,
+                            new String(buildRequest.signingKeystorePassword),
+                            buildRequest.signingAliasName,
+                            new String(buildRequest.signingAliasPassword),
+                            buildRequest.signingV1,
+                            buildRequest.signingV2,
+                            buildRequest.signingV3,
+                            buildRequest.signingV4,
+                            null
+                    );
+                    if (!success) {
+                        throw new RuntimeException("APK signing failed. Check keystore credentials and try again.");
+                    }
+                }
                 return outputPath;
             }
 
