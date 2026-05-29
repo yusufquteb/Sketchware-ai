@@ -217,6 +217,16 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
             refresh();
         }
     });
+    private final ActivityResultLauncher<Intent> projectToolsLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                int code = result.getResultCode();
+                if (code == pro.sketchware.activities.projecttools.ProjectToolsHubActivity.RESULT_BUILD_SIGNED_APK) {
+                    showSignedApkBuildDialog();
+                } else if (code == pro.sketchware.activities.projecttools.ProjectToolsHubActivity.RESULT_BUILD_SIGNED_AAB) {
+                    showSignedAabBuildDialog();
+                }
+            });
+
     // File picker bridge for AI BottomSheet
     private final ActivityResultLauncher<Intent> aiFileLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -629,14 +639,6 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
         });
         bottomMenu.add(Menu.NONE, 7, Menu.NONE, "Direct XML editor").setOnMenuItemClickListener(item -> {
             toViewCodeEditor();
-            return true;
-        });
-        bottomMenu.add(Menu.NONE, 9, Menu.NONE, "Build signed APK").setOnMenuItemClickListener(item -> {
-            showSignedApkBuildDialog();
-            return true;
-        });
-        bottomMenu.add(Menu.NONE, 10, Menu.NONE, "Build signed AAB").setOnMenuItemClickListener(item -> {
-            showSignedAabBuildDialog();
             return true;
         });
         bottomMenu.add(Menu.NONE, 11, Menu.NONE, "Direct activity Java editor").setOnMenuItemClickListener(item -> {
@@ -1299,9 +1301,8 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
 
     private void openProjectToolsHub() {
         Intent intent = new Intent(getApplicationContext(), ProjectToolsHubActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("sc_id", sc_id);
-        startActivity(intent);
+        projectToolsLauncher.launch(intent);
     }
 
     private void openAiForCurrentScreen() {
