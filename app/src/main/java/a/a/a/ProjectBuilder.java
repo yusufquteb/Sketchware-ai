@@ -110,6 +110,7 @@ public class ProjectBuilder {
     public ProjectSettings settings;
     private BuildProgressReceiver progressReceiver;
     private boolean buildAppBundle = false;
+    private boolean releaseBuildMode = false;
     private ArrayList<File> dexesToAddButNotMerge = new ArrayList<>();
 
     private boolean forceFullJavaCompilation = false;
@@ -372,6 +373,14 @@ public class ProjectBuilder {
                 BuildSettings.SETTING_JAVA_VERSION,
                 BuildSettings.SETTING_JAVA_VERSION_1_8
         ).equals(BuildSettings.SETTING_JAVA_VERSION_1_7);
+    }
+
+    public void setReleaseBuildMode(boolean release) {
+        this.releaseBuildMode = release;
+    }
+
+    public boolean isReleaseBuildMode() {
+        return releaseBuildMode;
     }
 
     public boolean isD8Enabled() {
@@ -925,21 +934,46 @@ public class ProjectBuilder {
 
     public void rebuildMergedCompiledClassesDirectory() {
         File mergedOutput = new File(yq.compiledClassesPath);
+        File javaOutput = new File(yq.compiledJavaClassesPath);
+        File kotlinOutput = new File(yq.compiledKotlinClassesPath);
+        File marker = new File(yq.binDirectoryPath, ".merged_classes_marker");
+
+        long markerTime = marker.exists() ? marker.lastModified() : 0L;
+        if (markerTime > 0 && mergedOutput.exists()) {
+            long javaModified = javaOutput.exists() ? newestModified(javaOutput) : 0L;
+            long kotlinModified = kotlinOutput.exists() ? newestModified(kotlinOutput) : 0L;
+            if (javaModified <= markerTime && kotlinModified <= markerTime) {
+                return;
+            }
+        }
+
         FileUtil.deleteFile(mergedOutput.getAbsolutePath());
         FileUtil.makeDir(mergedOutput.getAbsolutePath());
 
         try {
-            File javaOutput = new File(yq.compiledJavaClassesPath);
             if (javaOutput.exists()) {
                 FileUtil.copyDirectory(javaOutput, mergedOutput);
             }
-            File kotlinOutput = new File(yq.compiledKotlinClassesPath);
             if (kotlinOutput.exists()) {
                 FileUtil.copyDirectory(kotlinOutput, mergedOutput);
             }
+            marker.createNewFile();
+            marker.setLastModified(System.currentTimeMillis());
         } catch (IOException e) {
             LogUtil.e(TAG, "Failed to rebuild merged compiled classes directory", e);
         }
+    }
+
+    private static long newestModified(File dir) {
+        long newest = dir.lastModified();
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                long t = child.isDirectory() ? newestModified(child) : child.lastModified();
+                if (t > newest) newest = t;
+            }
+        }
+        return newest;
     }
 
     private EcjCompileResult runParallelEcjCompile(List<List<String>> compileGroups, File targetOutputDirectory) throws zy {
