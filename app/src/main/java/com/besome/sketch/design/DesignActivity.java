@@ -1822,6 +1822,7 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
 
                 ProjectBuilder builder = new ProjectBuilder(this, activity.getApplicationContext(), q);
                 builder.setBuildAppBundle(buildRequest.isAppBundle());
+                builder.setReleaseBuildMode(!buildRequest.isDebugRun());
 
                 var fileManager = jC.b(sc_id);
                 var dataManager = jC.a(sc_id);

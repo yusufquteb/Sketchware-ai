@@ -1,8 +1,6 @@
 package pro.sketchware.compiler;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,22 +28,49 @@ public final class LegacyJavaSourceNormalizer {
             return sourceDirPath;
         }
         File tempDir = new File(tempRootPath);
-        if (tempDir.exists()) {
-            FileUtil.deleteFile(tempDir.getAbsolutePath());
-        }
-        copyRecursive(sourceDir, tempDir);
-        normalizeTree(tempDir);
+        syncIncremental(sourceDir, tempDir);
         return tempDir.getAbsolutePath();
     }
 
-    private static void normalizeTree(File root) {
-        List<File> files = new ArrayList<>();
-        collectJavaFiles(root, files);
-        for (File file : files) {
-            String code = FileUtil.readFileIfExist(file.getAbsolutePath());
-            String normalized = normalizeJavaFile(code);
-            if (!code.equals(normalized)) {
-                FileUtil.writeFile(file.getAbsolutePath(), normalized);
+    /**
+     * Incrementally syncs sourceDir into tempDir:
+     *  - Copies files that are new or modified since their temp counterpart.
+     *  - Normalizes only those files that were just copied.
+     *  - Deletes temp files/dirs that no longer exist in source.
+     */
+    private static void syncIncremental(File sourceDir, File tempDir) {
+        FileUtil.makeDir(tempDir.getAbsolutePath());
+
+        // Forward pass: copy new/modified files, normalize them.
+        File[] srcChildren = sourceDir.listFiles();
+        if (srcChildren != null) {
+            for (File srcChild : srcChildren) {
+                File dstChild = new File(tempDir, srcChild.getName());
+                if (srcChild.isDirectory()) {
+                    syncIncremental(srcChild, dstChild);
+                } else {
+                    if (!dstChild.exists() || srcChild.lastModified() > dstChild.lastModified()) {
+                        FileUtil.copyFile(srcChild.getAbsolutePath(), dstChild.getAbsolutePath());
+                        if (dstChild.getName().endsWith(".java")) {
+                            String code = FileUtil.readFileIfExist(dstChild.getAbsolutePath());
+                            String normalized = normalizeJavaFile(code);
+                            if (!code.equals(normalized)) {
+                                FileUtil.writeFile(dstChild.getAbsolutePath(), normalized);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Reverse pass: delete temp entries whose source no longer exists.
+        File[] dstChildren = tempDir.listFiles();
+        if (dstChildren != null) {
+            for (File dstChild : dstChildren) {
+                File srcChild = new File(sourceDir, dstChild.getName());
+                if (!srcChild.exists()) {
+                    FileUtil.deleteFile(dstChild.getAbsolutePath());
+                }
             }
         }
     }
@@ -220,30 +245,4 @@ public final class LegacyJavaSourceNormalizer {
         return sb.toString();
     }
 
-    // ── File utilities ────────────────────────────────────────────────────────
-
-    private static void collectJavaFiles(File dir, List<File> out) {
-        File[] children = dir.listFiles();
-        if (children == null) return;
-        for (File child : children) {
-            if (child.isDirectory()) {
-                collectJavaFiles(child, out);
-            } else if (child.getName().endsWith(".java")) {
-                out.add(child);
-            }
-        }
-    }
-
-    private static void copyRecursive(File source, File target) {
-        if (source.isDirectory()) {
-            FileUtil.makeDir(target.getAbsolutePath());
-            File[] children = source.listFiles();
-            if (children == null) return;
-            for (File child : children) {
-                copyRecursive(child, new File(target, child.getName()));
-            }
-        } else {
-            FileUtil.copyFile(source.getAbsolutePath(), target.getAbsolutePath());
-        }
-    }
 }

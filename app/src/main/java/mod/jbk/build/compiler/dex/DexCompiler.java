@@ -7,6 +7,7 @@ import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
@@ -36,17 +37,43 @@ public class DexCompiler {
             }
         }
 
+        File dexOutputDir = new File(builder.yq.binDirectoryPath, "dex");
+        File dexMarker = new File(builder.yq.binDirectoryPath, ".dex_marker");
+
+        // Skip D8 entirely if no class file is newer than the dex marker.
+        if (dexMarker.exists() && dexOutputDir.exists()) {
+            long markerTime = dexMarker.lastModified();
+            boolean anyNewer = false;
+            for (Path p : programFiles) {
+                if (p.toFile().lastModified() > markerTime) {
+                    anyNewer = true;
+                    break;
+                }
+            }
+            if (!anyNewer) {
+                return;
+            }
+        }
+
         Collection<Path> libraryFiles = new LinkedList<>();
         for (String jarPath : builder.getClasspath().split(":")) {
             libraryFiles.add(Paths.get(jarPath));
         }
 
+        CompilationMode mode = builder.isReleaseBuildMode() ? CompilationMode.RELEASE : CompilationMode.DEBUG;
+
         D8.run(D8Command.builder()
-                .setMode(CompilationMode.RELEASE)
-                                .setMinApiLevel(minApiLevel)
+                .setMode(mode)
+                .setMinApiLevel(minApiLevel)
                 .addLibraryFiles(libraryFiles)
-                .setOutput(new File(builder.yq.binDirectoryPath, "dex").toPath(), OutputMode.DexIndexed)
+                .setOutput(dexOutputDir.toPath(), OutputMode.DexIndexed)
                 .addProgramFiles(programFiles)
                 .build());
+
+        try {
+            dexMarker.createNewFile();
+            dexMarker.setLastModified(System.currentTimeMillis());
+        } catch (IOException ignored) {
+        }
     }
 }
