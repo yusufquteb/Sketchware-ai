@@ -1,16 +1,21 @@
 package pro.sketchware.activities.projecttools;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.besome.sketch.editor.manage.library.ManageLibraryActivity;
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.divider.MaterialDivider;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -35,8 +40,7 @@ import pro.sketchware.utility.FileUtil;
 public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
 
     private String scId;
-    private TextInputEditText currentLibraryInput;
-    private TextInputEditText replacementLibraryInput;
+    private TextInputEditText currentLibraryInput, replacementLibraryInput;
     private TextView diagnosticsView;
     private final LibraryUpdateManager libraryUpdateManager = new LibraryUpdateManager();
 
@@ -44,7 +48,7 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
     public void onCreate(Bundle savedInstanceState) {
         enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
-        scId = getIntent().getStringExtra("sc_id");
+        scId = getIntent().getStringExtra(ProjectToolsHubActivity.EXTRA_SC_ID);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -56,92 +60,145 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
         root.addView(toolbar);
 
-        int pad = dp(16);
+        ScrollView scrollView = new ScrollView(this);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(pad, pad, pad, pad);
+        int pad = dp(16);
+        content.setPadding(pad, pad, pad, pad * 2);
+        scrollView.addView(content);
+        root.addView(scrollView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        MaterialButton manageBuiltIn = new MaterialButton(this);
-        manageBuiltIn.setText("Open built-in libraries");
-        manageBuiltIn.setOnClickListener(v -> {
+        // ── Library Managers ──────────────────────────────────────────────────
+        LinearLayout managersBox = section(content, "Library Managers",
+                "Open the built-in or local library manager for this project.");
+        btn(managersBox, "Open built-in libraries", () -> {
             Intent intent = new Intent(this, ManageLibraryActivity.class);
             intent.putExtra("sc_id", scId);
             startActivity(intent);
         });
-        content.addView(manageBuiltIn);
-
-        MaterialButton manageLocal = new MaterialButton(this);
-        manageLocal.setText("Open local libraries");
-        manageLocal.setOnClickListener(v -> {
+        btn(managersBox, "Open local libraries", () -> {
             Intent intent = new Intent(this, ManageLocalLibraryActivity.class);
             intent.putExtra("sc_id", scId);
             startActivity(intent);
         });
-        content.addView(manageLocal);
 
-        currentLibraryInput = addInput(content, "Current library artifact path", InputType.TYPE_CLASS_TEXT);
-        replacementLibraryInput = addInput(content, "Replacement library artifact path", InputType.TYPE_CLASS_TEXT);
+        // ── Artifact Management ───────────────────────────────────────────────
+        LinearLayout artifactBox = section(content, "Artifact Management",
+                "Swap a library artifact with a replacement file, or undo the last swap.");
+        currentLibraryInput = field(artifactBox, "Current library artifact path",
+                InputType.TYPE_CLASS_TEXT);
+        replacementLibraryInput = field(artifactBox, "Replacement library artifact path",
+                InputType.TYPE_CLASS_TEXT);
+        btn(artifactBox, "Replace library artifact with backup", this::replaceLibraryArtifact);
+        btn(artifactBox, "Undo last library replacement", this::undoLastLibraryReplacement);
 
-        MaterialButton replaceLibrary = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        replaceLibrary.setText("Replace library artifact with backup");
-        replaceLibrary.setOnClickListener(v -> replaceLibraryArtifact());
-        content.addView(replaceLibrary);
-
-        MaterialButton undoLibraryReplace = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        undoLibraryReplace.setText("Undo last library replacement");
-        undoLibraryReplace.setOnClickListener(v -> undoLastLibraryReplacement());
-        content.addView(undoLibraryReplace);
-
-        MaterialButton refresh = new MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        refresh.setText("Refresh diagnostics");
-        refresh.setOnClickListener(v -> refreshDiagnostics());
-        content.addView(refresh);
-
+        // ── Diagnostics ───────────────────────────────────────────────────────
+        LinearLayout diagBox = section(content, "Diagnostics",
+                "Full report of built-in and local library health for this project.");
+        btn(diagBox, "Refresh diagnostics", this::refreshDiagnostics);
         diagnosticsView = new TextView(this);
         diagnosticsView.setTextIsSelectable(true);
-        diagnosticsView.setPadding(0, pad, 0, 0);
-        content.addView(diagnosticsView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        android.widget.ScrollView scrollView = new android.widget.ScrollView(this);
-        scrollView.addView(content);
-        root.addView(scrollView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0, 1f));
+        diagnosticsView.setTextSize(12f);
+        LinearLayout.LayoutParams diagLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        diagLp.setMargins(0, dp(8), 0, 0);
+        diagnosticsView.setLayoutParams(diagLp);
+        diagBox.addView(diagnosticsView);
 
         setContentView(root);
         refreshDiagnostics();
     }
 
-    private TextInputEditText addInput(LinearLayout parent, String hint, int inputType) {
-        TextInputLayout layout = new TextInputLayout(this);
-        layout.setHint(hint);
-        TextInputEditText input = new TextInputEditText(this);
-        input.setInputType(inputType);
-        layout.addView(input);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0, 0, 0, dp(8));
-        parent.addView(layout, lp);
-        return input;
+    // ── Section / widget helpers ──────────────────────────────────────────────
+
+    private LinearLayout section(LinearLayout parent, String title, String subtitle) {
+        MaterialCardView card = new MaterialCardView(this);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(cardLp);
+        card.setCardElevation(dp(1));
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(14), dp(16), dp(12));
+
+        TextView t = new TextView(this);
+        t.setText(title);
+        t.setTextSize(15f);
+        t.setTypeface(t.getTypeface(), Typeface.BOLD);
+        box.addView(t);
+
+        if (subtitle != null) {
+            TextView s = new TextView(this);
+            s.setText(subtitle);
+            s.setTextSize(12f);
+            s.setAlpha(0.65f);
+            LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            subLp.setMargins(0, dp(2), 0, dp(10));
+            s.setLayoutParams(subLp);
+            box.addView(s);
+        }
+
+        MaterialDivider div = new MaterialDivider(this);
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        divLp.setMargins(0, subtitle == null ? dp(8) : 0, 0, dp(12));
+        div.setLayoutParams(divLp);
+        box.addView(div);
+
+        card.addView(box);
+        parent.addView(card);
+        return box;
     }
+
+    private TextInputEditText field(LinearLayout parent, String hint, int inputType) {
+        TextInputLayout til = new TextInputLayout(this, null,
+                com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox);
+        til.setHint(hint);
+        TextInputEditText et = new TextInputEditText(til.getContext());
+        et.setInputType(inputType);
+        til.addView(et);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, dp(8));
+        til.setLayoutParams(lp);
+        parent.addView(til);
+        return et;
+    }
+
+    private void btn(LinearLayout parent, String label, Runnable action) {
+        MaterialButton b = new MaterialButton(this, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        b.setText(label);
+        b.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, dp(4));
+        b.setLayoutParams(lp);
+        parent.addView(b);
+    }
+
+    // ── Business logic (unchanged) ────────────────────────────────────────────
 
     private void replaceLibraryArtifact() {
         try {
-            File current = new File(inputText(currentLibraryInput));
-            File replacement = new File(inputText(replacementLibraryInput));
-            if (inputText(currentLibraryInput).isEmpty() || inputText(replacementLibraryInput).isEmpty()) {
+            String currentPath = inputText(currentLibraryInput);
+            String replacementPath = inputText(replacementLibraryInput);
+            if (currentPath.isEmpty() || replacementPath.isEmpty()) {
                 diagnosticsView.setText("Both library paths are required.");
                 return;
             }
+            File replacement = new File(replacementPath);
             if (!replacement.isFile()) {
                 diagnosticsView.setText("Replacement artifact does not exist: " + replacement.getAbsolutePath());
                 return;
             }
-            libraryUpdateManager.replace(current, replacement, new File(ProjectToolPaths.getProjectBackupDir(scId), "libraries"));
-            diagnosticsView.setText("Replaced library artifact: " + current.getAbsolutePath());
+            libraryUpdateManager.replace(new File(currentPath), replacement,
+                    new File(ProjectToolPaths.getProjectBackupDir(scId), "libraries"));
+            diagnosticsView.setText("Replaced library artifact: " + currentPath);
         } catch (Exception e) {
             diagnosticsView.setText("Library replacement failed: " + e.getMessage());
         }
@@ -150,18 +207,12 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
     private void undoLastLibraryReplacement() {
         try {
             boolean restored = libraryUpdateManager.undoLast();
-            diagnosticsView.setText(restored ? "Restored last replaced library artifact." : "No in-memory library replacement to undo.");
+            diagnosticsView.setText(restored
+                    ? "Restored last replaced library artifact."
+                    : "No in-memory library replacement to undo.");
         } catch (Exception e) {
             diagnosticsView.setText("Undo failed: " + e.getMessage());
         }
-    }
-
-    private String inputText(TextInputEditText input) {
-        return input.getText() == null ? "" : input.getText().toString().trim();
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void refreshDiagnostics() {
@@ -188,13 +239,12 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
         }
         report.append('\n');
 
-        ArrayList<HashMap<String, Object>> attachedLibraries = LocalLibrariesUtil.getLocalLibraries(scId);
+        ArrayList<HashMap<String, Object>> attachedLibraries =
+                LocalLibrariesUtil.getLocalLibraries(scId);
         report.append("Attached local libraries: ").append(attachedLibraries.size()).append("\n");
         for (HashMap<String, Object> map : attachedLibraries) {
             Object name = map.get("name");
-            if (name != null) {
-                report.append("• ").append(name).append("\n");
-            }
+            if (name != null) report.append("• ").append(name).append("\n");
         }
         report.append('\n');
 
@@ -236,21 +286,15 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
             List<LibraryHealthChecker.Issue> issues = healthChecker.check(metadata);
             report.append("Library artifact scan: ").append(metadata.size()).append(" jar/aar files\n");
             LibraryProjectLinker linker = new LibraryProjectLinker();
-            for (LocalLibraryMetadata library : metadata) {
-                linker.add(library);
-            }
+            for (LocalLibraryMetadata library : metadata) linker.add(library);
             report.append("Classpath artifacts linked: ").append(linker.classpath().size()).append("\n");
             List<String> conflicts = new LibraryConflictChecker().findNameConflicts(metadata);
             report.append("Name conflicts: ").append(conflicts.size()).append("\n");
-            for (String conflict : conflicts) {
-                report.append("• ").append(conflict).append("\n");
-            }
+            for (String conflict : conflicts) report.append("• ").append(conflict).append("\n");
             report.append("Health issues: ").append(issues.size()).append("\n");
             for (LibraryHealthChecker.Issue issue : issues) {
                 report.append("• [").append(issue.severity).append("] ").append(issue.message);
-                if (issue.file != null) {
-                    report.append(" — ").append(issue.file.getAbsolutePath());
-                }
+                if (issue.file != null) report.append(" — ").append(issue.file.getAbsolutePath());
                 report.append("\n");
             }
             report.append("Version compare sanity: 1.10.0 vs 1.9.9 = ")
@@ -261,5 +305,13 @@ public class ProjectLibraryDiagnosticsActivity extends BaseAppCompatActivity {
         }
 
         diagnosticsView.setText(report.toString());
+    }
+
+    private String inputText(TextInputEditText input) {
+        return input.getText() == null ? "" : input.getText().toString().trim();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

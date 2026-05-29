@@ -17,11 +17,10 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.content.ContextCompat;
 
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,15 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * TerminalActivity — interactive console for Sketchware Pro.
- *
- * Two modes:
- *  • Shell  — safe read/write shell commands via sh -c
- *  • Python — Python 3.12 via Chaquopy (if plugin is included in build)
- *
- * Access from DesignActivity drawer → "Extra" section → "Terminal".
- */
 public class TerminalActivity extends AppCompatActivity {
 
     private static final String[] ALLOWED_CMDS = {
@@ -50,29 +40,20 @@ public class TerminalActivity extends AppCompatActivity {
         "date","env","which","ps","clear","python","python3"
     };
 
-    // ── UI ────────────────────────────────────────────────────────────────────
     private LinearLayout outputContainer;
-    private ScrollView   outputScroll;
-    private EditText     inputField;
-    private TextView     promptView;
+    private ScrollView outputScroll;
+    private EditText inputField;
+    private TextView promptView;
 
-    // ── State ─────────────────────────────────────────────────────────────────
     private final List<String> cmdHistory = new ArrayList<>();
     private int historyIdx = -1;
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
     private String workDir = "/storage/emulated/0/.sketchware";
     private String scId;
 
-    // ── Colors — derived from Material theme at runtime ──────────────────────
-    private int C_PROMPT;
-    private int C_CMD;
-    private int C_OUT;
-    private int C_ERR;
-    private int C_INFO;
-    private int BG_SURFACE;
+    private int C_PROMPT, C_CMD, C_OUT, C_ERR, C_INFO, BG_SURFACE;
 
     private void initColors() {
-        // Use android R.attr which are always available in AppCompat
         int[] attrs = {
             android.R.attr.colorPrimary,
             android.R.attr.textColorPrimary,
@@ -80,12 +61,11 @@ public class TerminalActivity extends AppCompatActivity {
             android.R.attr.colorBackground,
         };
         android.content.res.TypedArray ta = obtainStyledAttributes(attrs);
-        C_PROMPT   = ta.getColor(0, Color.parseColor("#7c3aed")); // colorPrimary
-        C_CMD      = ta.getColor(1, Color.WHITE);                  // textColorPrimary
-        C_OUT      = ta.getColor(2, Color.LTGRAY);                 // textColorSecondary
-        C_INFO     = ta.getColor(0, Color.parseColor("#88ccff"));  // same as primary (accent)
+        C_PROMPT = ta.getColor(0, Color.parseColor("#7c3aed"));
+        C_CMD    = ta.getColor(1, Color.WHITE);
+        C_OUT    = ta.getColor(2, Color.LTGRAY);
+        C_INFO   = ta.getColor(0, Color.parseColor("#88ccff"));
         ta.recycle();
-        // Error and surface always fixed for terminal readability
         C_ERR      = Color.parseColor("#ff5555");
         BG_SURFACE = isDarkTheme() ? Color.parseColor("#0d0d1a") : Color.parseColor("#f5f5ff");
     }
@@ -107,10 +87,16 @@ public class TerminalActivity extends AppCompatActivity {
     }
 
     private void buildUi() {
+        // Root with FAB overlay using FrameLayout
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        setContentView(frame);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG_SURFACE);
-        setContentView(root);
+        frame.addView(root, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
 
         // Toolbar
         Toolbar tb = new Toolbar(this);
@@ -123,21 +109,9 @@ public class TerminalActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setHomeAsUpIndicator(
-                androidx.appcompat.R.drawable.abc_ic_ab_back_material);
+                    androidx.appcompat.R.drawable.abc_ic_ab_back_material);
         }
         root.addView(tb, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        // Mode chips
-        ChipGroup cg = new ChipGroup(this);
-        cg.setSingleSelection(true);
-        cg.setSelectionRequired(true);
-        cg.setPadding(dp(12), dp(6), dp(12), dp(6));
-        Chip shellChip = chip("🖥 Shell");
-        shellChip.setChecked(true);
-        cg.addView(shellChip);
-        root.addView(cg, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
@@ -149,13 +123,13 @@ public class TerminalActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         outputContainer = new LinearLayout(this);
         outputContainer.setOrientation(LinearLayout.VERTICAL);
-        outputContainer.setPadding(dp(8), dp(4), dp(8), dp(4));
+        outputContainer.setPadding(dp(8), dp(4), dp(8), dp(72));
         outputScroll.addView(outputContainer);
 
         // Input row
         LinearLayout inputRow = new LinearLayout(this);
         inputRow.setOrientation(LinearLayout.HORIZONTAL);
-        inputRow.setBackgroundColor(android.graphics.Color.argb(255, 20, 20, 40));
+        inputRow.setBackgroundColor(Color.argb(255, 20, 20, 40));
         inputRow.setPadding(dp(8), dp(4), dp(4), dp(4));
         inputRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
@@ -202,17 +176,106 @@ public class TerminalActivity extends AppCompatActivity {
             }
             return false;
         });
+
+        // FAB — command palette
+        FloatingActionButton fab = new FloatingActionButton(this);
+        fab.setImageResource(android.R.drawable.ic_menu_more);
+        fab.setOnClickListener(v -> showCommandPalette());
+        android.widget.FrameLayout.LayoutParams fabLp = new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+        fabLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+        fabLp.setMargins(0, 0, dp(16), dp(80));
+        fab.setLayoutParams(fabLp);
+        frame.addView(fab);
     }
 
-    private Chip chip(String label) {
-        Chip c = new Chip(this);
-        c.setText(label);
-        c.setCheckable(true);
-        c.setTypeface(Typeface.MONOSPACE);
-        return c;
+    // ── Command palette (BottomSheet) ─────────────────────────────────────────
+
+    private static final String[][] PALETTE_SECTIONS = {
+        { "Files",
+            "ls -la",
+            "find . -name '*.java'",
+            "find . -name '*.java' | wc -l",
+            "grep -r 'TODO' . --include='*.java' -l",
+            "du -sh *",
+            "cat proguard-rules.pro"
+        },
+        { "Project",
+            "ls data/",
+            "find data/ -name 'logic' | head -20",
+            "find data/ -name 'view'  | head -20",
+            "find data/ -name 'file'  | head -20",
+            "du -sh data/*",
+            "ls mysc/"
+        },
+        { "System",
+            "pwd",
+            "date",
+            "env | grep -i sketch",
+            "df -h",
+            "ps | grep sketch",
+            "echo Hello from Terminal!"
+        }
+    };
+
+    private void showCommandPalette() {
+        BottomSheetDialog sheet = new BottomSheetDialog(this);
+        ScrollView sv = new ScrollView(this);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(16);
+        container.setPadding(p, p, p, p * 2);
+
+        TextView title = new TextView(this);
+        title.setText("Command Palette");
+        title.setTextSize(17f);
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        titleLp.setMargins(0, 0, 0, dp(12));
+        title.setLayoutParams(titleLp);
+        container.addView(title);
+
+        for (String[] section : PALETTE_SECTIONS) {
+            TextView header = new TextView(this);
+            header.setText(section[0]);
+            header.setTextSize(13f);
+            header.setAlpha(0.6f);
+            header.setTypeface(null, android.graphics.Typeface.BOLD);
+            LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            hLp.setMargins(0, dp(8), 0, dp(4));
+            header.setLayoutParams(hLp);
+            container.addView(header);
+
+            for (int i = 1; i < section.length; i++) {
+                final String cmd = section[i];
+                MaterialButton btn = new MaterialButton(this, null,
+                        com.google.android.material.R.attr.materialButtonOutlinedStyle);
+                btn.setText(cmd);
+                btn.setTypeface(Typeface.MONOSPACE);
+                btn.setTextSize(12f);
+                LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                btnLp.setMargins(0, 0, 0, dp(4));
+                btn.setLayoutParams(btnLp);
+                btn.setOnClickListener(v -> {
+                    inputField.setText(cmd);
+                    inputField.setSelection(cmd.length());
+                    sheet.dismiss();
+                });
+                container.addView(btn);
+            }
+        }
+
+        sv.addView(container);
+        sheet.setContentView(sv);
+        sheet.show();
     }
 
     // ── Execute ───────────────────────────────────────────────────────────────
+
     private void run() {
         String input = inputField.getText().toString().trim();
         if (input.isEmpty()) return;
@@ -231,17 +294,15 @@ public class TerminalActivity extends AppCompatActivity {
     private void runShell(String cmd) {
         String first = cmd.split("\\s+")[0].toLowerCase();
 
-        // cd — update working directory
         if ("cd".equals(first)) {
             String[] p = cmd.split("\\s+", 2);
             workDir = p.length > 1
                     ? (p[1].startsWith("/") ? p[1] : workDir + "/" + p[1])
                     : workDir;
-            println("➜ " + workDir, C_INFO);
+            println("→ " + workDir, C_INFO);
             return;
         }
 
-        // Safety check
         boolean ok = false;
         for (String a : ALLOWED_CMDS) if (first.equals(a)) { ok = true; break; }
         if (!ok) {
@@ -270,10 +331,8 @@ public class TerminalActivity extends AppCompatActivity {
         });
     }
 
-
-
-
     // ── Helpers ───────────────────────────────────────────────────────────────
+
     private void println(String text, int color) {
         TextView tv = new TextView(this);
         tv.setTypeface(Typeface.MONOSPACE);
@@ -289,11 +348,6 @@ public class TerminalActivity extends AppCompatActivity {
         outputScroll.post(() -> outputScroll.fullScroll(ScrollView.FOCUS_DOWN));
     }
 
-    private void syncPrompt() {
-        promptView.setText("$ ");
-        promptView.setTextColor(C_PROMPT);
-    }
-
     private void hist(int dir) {
         if (cmdHistory.isEmpty()) return;
         historyIdx = Math.max(-1, Math.min(cmdHistory.size() - 1, historyIdx + dir));
@@ -307,14 +361,14 @@ public class TerminalActivity extends AppCompatActivity {
         println("╚══════════════════════════════╝", C_PROMPT);
         if (scId != null) println("Project: " + scId, C_INFO);
         println("cwd: " + workDir, C_INFO);
-
-        println("Type 'help' for quick reference.\n", C_INFO);
+        println("Tap the (+) button for ready-made commands.\n", C_INFO);
     }
 
     private void printHelp() {
-        println("Shell commands: ls, find, grep, cat, cp, mv, rm, mkdir,", C_INFO);
-        println("                wc, head, tail, sort, du, echo, chmod, cd", C_INFO);
-        println("Special: clear, exit, help, history (↑↓ keys)", C_INFO);
+        println("Allowed: ls, find, grep, cat, cp, mv, rm, mkdir,", C_INFO);
+        println("         wc, head, tail, sort, du, echo, chmod, cd", C_INFO);
+        println("Special: clear, exit, help  |  history: ↑↓ keys", C_INFO);
+        println("Tap the (+) FAB for the command palette.", C_INFO);
     }
 
     private int dp(int v) {
@@ -322,19 +376,20 @@ public class TerminalActivity extends AppCompatActivity {
     }
 
     // ── Options menu ──────────────────────────────────────────────────────────
-    @Override public boolean onCreateOptionsMenu(Menu menu) {
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, 1, 0, "Clear").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         menu.add(0, 2, 1, "Share output").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
-        menu.add(0, 3, 2, "Quick commands").setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         return true;
     }
 
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == android.R.id.home) { finish(); return true; }
         if (id == 1) { outputContainer.removeAllViews(); return true; }
         if (id == 2) { share(); return true; }
-        if (id == 3) { quickCmds(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
@@ -350,24 +405,8 @@ public class TerminalActivity extends AppCompatActivity {
         startActivity(Intent.createChooser(i, "Share terminal output"));
     }
 
-    private void quickCmds() {
-        String[] cmds = {
-            "ls -la",
-            "find . -name '*.java' | wc -l",
-            "grep -r 'TODO' . --include='*.java' -l",
-            "du -sh *",
-            "echo Hello from Terminal!"
-        };
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Quick Commands")
-                .setItems(cmds, (d, w) -> {
-                    inputField.setText(cmds[w]);
-                    inputField.setSelection(cmds[w].length());
-                })
-                .show();
-    }
-
-    @Override protected void onDestroy() {
+    @Override
+    protected void onDestroy() {
         super.onDestroy();
         exec.shutdownNow();
     }
