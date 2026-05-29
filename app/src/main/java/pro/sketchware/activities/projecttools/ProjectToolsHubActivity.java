@@ -110,9 +110,10 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
 
         // ── Developer tools ───────────────────────────────────────────────────
         addSection(content, "Developer tools",
-                "Read logs, clone Java classes, and inspect keystore SHA-1 values.",
+                "Read logs, clone Java classes, inspect keystore SHA-1, and run shell commands.",
                 new Action[]{
-                        new Action("Developer tools", DeveloperToolsActivity.class)
+                        new Action("Developer tools", DeveloperToolsActivity.class),
+                        new Action("Terminal", pro.sketchware.activities.terminal.TerminalActivity.class)
                 });
 
         // ── Project settings ──────────────────────────────────────────────────
