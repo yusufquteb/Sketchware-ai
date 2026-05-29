@@ -41,7 +41,16 @@ public class ApkSigner {
                                     @NonNull String keyStorePath, @NonNull String keyStorePassword,
                                     @NonNull String keyStoreKeyAlias, @NonNull String keyPassword,
                                     @Nullable LogCallback callback) {
-        List<String> args = Arrays.asList(
+        return signWithKeyStore(inputFilePath, outputFilePath, keyStorePath, keyStorePassword,
+                keyStoreKeyAlias, keyPassword, true, true, true, false, callback);
+    }
+
+    public boolean signWithKeyStore(@NonNull String inputFilePath, @NonNull String outputFilePath,
+                                    @NonNull String keyStorePath, @NonNull String keyStorePassword,
+                                    @NonNull String keyStoreKeyAlias, @NonNull String keyPassword,
+                                    boolean enableV1, boolean enableV2, boolean enableV3, boolean enableV4,
+                                    @Nullable LogCallback callback) {
+        List<String> args = new ArrayList<>(Arrays.asList(
                 "sign",
                 "--in", inputFilePath,
                 "--out", outputFilePath,
@@ -49,11 +58,11 @@ public class ApkSigner {
                 "--ks-pass", "pass:" + keyStorePassword,
                 "--ks-key-alias", keyStoreKeyAlias,
                 "--key-pass", "pass:" + keyPassword,
-                "--v1-signing-enabled", "true",
-                "--v2-signing-enabled", "true",
-                "--v3-signing-enabled", "true",
-                "--v4-signing-enabled", "false"
-        );
+                "--v1-signing-enabled", String.valueOf(enableV1),
+                "--v2-signing-enabled", String.valueOf(enableV2),
+                "--v3-signing-enabled", String.valueOf(enableV3),
+                "--v4-signing-enabled", String.valueOf(enableV4)
+        ));
         return runSigningTask(args, outputFilePath, callback);
     }
 
