@@ -71,6 +71,62 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/project_rename"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/project_item_shape_alone"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:layout_marginTop="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    app:srcCompat="@drawable/ic_mtrl_edit" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:gravity="center_vertical"
+                    android:text="Rename project"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    app:drawableEndCompat="@drawable/ic_mtrl_arrow_right" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/project_view_files"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/project_item_shape_alone"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:layout_marginTop="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    app:srcCompat="@drawable/ic_mtrl_code" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:gravity="center_vertical"
+                    android:text="View Logic / View files"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    app:drawableEndCompat="@drawable/ic_mtrl_arrow_right" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/project_backup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -98,6 +154,33 @@
 
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/project_import"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/project_item_shape_bottom"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:layout_marginTop="2dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    app:srcCompat="@drawable/ic_mtrl_download" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:gravity="center_vertical"
+                    android:text="Import backup (.swb)"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    app:drawableEndCompat="@drawable/ic_mtrl_arrow_right" />
+
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/export_sign"

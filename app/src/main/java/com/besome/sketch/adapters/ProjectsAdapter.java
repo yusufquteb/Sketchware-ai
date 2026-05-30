@@ -38,8 +38,11 @@ import pro.sketchware.R;
 import pro.sketchware.project.ProjectCloneTool;
 
 import pro.sketchware.activities.main.fragments.projects.ProjectsFragment;
+import pro.sketchware.activities.main.activities.MainActivity;
 import pro.sketchware.activities.projecttools.GitWorkflowActivity;
+import pro.sketchware.activities.projecttools.ProjectFilesViewerActivity;
 import pro.sketchware.activities.projecttools.ProjectToolsHubActivity;
+import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
 import pro.sketchware.ai.storage.WorkspaceManager;
 import pro.sketchware.databinding.BottomSheetProjectOptionsBinding;
@@ -334,6 +337,24 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
             ProjectCloneTool.showDialogNow(activity, yB.c(projectMap, "sc_id"));
         });
 
+        binding.projectRename.setOnClickListener(v -> {
+            projectOptionsBSD.dismiss();
+            showRenameDialog(activity, projectMap, projectsFragment);
+        });
+
+        binding.projectViewFiles.setOnClickListener(v -> {
+            projectOptionsBSD.dismiss();
+            Intent intent = new Intent(activity, ProjectFilesViewerActivity.class);
+            intent.putExtra(ProjectFilesViewerActivity.EXTRA_SC_ID, yB.c(projectMap, "sc_id"));
+            intent.putExtra(ProjectFilesViewerActivity.EXTRA_PROJECT_NAME, yB.c(projectMap, "my_sc_app_name"));
+            activity.startActivity(intent);
+        });
+
+        binding.projectImport.setOnClickListener(v -> {
+            projectOptionsBSD.dismiss();
+            new BackupRestoreManager(activity, projectsFragment).restore();
+        });
+
         binding.projectDelete.setOnClickListener(v -> {
             projectOptionsBSD.dismiss();
             MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(activity);
@@ -357,6 +378,36 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
         }
 
         projectOptionsBSD.show();
+    }
+
+    private static void showRenameDialog(Activity activity, HashMap<String, Object> projectMap, ProjectsFragment projectsFragment) {
+        String scId = yB.c(projectMap, "sc_id");
+        String currentName = yB.c(projectMap, "my_sc_app_name");
+        android.widget.EditText editText = new android.widget.EditText(activity);
+        editText.setText(currentName);
+        editText.setSelectAllOnFocus(true);
+        int padding = (int) (16 * activity.getResources().getDisplayMetrics().density);
+        editText.setPadding(padding, padding, padding, padding);
+        new MaterialAlertDialogBuilder(activity)
+            .setTitle("Rename project")
+            .setView(editText)
+            .setPositiveButton("Rename", (d, w) -> {
+                String newName = editText.getText().toString().trim();
+                if (newName.isEmpty()) return;
+                try {
+                    HashMap<String, Object> updated = new HashMap<>(lC.b(scId));
+                    updated.put("my_sc_app_name", newName);
+                    lC.a(scId, updated);
+                    SketchwareUtil.toast("Renamed to: " + newName);
+                    if (activity instanceof MainActivity) {
+                        ((MainActivity) activity).n();
+                    }
+                } catch (Exception e) {
+                    SketchwareUtil.toastError("Rename failed: " + e.getMessage());
+                }
+            })
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
     }
 
     public static class ProjectViewHolder extends RecyclerView.ViewHolder {
