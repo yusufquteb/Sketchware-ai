@@ -3,8 +3,10 @@ package pro.sketchware.activities.projecttools;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -14,21 +16,29 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import a.a.a.jC;
+import a.a.a.lC;
+import a.a.a.yB;
+import mod.hilal.saif.android_manifest.AndroidManifestInjector;
 import pro.sketchware.util.SketchwareFileDecryptor;
 import pro.sketchware.util.SketchwareFileEncryptor;
+import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.SketchwareUtil;
 
 /**
- * Manages activities in a Sketchware project: Import (add), Clone, Rename.
- *
- * Uses the jC.b(scId) API for file-metadata operations and
- * SketchwareFileDecryptor / SketchwareFileEncryptor for view/logic files.
+ * Manages activities: import from another project, clone, rename.
+ * Also updates AndroidManifest launcher + activity-component injections on rename.
  */
 public class ActivityManagerActivity extends BaseAppCompatActivity {
 
@@ -68,13 +78,13 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         int pad = dp(16);
         content.setPadding(pad, pad, pad, pad * 2);
 
-        MaterialButton addBtn = new MaterialButton(this);
-        addBtn.setText("+ Import / Add Activity");
-        addBtn.setOnClickListener(v -> showImportActivityDialog());
-        LinearLayout.LayoutParams addLp = new LinearLayout.LayoutParams(
+        MaterialButton importBtn = new MaterialButton(this);
+        importBtn.setText("Import Activity from Project");
+        importBtn.setOnClickListener(v -> showPickProjectDialog());
+        LinearLayout.LayoutParams importLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        addLp.setMargins(0, 0, 0, dp(16));
-        content.addView(addBtn, addLp);
+        importLp.setMargins(0, 0, 0, dp(16));
+        content.addView(importBtn, importLp);
 
         TextView sectionLabel = new TextView(this);
         sectionLabel.setText("Existing Activities");
@@ -97,16 +107,13 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         loadAndDisplayActivities();
     }
 
-    // ── List activities via jC API ─────────────────────────────────────────────
+    // ── Activity list ───────────────────────────────────────────────────────────
 
     private void loadAndDisplayActivities() {
         listContainer.removeAllViews();
         try {
             ArrayList<ProjectFileBean> beans = jC.b(scId).b();
-            if (beans == null || beans.isEmpty()) {
-                addEmptyLabel("No activities found.");
-                return;
-            }
+            if (beans == null || beans.isEmpty()) { addEmptyLabel("No activities found."); return; }
             boolean found = false;
             for (ProjectFileBean bean : beans) {
                 if (bean.fileType != ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY) continue;
@@ -146,7 +153,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         box.addView(nameView);
 
         TextView infoView = new TextView(this);
-        infoView.setText("Layout: " + fileName + ".xml  •  ID: " + fileName);
+        infoView.setText(fileName + ".xml  •  " + ProjectFileBean.getJavaName(fileName));
         infoView.setTextSize(12f);
         infoView.setAlpha(0.6f);
         LinearLayout.LayoutParams infoLp = new LinearLayout.LayoutParams(
@@ -165,7 +172,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         cloneLp.setMarginEnd(dp(4));
         cloneBtn.setLayoutParams(cloneLp);
-        cloneBtn.setOnClickListener(v -> showCloneActivityDialog(fileName));
+        cloneBtn.setOnClickListener(v -> showCloneDialog(fileName));
 
         MaterialButton renameBtn = new MaterialButton(
                 this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
@@ -175,7 +182,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         renameLp.setMarginStart(dp(4));
         renameBtn.setLayoutParams(renameLp);
-        renameBtn.setOnClickListener(v -> showRenameActivityDialog(fileName));
+        renameBtn.setOnClickListener(v -> showRenameDialog(fileName));
 
         if ("main".equals(fileName)) {
             renameBtn.setEnabled(false);
@@ -189,33 +196,111 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         return card;
     }
 
-    // ── Dialogs ─────────────────────────────────────────────────────────────────
+    // ── Import: step 1 — pick project ─────────────────────────────────────────
 
-    private void showImportActivityDialog() {
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setHint("e.g. settings, about, profile");
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        int p = dp(20);
-        input.setPadding(p, p / 2, p, p / 2);
+    private void showPickProjectDialog() {
+        ArrayList<HashMap<String, Object>> projects = lC.a();
+        if (projects == null || projects.isEmpty()) {
+            SketchwareUtil.toastError("No other projects found.");
+            return;
+        }
+        // Build display list (exclude current project)
+        ArrayList<HashMap<String, Object>> filtered = new ArrayList<>();
+        for (HashMap<String, Object> p : projects) {
+            if (!scId.equals(yB.c(p, "sc_id"))) filtered.add(p);
+        }
+        if (filtered.isEmpty()) {
+            SketchwareUtil.toastError("No other projects to import from.");
+            return;
+        }
+
+        String[] names = new String[filtered.size()];
+        for (int i = 0; i < filtered.size(); i++) {
+            String wsName = yB.c(filtered.get(i), "my_ws_name");
+            String appName = yB.c(filtered.get(i), "my_app_name");
+            String id = yB.c(filtered.get(i), "sc_id");
+            names[i] = wsName + (appName.isEmpty() ? "" : " – " + appName) + "  [" + id + "]";
+        }
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Add / Import Activity")
-                .setMessage("Enter the base name without 'Activity' suffix.\nExample: 'settings' → SettingsActivity")
-                .setView(input)
-                .setPositiveButton("Add", (d, w) -> {
-                    String name = sanitize(input.getText() == null ? "" : input.getText().toString());
-                    if (!isValidName(name)) {
-                        SketchwareUtil.toastError("Invalid name. Must start with a letter.");
-                        return;
-                    }
-                    createActivity(name);
+                .setTitle("Select Source Project")
+                .setItems(names, (d, which) -> {
+                    String srcScId = yB.c(filtered.get(which), "sc_id");
+                    showPickActivityDialog(srcScId, names[which]);
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void showCloneActivityDialog(String src) {
+    // ── Import: step 2 — pick activity ────────────────────────────────────────
+
+    private void showPickActivityDialog(String srcScId, String projectLabel) {
+        executor.execute(() -> {
+            ArrayList<ProjectFileBean> srcBeans;
+            try {
+                srcBeans = jC.b(srcScId, true).b();
+                // Restore current project immediately
+                jC.b(scId, true);
+            } catch (Exception e) {
+                jC.b(scId, true);
+                runOnUiThread(() -> SketchwareUtil.toastError("Could not load source project: " + e.getMessage()));
+                return;
+            }
+
+            ArrayList<ProjectFileBean> activities = new ArrayList<>();
+            if (srcBeans != null) {
+                for (ProjectFileBean b : srcBeans) {
+                    if (b.fileType == ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY) activities.add(b);
+                }
+            }
+            if (activities.isEmpty()) {
+                runOnUiThread(() -> SketchwareUtil.toastError("No activities in that project."));
+                return;
+            }
+
+            String[] names = new String[activities.size()];
+            for (int i = 0; i < activities.size(); i++) {
+                names[i] = ProjectFileBean.getActivityName(activities.get(i).fileName)
+                        + "  (" + activities.get(i).fileName + ".xml)";
+            }
+
+            runOnUiThread(() -> new MaterialAlertDialogBuilder(this)
+                    .setTitle("Pick Activity from\n" + projectLabel)
+                    .setItems(names, (d, which) ->
+                            showImportNameDialog(srcScId, activities.get(which)))
+                    .setNegativeButton("Back", null)
+                    .show());
+        });
+    }
+
+    // ── Import: step 3 — confirm name ─────────────────────────────────────────
+
+    private void showImportNameDialog(String srcScId, ProjectFileBean srcBean) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(srcBean.fileName);
+        input.selectAll();
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        int p = dp(20);
+        input.setPadding(p, p / 2, p, p / 2);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Import as…")
+                .setMessage("Activity to import: " + ProjectFileBean.getActivityName(srcBean.fileName)
+                        + "\n\nEnter the name for this activity in your project (base name, no 'Activity' suffix).")
+                .setView(input)
+                .setPositiveButton("Import", (d, w) -> {
+                    String name = sanitize(input.getText() == null ? "" : input.getText().toString());
+                    if (!isValidName(name)) { SketchwareUtil.toastError("Invalid name."); return; }
+                    importActivity(srcScId, srcBean, name);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // ── Clone / Rename dialogs ─────────────────────────────────────────────────
+
+    private void showCloneDialog(String src) {
         EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setText(src + "_copy");
@@ -237,7 +322,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 .show();
     }
 
-    private void showRenameActivityDialog(String oldName) {
+    private void showRenameDialog(String oldName) {
         EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setText(oldName);
@@ -262,45 +347,57 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
 
     // ── Operations ─────────────────────────────────────────────────────────────
 
-    /** Creates a blank activity using the jC API (handles encryption transparently). */
-    private void createActivity(String name) {
+    /**
+     * Imports an activity from another project (srcScId) into this project.
+     * Copies file-metadata bean, view sections, and logic sections.
+     */
+    private void importActivity(String srcScId, ProjectFileBean srcBean, String dstName) {
         executor.execute(() -> {
             try {
-                if (isDuplicate(name)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(name) + "' already exists."));
+                if (isDuplicate(dstName)) {
+                    runOnUiThread(() -> SketchwareUtil.toastError(
+                            "'" + ProjectFileBean.getActivityName(dstName) + "' already exists."));
                     return;
                 }
-                ProjectFileBean bean = new ProjectFileBean(
-                        ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY, name,
-                        ProjectFileBean.ORIENTATION_PORTRAIT,
-                        ProjectFileBean.KEYBOARD_STATE_UNSPECIFIED,
-                        ProjectFileBean.OPTION_ACTIVITY_TOOLBAR);
-                jC.b(scId).a(bean);
+
+                // 1. Add the activity bean to the current project's file metadata
+                ProjectFileBean dstBean = new ProjectFileBean(
+                        ProjectFileBean.PROJECT_FILE_TYPE_ACTIVITY, dstName,
+                        srcBean.orientation, srcBean.keyboardSetting, srcBean.options);
+                dstBean.presetName = srcBean.presetName;
+                jC.b(scId).a(dstBean);
                 jC.b(scId).j();
                 jC.b(scId).l();
+
+                // 2. Copy view sections from source project's view file
+                copyViewSectionsAcrossProjects(srcScId, srcBean.fileName + ".xml", dstName + ".xml");
+
+                // 3. Copy logic sections from source project's logic file
+                copyLogicSectionsAcrossProjects(srcScId, srcBean.fileName + ".java_", dstName + ".java_");
+
                 runOnUiThread(() -> {
-                    SketchwareUtil.toast("Created " + ProjectFileBean.getActivityName(name));
+                    SketchwareUtil.toast("Imported as " + ProjectFileBean.getActivityName(dstName));
                     loadAndDisplayActivities();
                 });
             } catch (Exception e) {
-                runOnUiThread(() -> SketchwareUtil.toastError("Failed: " + e.getMessage()));
+                runOnUiThread(() -> SketchwareUtil.toastError("Import failed: " + e.getMessage()));
             }
         });
     }
 
     /**
-     * Clones an activity: copies its file metadata, view layout sections,
-     * and logic sections using Sketchware's native encryption/decryption.
+     * Clones an activity within the current project:
+     * file-metadata bean, view layout sections, and logic sections.
      */
     private void cloneActivity(String src, String dst) {
         executor.execute(() -> {
             try {
                 if (isDuplicate(dst)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(dst) + "' already exists."));
+                    runOnUiThread(() -> SketchwareUtil.toastError(
+                            "'" + ProjectFileBean.getActivityName(dst) + "' already exists."));
                     return;
                 }
 
-                // 1. Find source bean and add clone to file metadata
                 ArrayList<ProjectFileBean> beans = jC.b(scId).b();
                 ProjectFileBean srcBean = null;
                 if (beans != null) {
@@ -312,6 +409,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                     runOnUiThread(() -> SketchwareUtil.toastError("Source activity not found."));
                     return;
                 }
+
                 ProjectFileBean dstBean = new ProjectFileBean(
                         srcBean.fileType, dst, srcBean.orientation,
                         srcBean.keyboardSetting, srcBean.options);
@@ -320,10 +418,7 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 jC.b(scId).j();
                 jC.b(scId).l();
 
-                // 2. Clone view sections (@src.xml → @dst.xml)
                 cloneViewSections(src + ".xml", dst + ".xml");
-
-                // 3. Clone logic sections (@src.java_* → @dst.java_*)
                 cloneLogicSections(src + ".java_", dst + ".java_");
 
                 runOnUiThread(() -> {
@@ -337,18 +432,19 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
     }
 
     /**
-     * Renames an activity: updates its file metadata bean, view layout section
-     * headers, and logic section headers.
+     * Renames an activity: updates file-metadata bean, view/logic section headers,
+     * and AndroidManifest injections (launcher activity + activity attributes).
      */
     private void renameActivity(String oldName, String newName) {
         executor.execute(() -> {
             try {
                 if (isDuplicate(newName)) {
-                    runOnUiThread(() -> SketchwareUtil.toastError("'" + ProjectFileBean.getActivityName(newName) + "' already exists."));
+                    runOnUiThread(() -> SketchwareUtil.toastError(
+                            "'" + ProjectFileBean.getActivityName(newName) + "' already exists."));
                     return;
                 }
 
-                // 1. Update file metadata bean directly (mutable field)
+                // 1. Update file-metadata bean
                 ArrayList<ProjectFileBean> beans = jC.b(scId).b();
                 if (beans != null) {
                     for (ProjectFileBean b : beans) {
@@ -358,11 +454,12 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
                 jC.b(scId).j();
                 jC.b(scId).l();
 
-                // 2. Rename view sections (@old.xml → @new.xml)
+                // 2. Update view / logic files
                 renameViewSections(oldName + ".xml", newName + ".xml");
-
-                // 3. Rename logic sections (@old.java_* → @new.java_*)
                 renameLogicSections(oldName + ".java_", newName + ".java_");
+
+                // 3. Update AndroidManifest injections
+                updateManifestOnRename(oldName, newName);
 
                 runOnUiThread(() -> {
                     SketchwareUtil.toast("Renamed to " + ProjectFileBean.getActivityName(newName));
@@ -374,99 +471,157 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
         });
     }
 
-    // ── Encrypted section helpers ───────────────────────────────────────────────
+    // ── Manifest update on rename ──────────────────────────────────────────────
 
     /**
-     * Reads the decrypted view file, copies all lines belonging to {@code srcSection}
-     * under a new header {@code dstSection}, appends them, and writes back encrypted.
+     * Updates any AndroidManifest injections that reference the old activity name.
      *
-     * View file format (decrypted):
-     *   @main.xml
-     *   {viewBeanJson}
-     *   @settings.xml
-     *   {viewBeanJson}
+     * Files updated:
+     * - activity_launcher.txt        (if launcher was the renamed activity)
+     * - activities_components.json   (custom activity XML attributes)
+     * - attributes.json              (attribute injections keyed by activity name)
      */
+    private void updateManifestOnRename(String oldFileName, String newFileName) {
+        String oldActivityName = ProjectFileBean.getActivityName(oldFileName);
+        String newActivityName = ProjectFileBean.getActivityName(newFileName);
+
+        // Launcher activity
+        String launcher = AndroidManifestInjector.getLauncherActivity(scId);
+        if (oldFileName.equals(launcher)) {
+            AndroidManifestInjector.setLauncherActivity(scId, newFileName);
+        }
+
+        // activities_components.json: [{"name": ".OldActivity", "value": "..."}, ...]
+        File activitiesComponentsFile =
+                AndroidManifestInjector.getPathAndroidManifestActivitiesComponents(scId);
+        if (activitiesComponentsFile.exists()) {
+            try {
+                String json = FileUtil.readFile(activitiesComponentsFile.getAbsolutePath());
+                if (json != null && !json.isEmpty()) {
+                    // Replace all occurrences of the old activity class name in the JSON
+                    String updated = json
+                            .replace("\"." + oldActivityName + "\"", "\"." + newActivityName + "\"")
+                            .replace("\"" + oldActivityName + "\"", "\"" + newActivityName + "\"");
+                    if (!updated.equals(json)) {
+                        FileUtil.writeFile(activitiesComponentsFile.getAbsolutePath(), updated);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // attributes.json: [{"name": "...", "value": "..."}, ...]
+        File attributesFile =
+                AndroidManifestInjector.getPathAndroidManifestAttributeInjection(scId);
+        if (attributesFile.exists()) {
+            try {
+                String json = FileUtil.readFile(attributesFile.getAbsolutePath());
+                if (json != null && !json.isEmpty()) {
+                    String updated = json
+                            .replace("\"." + oldActivityName + "\"", "\"." + newActivityName + "\"")
+                            .replace("\"" + oldActivityName + "\"", "\"" + newActivityName + "\"");
+                    if (!updated.equals(json)) {
+                        FileUtil.writeFile(attributesFile.getAbsolutePath(), updated);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // ── Cross-project view/logic copy ─────────────────────────────────────────
+
+    private void copyViewSectionsAcrossProjects(String srcScId, String srcSection, String dstSection) {
+        String srcContent = SketchwareFileDecryptor.decryptFile(srcScId, "view");
+        if (srcContent == null || srcContent.isEmpty()) return;
+
+        StringBuilder copied = extractSection(srcContent, srcSection);
+        if (copied.length() == 0) return;
+
+        String dstContent = SketchwareFileDecryptor.decryptFile(scId, "view");
+        String base = (dstContent == null || dstContent.isEmpty()) ? "" : dstContent.trim();
+        SketchwareFileEncryptor.encryptAndSaveFile(scId, "view",
+                base + "\n@" + dstSection + "\n" + copied);
+    }
+
+    private void copyLogicSectionsAcrossProjects(String srcScId, String srcPrefix, String dstPrefix) {
+        String srcContent = SketchwareFileDecryptor.decryptFile(srcScId, "logic");
+        if (srcContent == null || srcContent.isEmpty()) return;
+
+        StringBuilder copied = extractSectionsWithPrefix(srcContent, srcPrefix, dstPrefix);
+        if (copied.length() == 0) return;
+
+        String dstContent = SketchwareFileDecryptor.decryptFile(scId, "logic");
+        String base = (dstContent == null || dstContent.isEmpty()) ? "" : dstContent.trim();
+        SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", base + "\n" + copied);
+    }
+
+    // ── Same-project view/logic clone ─────────────────────────────────────────
+
     private void cloneViewSections(String srcSection, String dstSection) {
         String content = SketchwareFileDecryptor.decryptFile(scId, "view");
         if (content == null || content.isEmpty()) return;
-
-        String[] lines = content.split("\n", -1);
-        StringBuilder copied = new StringBuilder();
-        boolean inSrc = false;
-
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("@")) {
-                inSrc = trimmed.equals("@" + srcSection);
-                if (inSrc) continue; // we'll re-add under new header
-            }
-            if (inSrc && !trimmed.isEmpty()) {
-                copied.append(line).append("\n");
-            }
-        }
-
-        if (copied.length() > 0) {
-            String appended = content.trim() + "\n@" + dstSection + "\n" + copied;
-            SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", appended);
-        }
+        StringBuilder copied = extractSection(content, srcSection);
+        if (copied.length() == 0) return;
+        String appended = content.trim() + "\n@" + dstSection + "\n" + copied;
+        SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", appended);
     }
 
-    /**
-     * Reads the decrypted view file and renames all section headers from
-     * {@code oldSection} to {@code newSection}.
-     */
-    private void renameViewSections(String oldSection, String newSection) {
-        String content = SketchwareFileDecryptor.decryptFile(scId, "view");
-        if (content == null || content.isEmpty()) return;
-
-        String updated = content.replace("@" + oldSection, "@" + newSection);
-        if (!updated.equals(content)) {
-            SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", updated);
-        }
-    }
-
-    /**
-     * Reads the decrypted logic file, copies all sections whose header starts
-     * with {@code srcPrefix} under the new prefix {@code dstPrefix}, and writes back.
-     *
-     * Logic file format (decrypted):
-     *   @main.java_onCreate
-     *   {blockJson}
-     *   @main.java_onClick_btn1
-     *   {blockJson}
-     */
     private void cloneLogicSections(String srcPrefix, String dstPrefix) {
         String content = SketchwareFileDecryptor.decryptFile(scId, "logic");
         if (content == null || content.isEmpty()) return;
+        StringBuilder copied = extractSectionsWithPrefix(content, srcPrefix, dstPrefix);
+        if (copied.length() == 0) return;
+        String appended = content.trim() + "\n" + copied;
+        SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", appended);
+    }
 
-        String[] lines = content.split("\n", -1);
-        StringBuilder copied = new StringBuilder();
-        String currentHeader = null;
+    // ── Same-project view/logic rename ────────────────────────────────────────
 
-        for (String line : lines) {
+    private void renameViewSections(String oldSection, String newSection) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "view");
+        if (content == null || content.isEmpty()) return;
+        String updated = content.replace("@" + oldSection, "@" + newSection);
+        if (!updated.equals(content)) SketchwareFileEncryptor.encryptAndSaveFile(scId, "view", updated);
+    }
+
+    private void renameLogicSections(String oldPrefix, String newPrefix) {
+        String content = SketchwareFileDecryptor.decryptFile(scId, "logic");
+        if (content == null || content.isEmpty()) return;
+        String updated = content.replace("@" + oldPrefix, "@" + newPrefix);
+        if (!updated.equals(content)) SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", updated);
+    }
+
+    // ── Section parsing helpers ────────────────────────────────────────────────
+
+    /**
+     * Extracts all lines belonging to the section headed by {@code @sectionName}
+     * from a decrypted view file.
+     */
+    private StringBuilder extractSection(String content, String sectionName) {
+        StringBuilder out = new StringBuilder();
+        boolean inSection = false;
+        for (String line : content.split("\n", -1)) {
             String trimmed = line.trim();
             if (trimmed.startsWith("@")) {
-                if (trimmed.substring(1).startsWith(srcPrefix)) {
-                    String suffix = trimmed.substring(1 + srcPrefix.length());
-                    currentHeader = "@" + dstPrefix + suffix;
-                } else {
-                    currentHeader = null;
-                }
+                inSection = trimmed.equals("@" + sectionName);
                 continue;
             }
-            if (currentHeader != null && !trimmed.isEmpty()) {
-                if (copied.length() == 0 || !copied.toString().endsWith("\n" + currentHeader + "\n")) {
-                    copied.append(currentHeader).append("\n");
-                    currentHeader = null; // header appended, clear it
-                }
-                copied.append(line).append("\n");
+            if (inSection && !trimmed.isEmpty()) {
+                out.append(line).append("\n");
             }
         }
-        // Re-do: simpler pass
-        copied.setLength(0);
+        return out;
+    }
+
+    /**
+     * Extracts all sections from {@code content} whose {@code @header} starts with
+     * {@code srcPrefix}, renaming each header to use {@code dstPrefix} instead.
+     */
+    private StringBuilder extractSectionsWithPrefix(String content, String srcPrefix, String dstPrefix) {
+        StringBuilder out = new StringBuilder();
         boolean inSection = false;
         String pendingHeader = null;
-        for (String line : lines) {
+
+        for (String line : content.split("\n", -1)) {
             String trimmed = line.trim();
             if (trimmed.startsWith("@")) {
                 String header = trimmed.substring(1);
@@ -481,34 +636,16 @@ public class ActivityManagerActivity extends BaseAppCompatActivity {
             }
             if (inSection) {
                 if (pendingHeader != null) {
-                    copied.append(pendingHeader).append("\n");
+                    out.append(pendingHeader).append("\n");
                     pendingHeader = null;
                 }
-                copied.append(line).append("\n");
+                out.append(line).append("\n");
             }
         }
-
-        if (copied.length() > 0) {
-            String appended = content.trim() + "\n" + copied;
-            SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", appended);
-        }
+        return out;
     }
 
-    /**
-     * Reads the decrypted logic file and renames all section headers from
-     * {@code oldPrefix} to {@code newPrefix}.
-     */
-    private void renameLogicSections(String oldPrefix, String newPrefix) {
-        String content = SketchwareFileDecryptor.decryptFile(scId, "logic");
-        if (content == null || content.isEmpty()) return;
-
-        String updated = content.replace("@" + oldPrefix, "@" + newPrefix);
-        if (!updated.equals(content)) {
-            SketchwareFileEncryptor.encryptAndSaveFile(scId, "logic", updated);
-        }
-    }
-
-    // ── Validation helpers ──────────────────────────────────────────────────────
+    // ── Validation ─────────────────────────────────────────────────────────────
 
     private boolean isDuplicate(String name) {
         try {
