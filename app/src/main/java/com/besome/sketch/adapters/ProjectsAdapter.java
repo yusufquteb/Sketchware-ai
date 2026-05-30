@@ -40,7 +40,7 @@ import pro.sketchware.project.ProjectCloneTool;
 import pro.sketchware.activities.main.fragments.projects.ProjectsFragment;
 import pro.sketchware.activities.main.activities.MainActivity;
 import pro.sketchware.activities.projecttools.GitWorkflowActivity;
-import pro.sketchware.activities.projecttools.ProjectFilesViewerActivity;
+import pro.sketchware.activities.projecttools.ProjectFileManagerActivity;
 import pro.sketchware.activities.projecttools.ProjectToolsHubActivity;
 import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.ai.integration.AiProjectIntegrationHelper;
@@ -344,9 +344,8 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
 
         binding.projectViewFiles.setOnClickListener(v -> {
             projectOptionsBSD.dismiss();
-            Intent intent = new Intent(activity, ProjectFilesViewerActivity.class);
-            intent.putExtra(ProjectFilesViewerActivity.EXTRA_SC_ID, yB.c(projectMap, "sc_id"));
-            intent.putExtra(ProjectFilesViewerActivity.EXTRA_PROJECT_NAME, yB.c(projectMap, "my_sc_app_name"));
+            Intent intent = new Intent(activity, ProjectFileManagerActivity.class);
+            intent.putExtra("sc_id", yB.c(projectMap, "sc_id"));
             activity.startActivity(intent);
         });
 

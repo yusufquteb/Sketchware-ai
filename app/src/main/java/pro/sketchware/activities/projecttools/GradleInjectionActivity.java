@@ -1,18 +1,28 @@
 package pro.sketchware.activities.projecttools;
 
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
+
+import androidx.core.widget.NestedScrollView;
 
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.util.HashMap;
+
+import a.a.a.lC;
+import a.a.a.yB;
 import pro.sketchware.util.GradleInjectionManager;
 import pro.sketchware.utility.SketchwareUtil;
 
@@ -42,30 +52,33 @@ public class GradleInjectionActivity extends BaseAppCompatActivity {
             return;
         }
 
+        String projectName = getProjectName();
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
 
         MaterialToolbar toolbar = new MaterialToolbar(this);
         toolbar.setTitle("Gradle Injection");
-        toolbar.setSubtitle("Project " + scId);
+        toolbar.setSubtitle(projectName);
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
         toolbar.setNavigationOnClickListener(v -> finish());
+        setSupportActionBar(toolbar);
         root.addView(toolbar);
 
         TabLayout tabs = new TabLayout(this);
-        tabs.addTab(tabs.newTab().setText("App"));
-        tabs.addTab(tabs.newTab().setText("Project"));
-        tabs.addTab(tabs.newTab().setText("Properties"));
+        tabs.addTab(tabs.newTab().setText("App build.gradle"));
+        tabs.addTab(tabs.newTab().setText("Project build.gradle"));
+        tabs.addTab(tabs.newTab().setText("gradle.properties"));
         root.addView(tabs);
 
         appPanel = createEditorPanel(root,
-                "Code appended to app/build.gradle at generation time.",
+                "Injected into app/build.gradle at build time",
                 HINT_APP);
         projectPanel = createEditorPanel(root,
-                "Code appended to project build.gradle at generation time.",
+                "Injected into project build.gradle at build time",
                 HINT_PROJECT);
         propertiesPanel = createEditorPanel(root,
-                "Lines appended to gradle.properties at generation time.",
+                "Injected into gradle.properties at build time",
                 HINT_PROPERTIES);
 
         appInput = (TextInputEditText) appPanel.getTag();
@@ -86,37 +99,58 @@ public class GradleInjectionActivity extends BaseAppCompatActivity {
         setContentView(root);
     }
 
-    private View createEditorPanel(LinearLayout root, String helperText, int hintId) {
+    private View createEditorPanel(LinearLayout root, String chipText, int hintId) {
+        NestedScrollView scrollView = new NestedScrollView(this);
+
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(16);
         panel.setPadding(pad, pad, pad, pad);
 
-        android.widget.TextView help = new android.widget.TextView(this);
-        help.setText(helperText);
-        panel.addView(help);
+        // Info chip (non-clickable)
+        Chip infoChip = new Chip(this);
+        infoChip.setText(chipText);
+        infoChip.setClickable(false);
+        infoChip.setCheckable(false);
+        infoChip.setFocusable(false);
+        LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        chipLp.setMargins(0, 0, 0, dp(12));
+        infoChip.setLayoutParams(chipLp);
+        panel.addView(infoChip);
 
-        com.google.android.material.button.MaterialButton hintButton = new com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        // Monospace TextInputLayout
+        TextInputLayout inputLayout = new TextInputLayout(this, null,
+                com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox);
+        inputLayout.setHint("Optional injection code");
+        TextInputEditText input = new TextInputEditText(inputLayout.getContext());
+        input.setTypeface(Typeface.MONOSPACE);
+        input.setMinLines(15);
+        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        input.setHorizontallyScrolling(false);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        inputLayout.addView(input);
+        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        inputLp.setMargins(0, 0, 0, dp(12));
+        inputLayout.setLayoutParams(inputLp);
+        panel.addView(inputLayout);
+
+        // "Show examples" outlined button
+        MaterialButton hintButton = new MaterialButton(this, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
         hintButton.setId(hintId);
         hintButton.setText("Show examples");
         hintButton.setOnClickListener(v -> showHint(v.getId()));
         panel.addView(hintButton);
 
-        TextInputLayout inputLayout = new TextInputLayout(this);
-        inputLayout.setHint("Optional injection code");
-        TextInputEditText input = new TextInputEditText(this);
-        input.setMinLines(10);
-        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
-        input.setHorizontallyScrolling(true);
-        inputLayout.addView(input);
-        panel.addView(inputLayout, new LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
         panel.setTag(input);
-        root.addView(panel, new LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                0, 1f));
-        return panel;
+        scrollView.addView(panel);
+        root.addView(scrollView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        return scrollView;
     }
 
     private int dp(int value) {
@@ -162,9 +196,22 @@ public class GradleInjectionActivity extends BaseAppCompatActivity {
                 .show();
     }
 
+    private String getProjectName() {
+        try {
+            HashMap<String, Object> map = lC.b(scId);
+            if (map != null) {
+                String name = yB.c(map, "my_sc_app_name");
+                if (name != null && !name.isEmpty()) return name;
+            }
+        } catch (Throwable ignored) {}
+        return "Project " + scId;
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, 1, Menu.NONE, "Save").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        MenuItem saveItem = menu.add(Menu.NONE, 1, Menu.NONE, "Save");
+        saveItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        saveItem.setIcon(R.drawable.ic_mtrl_save);
         menu.add(Menu.NONE, 2, Menu.NONE, "Clear all");
         return true;
     }
