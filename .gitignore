@@ -1,3 +1,6 @@
+# Claude Code local data
+.claude/
+
 # Built application files
 *.apk
 *.ap_
