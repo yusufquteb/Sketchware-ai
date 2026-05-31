@@ -1,22 +1,33 @@
 package pro.sketchware.activities.projecttools;
 
 import android.content.Intent;
-import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.besome.sketch.lib.base.BaseAppCompatActivity;
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
-import com.google.android.material.divider.MaterialDivider;
+import androidx.core.widget.NestedScrollView;
 
+import com.besome.sketch.lib.base.BaseAppCompatActivity;
+import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import a.a.a.lC;
+import a.a.a.yB;
+import mod.hey.studios.project.backup.BackupRestoreManager;
 import pro.sketchware.R;
 import pro.sketchware.utility.SketchwareUtil;
 import pro.sketchware.utility.ThemeUtils;
@@ -29,6 +40,8 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
     public static final int RESULT_BUILD_SIGNED_AAB = 1002;
 
     private String scId;
+    // Holds category LinearLayout containers for chip filtering
+    private final List<LinearLayout> sectionContainers = new ArrayList<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -44,99 +57,187 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
     }
 
     private void buildUi() {
+        String projectName = getProjectName();
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(ThemeUtils.getColor(this, R.attr.colorSurface));
 
+        // AppBarLayout + MaterialToolbar
+        AppBarLayout appBarLayout = new AppBarLayout(this);
         MaterialToolbar toolbar = new MaterialToolbar(this);
         toolbar.setTitle("Project Tools");
-        toolbar.setSubtitle("Project " + scId);
+        toolbar.setSubtitle(projectName);
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
         toolbar.setNavigationOnClickListener(v -> finish());
-        root.addView(toolbar);
+        appBarLayout.addView(toolbar, new AppBarLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(appBarLayout);
 
-        ScrollView scrollView = new ScrollView(this);
+        // Horizontally scrollable ChipGroup for filtering
+        android.widget.HorizontalScrollView hScroll = new android.widget.HorizontalScrollView(this);
+        hScroll.setHorizontalScrollBarEnabled(false);
+        hScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout.LayoutParams hScrollLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hScroll.setLayoutParams(hScrollLp);
+
+        ChipGroup chipGroup = new ChipGroup(this);
+        chipGroup.setSingleSelection(true);
+        int chipPad = dp(16);
+        chipGroup.setPadding(chipPad, dp(8), chipPad, dp(8));
+
+        String[] chipLabels = {"All", "Project", "Files", "Build", "Debug", "Settings"};
+        for (int i = 0; i < chipLabels.length; i++) {
+            Chip chip = new Chip(this, null,
+                    com.google.android.material.R.attr.chipStyle);
+            chip.setText(chipLabels[i]);
+            chip.setCheckable(true);
+            chip.setChecked(i == 0);
+            final String category = chipLabels[i];
+            chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (isChecked) {
+                    filterSections(category);
+                }
+            });
+            chipGroup.addView(chip);
+        }
+        hScroll.addView(chipGroup);
+        root.addView(hScroll);
+
+        // Content: NestedScrollView
+        NestedScrollView scrollView = new NestedScrollView(this);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(16);
         content.setPadding(pad, pad, pad, dp(32));
 
-        addSection(content,
-                R.drawable.ic_mtrl_screen,
-                "Screens",
-                "Add, clone, or rename activities.",
-                new Action[]{
-                        new Action("Manage Activities", ActivityManagerActivity.class)
-                });
+        // ── Project Section ───────────────────────────────────────────────────
+        LinearLayout projectSection = new LinearLayout(this);
+        projectSection.setOrientation(LinearLayout.VERTICAL);
+        projectSection.setTag("Project");
 
-        addSection(content,
-                R.drawable.ic_mtrl_folder,
-                "Files",
-                "Browse, edit, and search project files.",
-                new Action[]{
-                        new Action("File Manager", ProjectFileManagerActivity.class),
-                        new Action("Search in Project", SearchInProjectActivity.class)
-                });
+        GridLayout projectGrid = createGrid();
 
-        addSection(content,
-                R.drawable.ic_mtrl_frame_source,
-                "Source Control",
-                "Clone, push, pull, and manage Git history.",
-                new Action[]{
-                        new Action("Git Workflow", GitWorkflowActivity.class)
-                });
+        addGridItem(projectGrid, R.drawable.ic_mtrl_edit, "Rename",
+                "Change the project name", () -> showRenameDialog());
+        addGridItem(projectGrid, R.drawable.ic_mtrl_download, "Import backup",
+                "Restore a .swb backup file",
+                () -> new BackupRestoreManager(this, null).restore());
+        addGridItem(projectGrid, R.drawable.ic_mtrl_history, "Backup & Restore",
+                "Backup, restore, or clean project files",
+                () -> startActivity(new Intent(this, ProjectLifecycleActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
 
-        addSection(content,
-                R.drawable.ic_mtrl_package,
-                "Build",
-                "Compiler, Gradle, and library diagnostics.",
-                new Action[]{
-                        new Action("Compiler Diagnostics", BuildDiagnosticsActivity.class),
-                        new Action("Gradle Injection", GradleInjectionActivity.class),
-                        new Action("Library Diagnostics", ProjectLibraryDiagnosticsActivity.class)
-                });
+        projectSection.addView(projectGrid);
+        content.addView(projectSection);
+        sectionContainers.add(projectSection);
 
-        addSection(content,
-                R.drawable.ic_mtrl_apk_document,
-                "Release Builds",
-                "Build a signed APK or AAB for distribution.",
-                new Action[]{
-                        new Action("Build Signed APK  →", RESULT_BUILD_SIGNED_APK),
-                        new Action("Build Signed AAB  →", RESULT_BUILD_SIGNED_AAB)
-                });
+        // ── Files Section ─────────────────────────────────────────────────────
+        LinearLayout filesSection = new LinearLayout(this);
+        filesSection.setOrientation(LinearLayout.VERTICAL);
+        filesSection.setTag("Files");
 
-        addSection(content,
-                R.drawable.ic_mtrl_bookmark,
-                "Project Lifecycle",
-                "Backup, restore, export, clone, and clean.",
-                new Action[]{
-                        new Action("Backup / Restore / Cleanup", ProjectLifecycleActivity.class)
-                });
+        GridLayout filesGrid = createGrid();
 
-        addSection(content,
-                R.drawable.ic_mtrl_export,
-                "Import & Conversion",
-                "Analyze imports, split statements, validate layouts.",
-                new Action[]{
-                        new Action("Import Helpers", ImportConversionActivity.class)
-                });
+        addGridItem(filesGrid, R.drawable.ic_mtrl_folder, "File Manager",
+                "Browse and edit project files",
+                () -> startActivity(new Intent(this, ProjectFileManagerActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(filesGrid, R.drawable.ic_mtrl_frame_source, "Search",
+                "Find text across project files",
+                () -> startActivity(new Intent(this, SearchInProjectActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(filesGrid, R.drawable.ic_mtrl_database_edit, "Logic / View Data",
+                "Browse encrypted Sketchware data files",
+                () -> startActivity(new Intent(this, ProjectFileManagerActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
 
-        addSection(content,
-                R.drawable.ic_mtrl_terminal,
-                "Developer Tools",
-                "Logs, keystore info, Java class tools, and shell terminal.",
-                new Action[]{
-                        new Action("Developer Tools", DeveloperToolsActivity.class),
-                        new Action("Terminal", pro.sketchware.activities.terminal.TerminalActivity.class)
-                });
+        filesSection.addView(filesGrid);
+        content.addView(filesSection);
+        sectionContainers.add(filesSection);
 
-        addSection(content,
-                R.drawable.ic_mtrl_settings,
-                "Project Settings",
-                "Gradle config, permissions, ProGuard, and UI settings.",
-                new Action[]{
-                        new Action("Advanced Settings", AdvancedProjectSettingsActivity.class)
-                });
+        // ── Build Section ─────────────────────────────────────────────────────
+        LinearLayout buildSection = new LinearLayout(this);
+        buildSection.setOrientation(LinearLayout.VERTICAL);
+        buildSection.setTag("Build");
+
+        GridLayout buildGrid = createGrid();
+
+        addGridItem(buildGrid, R.drawable.ic_mtrl_inject, "Gradle Injection",
+                "Inject code into build scripts",
+                () -> startActivity(new Intent(this, GradleInjectionActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(buildGrid, R.drawable.ic_mtrl_code, "Java → Blocks",
+                "Convert Java statements to addSourceDirectly blocks",
+                () -> startActivity(new Intent(this, JavaToBlocksActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(buildGrid, R.drawable.ic_mtrl_export, "Import Helpers",
+                "Analyze imports and fix statements",
+                () -> startActivity(new Intent(this, ImportConversionActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(buildGrid, R.drawable.ic_mtrl_apk_document, "Build Signed APK",
+                "Export a signed APK for release",
+                () -> { setResult(RESULT_BUILD_SIGNED_APK); finish(); });
+        addGridItem(buildGrid, R.drawable.ic_mtrl_apk_install, "Build Signed AAB",
+                "Export a signed AAB bundle",
+                () -> { setResult(RESULT_BUILD_SIGNED_AAB); finish(); });
+
+        buildSection.addView(buildGrid);
+        content.addView(buildSection);
+        sectionContainers.add(buildSection);
+
+        // ── Debug Section ─────────────────────────────────────────────────────
+        LinearLayout debugSection = new LinearLayout(this);
+        debugSection.setOrientation(LinearLayout.VERTICAL);
+        debugSection.setTag("Debug");
+
+        GridLayout debugGrid = createGrid();
+
+        addGridItem(debugGrid, R.drawable.ic_mtrl_bug_report, "Build Diagnostics",
+                "Diagnose compiler errors and logs",
+                () -> startActivity(new Intent(this, BuildDiagnosticsActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(debugGrid, R.drawable.ic_mtrl_package, "Library Diagnostics",
+                "Check library DEX and dependencies",
+                () -> startActivity(new Intent(this, ProjectLibraryDiagnosticsActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(debugGrid, R.drawable.ic_mtrl_terminal, "Developer Tools",
+                "Keystore, class cloning, system logs",
+                () -> startActivity(new Intent(this, DeveloperToolsActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(debugGrid, R.drawable.ic_mtrl_terminal, "Terminal",
+                "Run shell commands",
+                () -> startActivity(new Intent(this, pro.sketchware.activities.terminal.TerminalActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+
+        debugSection.addView(debugGrid);
+        content.addView(debugSection);
+        sectionContainers.add(debugSection);
+
+        // ── Settings Section ──────────────────────────────────────────────────
+        LinearLayout settingsSection = new LinearLayout(this);
+        settingsSection.setOrientation(LinearLayout.VERTICAL);
+        settingsSection.setTag("Settings");
+
+        GridLayout settingsGrid = createGrid();
+
+        addGridItem(settingsGrid, R.drawable.ic_mtrl_settings, "Advanced Settings",
+                "Gradle, ProGuard, and build config",
+                () -> startActivity(new Intent(this, AdvancedProjectSettingsActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(settingsGrid, R.drawable.ic_mtrl_sync, "Git Workflow",
+                "Pull, push, and manage branches",
+                () -> startActivity(new Intent(this, GitWorkflowActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(settingsGrid, R.drawable.ic_mtrl_screen, "Activities",
+                "Add, clone, or rename screens",
+                () -> startActivity(new Intent(this, ActivityManagerActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
+
+        settingsSection.addView(settingsGrid);
+        content.addView(settingsSection);
+        sectionContainers.add(settingsSection);
 
         scrollView.addView(content);
         root.addView(scrollView, new LinearLayout.LayoutParams(
@@ -144,112 +245,132 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
         setContentView(root);
     }
 
-    private void addSection(LinearLayout parent, int iconRes, String title,
-                            String subtitle, Action[] actions) {
+    private GridLayout createGrid() {
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(2);
+        LinearLayout.LayoutParams gridLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        gridLp.setMargins(0, 0, 0, dp(8));
+        grid.setLayoutParams(gridLp);
+        return grid;
+    }
+
+    private void addGridItem(GridLayout grid, int iconRes, String title,
+                             String description, Runnable action) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardElevation(0f);
+        card.setRadius(dp(20));
         card.setStrokeWidth(dp(1));
         card.setStrokeColor(ThemeUtils.getColor(this, R.attr.colorOutlineVariant));
-        card.setRadius(dp(16));
-        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        cardLp.setMargins(0, 0, 0, dp(10));
+        card.setCardElevation(0f);
+        card.setCardBackgroundColor(ThemeUtils.getColor(this, R.attr.colorSurface));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> action.run());
+
+        GridLayout.LayoutParams cardLp = new GridLayout.LayoutParams();
+        cardLp.width = 0;
+        cardLp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        cardLp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        cardLp.setMargins(dp(6), dp(6), dp(6), dp(6));
         card.setLayoutParams(cardLp);
 
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(16), dp(16), dp(16), dp(12));
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        inner.setPadding(dp(16), dp(16), dp(16), dp(16));
 
-        // Header row: icon + title/subtitle
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
+        // Icon wrapper
+        LinearLayout iconWrapper = new LinearLayout(this);
+        iconWrapper.setGravity(Gravity.CENTER);
+        int wrapSize = dp(40);
+        LinearLayout.LayoutParams wrapLp = new LinearLayout.LayoutParams(wrapSize, wrapSize);
+        wrapLp.setMargins(0, 0, 0, dp(10));
+        iconWrapper.setLayoutParams(wrapLp);
+        iconWrapper.setBackground(makeRoundedBackground(
+                ThemeUtils.getColor(this, R.attr.colorSecondaryContainer), dp(12)));
 
-        // Icon container (tinted circle)
-        LinearLayout iconWrap = new LinearLayout(this);
-        iconWrap.setGravity(Gravity.CENTER);
-        int iconSize = dp(40);
-        LinearLayout.LayoutParams iconWrapLp = new LinearLayout.LayoutParams(iconSize, iconSize);
-        iconWrapLp.setMarginEnd(dp(14));
-        iconWrap.setLayoutParams(iconWrapLp);
-        iconWrap.setBackgroundTintList(ColorStateList.valueOf(
-                ThemeUtils.getColor(this, R.attr.colorSecondaryContainer)));
-        TypedValue tv = new TypedValue();
-        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true);
-        // Rounded background
-        iconWrap.setBackground(makeRoundedBackground(ThemeUtils.getColor(this, R.attr.colorSecondaryContainer), dp(10)));
+        ImageView iconView = new ImageView(this);
+        iconView.setImageResource(iconRes);
+        iconView.setColorFilter(ThemeUtils.getColor(this, R.attr.colorOnSecondaryContainer));
+        int imgSize = dp(28);
+        iconView.setLayoutParams(new LinearLayout.LayoutParams(imgSize, imgSize));
+        iconWrapper.addView(iconView);
+        inner.addView(iconWrapper);
 
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(iconRes);
-        icon.setColorFilter(ThemeUtils.getColor(this, R.attr.colorOnSecondaryContainer));
-        int imgSize = dp(22);
-        icon.setLayoutParams(new LinearLayout.LayoutParams(imgSize, imgSize));
-        iconWrap.addView(icon);
-        header.addView(iconWrap);
-
-        // Title + subtitle stack
-        LinearLayout textStack = new LinearLayout(this);
-        textStack.setOrientation(LinearLayout.VERTICAL);
-
+        // Title
         TextView titleView = new TextView(this);
         titleView.setText(title);
-        titleView.setTextSize(15f);
+        titleView.setTextSize(14f);
         titleView.setTypeface(titleView.getTypeface(), android.graphics.Typeface.BOLD);
         titleView.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
-        textStack.addView(titleView);
-
-        TextView subtitleView = new TextView(this);
-        subtitleView.setText(subtitle);
-        subtitleView.setTextSize(12f);
-        subtitleView.setAlpha(0.65f);
-        subtitleView.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
-        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subLp.setMargins(0, dp(1), 0, 0);
-        subtitleView.setLayoutParams(subLp);
-        textStack.addView(subtitleView);
+        titleLp.setMargins(0, 0, 0, dp(2));
+        titleView.setLayoutParams(titleLp);
+        inner.addView(titleView);
 
-        header.addView(textStack, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        box.addView(header);
+        // Description
+        TextView descView = new TextView(this);
+        descView.setText(description);
+        descView.setTextSize(11f);
+        descView.setAlpha(0.65f);
+        descView.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
+        inner.addView(descView);
 
-        if (actions.length > 0) {
-            MaterialDivider divider = new MaterialDivider(this);
-            divider.setDividerColor(ThemeUtils.getColor(this, R.attr.colorOutlineVariant));
-            LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
-            divLp.setMargins(0, dp(12), 0, dp(8));
-            divider.setLayoutParams(divLp);
-            box.addView(divider);
+        card.addView(inner);
+        grid.addView(card);
+    }
 
-            for (int i = 0; i < actions.length; i++) {
-                Action action = actions[i];
-                MaterialButton button = new MaterialButton(
-                        this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-                button.setText(action.label);
-                button.setTextSize(13f);
-                LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                if (i < actions.length - 1) btnLp.setMargins(0, 0, 0, dp(4));
-                button.setLayoutParams(btnLp);
-
-                if (action.activity != null) {
-                    button.setOnClickListener(v ->
-                            startActivity(new Intent(this, action.activity)
-                                    .putExtra(EXTRA_SC_ID, scId)));
-                } else {
-                    final int resultCode = action.resultCode;
-                    button.setOnClickListener(v -> {
-                        setResult(resultCode);
-                        finish();
-                    });
-                }
-                box.addView(button);
+    private void filterSections(String category) {
+        for (LinearLayout container : sectionContainers) {
+            Object tag = container.getTag();
+            if ("All".equals(category)) {
+                container.setVisibility(View.VISIBLE);
+            } else {
+                container.setVisibility(category.equals(tag) ? View.VISIBLE : View.GONE);
             }
         }
+    }
 
-        card.addView(box);
-        parent.addView(card);
+    private void showRenameDialog() {
+        HashMap<String, Object> map = lC.b(scId);
+        String currentName = map != null ? yB.c(map, "my_sc_app_name") : "";
+
+        EditText editText = new EditText(this);
+        editText.setText(currentName);
+        editText.setSingleLine();
+        int hPad = dp(20);
+        editText.setPadding(hPad, dp(12), hPad, dp(12));
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Rename project")
+                .setMessage("Enter a new name for this project:")
+                .setView(editText)
+                .setPositiveButton("Rename", (dialog, which) -> {
+                    String newName = editText.getText() == null ? "" : editText.getText().toString().trim();
+                    if (newName.isEmpty()) {
+                        SketchwareUtil.toastError("Name cannot be empty");
+                        return;
+                    }
+                    HashMap<String, Object> projectMap = lC.b(scId);
+                    if (projectMap != null) {
+                        projectMap.put("my_sc_app_name", newName);
+                        lC.a(scId, projectMap);
+                        SketchwareUtil.toast("Project renamed to: " + newName);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private String getProjectName() {
+        try {
+            HashMap<String, Object> map = lC.b(scId);
+            if (map != null) {
+                String name = yB.c(map, "my_sc_app_name");
+                if (name != null && !name.isEmpty()) return name;
+            }
+        } catch (Throwable ignored) {}
+        return "Project " + scId;
     }
 
     private android.graphics.drawable.GradientDrawable makeRoundedBackground(int color, int radius) {
@@ -262,23 +383,5 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private static final class Action {
-        final String label;
-        final Class<?> activity;
-        final int resultCode;
-
-        Action(String label, Class<?> activity) {
-            this.label = label;
-            this.activity = activity;
-            this.resultCode = 0;
-        }
-
-        Action(String label, int resultCode) {
-            this.label = label;
-            this.activity = null;
-            this.resultCode = resultCode;
-        }
     }
 }

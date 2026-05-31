@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.ViewGroup;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -14,6 +15,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.divider.MaterialDivider;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -26,6 +28,8 @@ import pro.sketchware.tools.ClassCloneTool;
 import pro.sketchware.tools.KeystoreTool;
 import pro.sketchware.tools.LogReader;
 import pro.sketchware.utility.SketchwareUtil;
+import pro.sketchware.utility.ThemeUtils;
+import pro.sketchware.R;
 
 public class DeveloperToolsActivity extends BaseAppCompatActivity {
 
@@ -48,6 +52,7 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(ThemeUtils.getColor(this, R.attr.colorSurface));
 
         MaterialToolbar toolbar = new MaterialToolbar(this);
         toolbar.setTitle("Developer Tools");
@@ -72,7 +77,7 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
         keystorePasswordInput = field(ksBox, "Keystore password",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         keystoreAliasInput = field(ksBox, "Keystore alias", InputType.TYPE_CLASS_TEXT);
-        btn(ksBox, "Compute keystore SHA-1", () -> run("Computing SHA-1…", this::computeSha1));
+        addActionButton(ksBox, "Compute keystore SHA-1", "Computing SHA-1...", this::computeSha1);
 
         // ── Class Cloning ─────────────────────────────────────────────────────
         LinearLayout cloneBox = section(content, "Java Class Cloning",
@@ -81,21 +86,15 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
         targetClassInput = field(cloneBox, "Target Java class path", InputType.TYPE_CLASS_TEXT);
         oldClassNameInput = field(cloneBox, "Old class name", InputType.TYPE_CLASS_TEXT);
         newClassNameInput = field(cloneBox, "New class name", InputType.TYPE_CLASS_TEXT);
-        btn(cloneBox, "Clone Java class", () -> run("Cloning class…", this::cloneClass));
+        addActionButton(cloneBox, "Clone Java class", "Cloning class...", this::cloneClass);
 
         // ── System Logs ───────────────────────────────────────────────────────
         LinearLayout sysBox = section(content, "System Logs",
                 "Read the latest logcat output for debugging.");
-        btn(sysBox, "Read latest system log", () -> run("Reading logs…", this::readLogs));
+        addActionButton(sysBox, "Read latest system log", "Reading logs...", this::readLogs);
 
         // ── Output ────────────────────────────────────────────────────────────
-        LinearLayout outBox = section(content, "Output", null);
-        outputView = new TextView(this);
-        outputView.setTextIsSelectable(true);
-        outputView.setGravity(Gravity.START);
-        outputView.setTextSize(12f);
-        outputView.setText("Tools are ready.");
-        outBox.addView(outputView);
+        addOutputSection(content);
 
         setContentView(root);
     }
@@ -106,32 +105,40 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         cardLp.setMargins(0, 0, 0, dp(12));
         card.setLayoutParams(cardLp);
-        card.setCardElevation(dp(1));
+        card.setCardElevation(0f);
+        card.setCardBackgroundColor(ThemeUtils.getColor(this, R.attr.colorSurfaceVariant));
+
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(16), dp(14), dp(16), dp(12));
+
         TextView t = new TextView(this);
         t.setText(title);
         t.setTextSize(15f);
         t.setTypeface(t.getTypeface(), Typeface.BOLD);
+        t.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
         box.addView(t);
+
         if (subtitle != null) {
             TextView s = new TextView(this);
             s.setText(subtitle);
             s.setTextSize(12f);
             s.setAlpha(0.65f);
+            s.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
             LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             subLp.setMargins(0, dp(2), 0, dp(10));
             s.setLayoutParams(subLp);
             box.addView(s);
         }
+
         MaterialDivider div = new MaterialDivider(this);
         LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         divLp.setMargins(0, subtitle == null ? dp(8) : 0, 0, dp(12));
         div.setLayoutParams(divLp);
         box.addView(div);
+
         card.addView(box);
         parent.addView(card);
         return box;
@@ -152,16 +159,123 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
         return et;
     }
 
-    private void btn(LinearLayout parent, String label, Runnable action) {
-        MaterialButton b = new MaterialButton(this, null,
+    private void addActionButton(LinearLayout parent, String label, String runningLabel, Work work) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        MaterialButton button = new MaterialButton(this, null,
                 com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        b.setText(label);
-        b.setOnClickListener(v -> action.run());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        button.setText(label);
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        btnLp.setMargins(0, 0, dp(8), 0);
+        button.setLayoutParams(btnLp);
+
+        CircularProgressIndicator progress = new CircularProgressIndicator(this);
+        progress.setIndeterminate(true);
+        progress.setVisibility(android.view.View.GONE);
+        int progressSize = dp(24);
+        LinearLayout.LayoutParams progressLp =
+                new LinearLayout.LayoutParams(progressSize, progressSize);
+        progress.setLayoutParams(progressLp);
+
+        button.setOnClickListener(v -> {
+            button.setEnabled(false);
+            progress.setVisibility(android.view.View.VISIBLE);
+            append(runningLabel);
+            executor.execute(() -> {
+                String result;
+                try {
+                    result = work.run();
+                } catch (Exception e) {
+                    result = "ERROR: " + e.getMessage();
+                }
+                String finalResult = result;
+                runOnUiThread(() -> {
+                    progress.setVisibility(android.view.View.GONE);
+                    button.setEnabled(true);
+                    append(finalResult);
+                });
+            });
+        });
+
+        row.addView(button);
+        row.addView(progress);
+
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0, 0, 0, dp(4));
-        b.setLayoutParams(lp);
-        parent.addView(b);
+        rowLp.setMargins(0, 0, 0, dp(4));
+        row.setLayoutParams(rowLp);
+        parent.addView(row);
+    }
+
+    private void addOutputSection(LinearLayout parent) {
+        MaterialCardView card = new MaterialCardView(this);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(cardLp);
+        card.setCardElevation(0f);
+        card.setCardBackgroundColor(ThemeUtils.getColor(this, R.attr.colorSurfaceVariant));
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(14), dp(16), dp(12));
+
+        TextView title = new TextView(this);
+        title.setText("Output");
+        title.setTextSize(15f);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        title.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
+        box.addView(title);
+
+        MaterialDivider div = new MaterialDivider(this);
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        divLp.setMargins(0, dp(8), 0, dp(12));
+        div.setLayoutParams(divLp);
+        box.addView(div);
+
+        // Scrollable output: HorizontalScrollView > ScrollView > TextView (monospace)
+        HorizontalScrollView hScroll = new HorizontalScrollView(this);
+        ScrollView vScroll = new ScrollView(this);
+        vScroll.setFillViewport(true);
+
+        outputView = new TextView(this);
+        outputView.setTypeface(Typeface.MONOSPACE);
+        outputView.setTextIsSelectable(true);
+        outputView.setGravity(Gravity.START | Gravity.TOP);
+        outputView.setTextSize(12f);
+        outputView.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurface));
+        outputView.setText("Tools are ready.");
+        int outPad = dp(8);
+        outputView.setPadding(outPad, outPad, outPad, outPad);
+
+        vScroll.addView(outputView, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        hScroll.addView(vScroll, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout.LayoutParams hScrollLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(200));
+        box.addView(hScroll, hScrollLp);
+
+        // Clear output button
+        MaterialButton clearBtn = new MaterialButton(this, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        clearBtn.setText("Clear output");
+        LinearLayout.LayoutParams clearLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clearLp.setMargins(0, dp(8), 0, 0);
+        clearBtn.setLayoutParams(clearLp);
+        clearBtn.setOnClickListener(v -> {
+            if (outputView != null) outputView.setText("Output cleared.");
+        });
+        box.addView(clearBtn);
+
+        card.addView(box);
+        parent.addView(card);
     }
 
     private String computeSha1() throws Exception {
@@ -182,20 +296,25 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
         return out.toString();
     }
 
-    private void run(String label, Work work) {
-        append(label);
-        executor.execute(() -> {
-            String result;
-            try { result = work.run(); } catch (Exception e) { result = "ERROR: " + e.getMessage(); }
-            String final_ = result;
-            runOnUiThread(() -> append(final_));
-        });
+    private String text(TextInputEditText i) {
+        return i.getText() == null ? "" : i.getText().toString().trim();
     }
 
-    private String text(TextInputEditText i) { return i.getText() == null ? "" : i.getText().toString().trim(); }
-    private void append(String text) { if (outputView != null) outputView.append("\n\n" + text); }
-    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+    private void append(String text) {
+        if (outputView != null) outputView.append("\n\n" + text);
+    }
 
-    @Override public void onDestroy() { executor.shutdownNow(); super.onDestroy(); }
-    private interface Work { String run() throws Exception; }
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    public void onDestroy() {
+        executor.shutdownNow();
+        super.onDestroy();
+    }
+
+    private interface Work {
+        String run() throws Exception;
+    }
 }
