@@ -20,6 +20,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -27,6 +28,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 
 import com.besome.sketch.lib.base.BaseAppCompatActivity;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -48,6 +52,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import mod.hey.studios.code.SrcCodeEditor;
 import pro.sketchware.R;
 import pro.sketchware.ai.activities.ChatActivity;
@@ -57,6 +64,7 @@ import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
 import pro.sketchware.ai.storage.WorkspaceManager;
+import pro.sketchware.util.ProjectSearchUtil;
 import pro.sketchware.util.SketchwareFileDecryptor;
 import pro.sketchware.utility.FileUtil;
 import pro.sketchware.utility.SketchwareUtil;
@@ -87,13 +95,21 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
     // ── State ─────────────────────────────────────────────────────────────────
     private String scId;
     private RecyclerView recyclerView;
+    private RecyclerView searchRecyclerView;
     private final Map<String, Boolean> expandState = new HashMap<>();
     private final List<FileNode> visibleNodes = new ArrayList<>();
+    private final List<ProjectSearchUtil.SearchResult> searchResults = new ArrayList<>();
     private FileTreeAdapter adapter;
+    private SearchResultAdapter searchAdapter;
     private String filterQuery = "";
+    private String lastSearchQuery = "";
+    private boolean isSearchMode = false;
+    private ProjectSearchUtil.FileFilter activeFilter = ProjectSearchUtil.FileFilter.ALL;
     private SortMode sortMode = SortMode.NAME;
-    private boolean showGenerated = true;
+    private boolean showGenerated = false;
     private TextView statusView;
+    private View chipScrollView;
+    private final ExecutorService searchExecutor = Executors.newSingleThreadExecutor();
 
     // ─────────────────────────────────────────────────────────────────────────
     // onCreate
@@ -151,6 +167,28 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
         searchLayout.addView(searchInput);
         root.addView(searchLayout);
 
+        // ── File type filter chips (search mode only) ────────────────────────
+        HorizontalScrollView chipScroll = new HorizontalScrollView(this);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        ChipGroup chipGroup = new ChipGroup(this);
+        chipGroup.setSingleSelection(true);
+        chipGroup.setPadding(pad, 0, pad, dp(4));
+        for (ProjectSearchUtil.FileFilter f : ProjectSearchUtil.FileFilter.values()) {
+            Chip chip = new Chip(this);
+            chip.setText(f.name());
+            chip.setCheckable(true);
+            chip.setChecked(f == activeFilter);
+            chip.setOnCheckedChangeListener((v, checked) -> {
+                if (checked) { activeFilter = f; if (isSearchMode) doSearch(lastSearchQuery); }
+            });
+            chipGroup.addView(chip);
+        }
+        chipScroll.addView(chipGroup);
+        chipScroll.setVisibility(View.GONE);
+        chipScrollView = chipScroll;
+        root.addView(chipScroll);
+
         // ── Status bar ───────────────────────────────────────────────────────
         statusView = new TextView(this);
         statusView.setPadding(pad, 0, pad, dp(8));
@@ -158,12 +196,21 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
         statusView.setTextColor(ThemeUtils.getColor(this, R.attr.colorOnSurfaceVariant));
         root.addView(statusView);
 
-        // ── RecyclerView ─────────────────────────────────────────────────────
+        // ── Tree RecyclerView ─────────────────────────────────────────────────
         recyclerView = new RecyclerView(this);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new FileTreeAdapter();
         recyclerView.setAdapter(adapter);
         root.addView(recyclerView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // ── Search results RecyclerView (hidden initially) ───────────────────
+        searchRecyclerView = new RecyclerView(this);
+        searchRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        searchAdapter = new SearchResultAdapter();
+        searchRecyclerView.setAdapter(searchAdapter);
+        searchRecyclerView.setVisibility(View.GONE);
+        root.addView(searchRecyclerView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         rootFrame.addView(root);
@@ -195,11 +242,15 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
             @Override public void afterTextChanged(Editable e) {
                 if (pending != null) searchInput.removeCallbacks(pending);
+                String q = e == null ? "" : e.toString().trim();
                 pending = () -> {
-                    filterQuery = e == null ? "" : e.toString().trim().toLowerCase(Locale.ROOT);
-                    refreshTree();
+                    if (q.length() >= 2) {
+                        enterSearchMode(q);
+                    } else {
+                        exitSearchMode();
+                    }
                 };
-                searchInput.postDelayed(pending, 250);
+                searchInput.postDelayed(pending, 300);
             }
         });
 
@@ -292,14 +343,11 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void refreshTree() {
+        if (isSearchMode) { adapter.notifyDataSetChanged(); return; }
         visibleNodes.clear();
-        addRoot("Editable Java",      ProjectToolPaths.getProjectEditableJavaDir(scId),   true);
-        addRoot("Editable Resources", ProjectToolPaths.getProjectEditableResDir(scId),     true);
-        addRoot("Editable Assets",    ProjectToolPaths.getProjectEditableAssetsDir(scId),  true);
-        addRoot("Gradle Injection",   ProjectToolPaths.getProjectGradleInjectionDir(scId), true);
-        addRoot("Project Data",       ProjectToolPaths.getProjectDataDir(scId),            false);
+        addRoot("Project Data", ProjectToolPaths.getProjectDataDir(scId), true);
         if (showGenerated) {
-            addRoot("Generated App",  ProjectToolPaths.getProjectGeneratedAppDir(scId),    false);
+            addRoot("Generated Build", ProjectToolPaths.getProjectGeneratedAppDir(scId), false);
         }
         adapter.notifyDataSetChanged();
         updateStatus();
@@ -349,11 +397,44 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
         refreshTree();
     }
 
+    private void enterSearchMode(String query) {
+        lastSearchQuery = query;
+        isSearchMode = true;
+        recyclerView.setVisibility(View.GONE);
+        searchRecyclerView.setVisibility(View.VISIBLE);
+        chipScrollView.setVisibility(View.VISIBLE);
+        doSearch(query);
+    }
+
+    private void exitSearchMode() {
+        isSearchMode = false;
+        recyclerView.setVisibility(View.VISIBLE);
+        searchRecyclerView.setVisibility(View.GONE);
+        chipScrollView.setVisibility(View.GONE);
+        filterQuery = "";
+        refreshTree();
+    }
+
+    private void doSearch(String query) {
+        statusView.setText("Searching...");
+        searchExecutor.execute(() -> {
+            List<ProjectSearchUtil.SearchResult> found = ProjectSearchUtil.globalSearch(
+                    ProjectToolPaths.getProjectDataDir(scId),
+                    query, false, false, activeFilter);
+            runOnUiThread(() -> {
+                searchResults.clear();
+                searchResults.addAll(found);
+                searchAdapter.notifyDataSetChanged();
+                statusView.setText(found.size() + " results for \"" + query + "\""
+                        + (activeFilter != ProjectSearchUtil.FileFilter.ALL
+                                ? " in " + activeFilter.name() : ""));
+            });
+        });
+    }
+
     private void expandAll() {
-        expandAllDir(ProjectToolPaths.getProjectEditableJavaDir(scId));
-        expandAllDir(ProjectToolPaths.getProjectEditableResDir(scId));
-        expandAllDir(ProjectToolPaths.getProjectEditableAssetsDir(scId));
         expandAllDir(ProjectToolPaths.getProjectDataDir(scId));
+        if (showGenerated) expandAllDir(ProjectToolPaths.getProjectGeneratedAppDir(scId));
         refreshTree();
     }
 
@@ -735,6 +816,99 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Search Result Adapter
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private final class SearchResultAdapter extends RecyclerView.Adapter<SearchResultAdapter.VH> {
+        @NonNull
+        @Override
+        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            LinearLayout row = new LinearLayout(parent.getContext());
+            row.setOrientation(LinearLayout.VERTICAL);
+            int p = dp(12);
+            row.setPadding(p, p, p, p);
+            row.setClickable(true);
+            row.setFocusable(true);
+            TypedValue tv = new TypedValue();
+            getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true);
+            row.setBackgroundResource(tv.resourceId);
+
+            LinearLayout topRow = new LinearLayout(parent.getContext());
+            topRow.setOrientation(LinearLayout.HORIZONTAL);
+            topRow.setGravity(Gravity.CENTER_VERTICAL);
+
+            TextView tvName = new TextView(parent.getContext());
+            tvName.setTypeface(tvName.getTypeface(), Typeface.BOLD);
+            tvName.setSingleLine(true);
+            tvName.setEllipsize(TextUtils.TruncateAt.START);
+            tvName.setTextColor(ThemeUtils.getColor(parent.getContext(), R.attr.colorOnSurface));
+            topRow.addView(tvName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+            TextView tvBadge = new TextView(parent.getContext());
+            tvBadge.setTextSize(10f);
+            tvBadge.setPadding(dp(5), dp(1), dp(5), dp(1));
+            tvBadge.setTextColor(0xFFFFFFFF);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setCornerRadius(dp(10));
+            tvBadge.setBackground(bg);
+            LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            badgeLp.setMarginStart(dp(6));
+            tvBadge.setLayoutParams(badgeLp);
+            topRow.addView(tvBadge);
+            row.addView(topRow);
+
+            TextView tvPath = new TextView(parent.getContext());
+            tvPath.setTextSize(11f);
+            tvPath.setTextColor(ThemeUtils.getColor(parent.getContext(), R.attr.colorOnSurfaceVariant));
+            tvPath.setSingleLine(true);
+            tvPath.setEllipsize(TextUtils.TruncateAt.START);
+            row.addView(tvPath);
+
+            TextView tvPreview = new TextView(parent.getContext());
+            tvPreview.setTypeface(Typeface.MONOSPACE);
+            tvPreview.setTextSize(12f);
+            tvPreview.setPadding(dp(6), dp(4), dp(6), dp(4));
+            tvPreview.setBackgroundColor(ThemeUtils.getColor(parent.getContext(), R.attr.colorSurfaceVariant));
+            row.addView(tvPreview);
+
+            return new VH(row, tvName, tvPath, tvPreview, tvBadge,
+                    (android.graphics.drawable.GradientDrawable) tvBadge.getBackground());
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull VH h, int position) {
+            ProjectSearchUtil.SearchResult r = searchResults.get(position);
+            String fileName = r.filePath.contains(java.io.File.separator)
+                    ? r.filePath.substring(r.filePath.lastIndexOf(java.io.File.separator) + 1)
+                    : r.filePath;
+            h.tvName.setText(fileName);
+            h.tvPath.setText(r.filePath + ":" + r.lineNumber);
+            h.tvPreview.setText(r.lineContent.trim());
+            h.tvBadge.setText(r.editable ? "editable" : "generated");
+            h.badgeBg.setColor(r.editable ? 0xFF2196F3 : 0xFF9E9E9E);
+            h.itemView.setOnClickListener(v -> {
+                Intent i = new Intent(ProjectFileManagerActivity.this, SrcCodeEditor.class);
+                i.putExtra("title", fileName);
+                i.putExtra("content", r.filePath);
+                startActivity(i);
+            });
+        }
+
+        @Override
+        public int getItemCount() { return searchResults.size(); }
+
+        final class VH extends RecyclerView.ViewHolder {
+            TextView tvName, tvPath, tvPreview, tvBadge;
+            android.graphics.drawable.GradientDrawable badgeBg;
+            VH(@NonNull View v, TextView n, TextView p, TextView prev, TextView b,
+               android.graphics.drawable.GradientDrawable bg) {
+                super(v); tvName = n; tvPath = p; tvPreview = prev; tvBadge = b; badgeBg = bg;
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Utilities
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -758,6 +932,12 @@ public class ProjectFileManagerActivity extends BaseAppCompatActivity {
     private int dp(int dp) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp,
                 getResources().getDisplayMetrics());
+    }
+
+    @Override
+    public void onDestroy() {
+        searchExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

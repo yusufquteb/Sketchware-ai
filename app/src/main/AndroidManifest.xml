@@ -151,6 +151,9 @@
             android:name="pro.sketchware.activities.projecttools.ProjectFilesViewerActivity"
             android:configChanges="orientation|screenSize" />
         <activity
+            android:name="pro.sketchware.activities.projecttools.JavaToBlocksActivity"
+            android:configChanges="orientation|screenSize" />
+        <activity
             android:name="com.besome.sketch.design.DesignActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard"
             android:windowSoftInputMode="adjustResize|stateHidden"

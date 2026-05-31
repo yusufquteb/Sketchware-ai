@@ -168,6 +168,10 @@ public class ProjectToolsHubActivity extends BaseAppCompatActivity {
                 "Inject code into build scripts",
                 () -> startActivity(new Intent(this, GradleInjectionActivity.class)
                         .putExtra(EXTRA_SC_ID, scId)));
+        addGridItem(buildGrid, R.drawable.ic_mtrl_code, "Java → Blocks",
+                "Convert Java statements to addSourceDirectly blocks",
+                () -> startActivity(new Intent(this, JavaToBlocksActivity.class)
+                        .putExtra(EXTRA_SC_ID, scId)));
         addGridItem(buildGrid, R.drawable.ic_mtrl_export, "Import Helpers",
                 "Analyze imports and fix statements",
                 () -> startActivity(new Intent(this, ImportConversionActivity.class)
