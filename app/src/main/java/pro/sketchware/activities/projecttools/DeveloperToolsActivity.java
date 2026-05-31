@@ -176,8 +176,8 @@ public class DeveloperToolsActivity extends BaseAppCompatActivity {
         progress.setIndeterminate(true);
         progress.setVisibility(android.view.View.GONE);
         int progressSize = dp(24);
-        CircularProgressIndicator.LayoutParams progressLp =
-                new CircularProgressIndicator.LayoutParams(progressSize, progressSize);
+        LinearLayout.LayoutParams progressLp =
+                new LinearLayout.LayoutParams(progressSize, progressSize);
         progress.setLayoutParams(progressLp);
 
         button.setOnClickListener(v -> {

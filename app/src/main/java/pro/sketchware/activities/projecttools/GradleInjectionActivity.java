@@ -23,6 +23,7 @@ import java.util.HashMap;
 
 import a.a.a.lC;
 import a.a.a.yB;
+import pro.sketchware.R;
 import pro.sketchware.util.GradleInjectionManager;
 import pro.sketchware.utility.SketchwareUtil;
 
