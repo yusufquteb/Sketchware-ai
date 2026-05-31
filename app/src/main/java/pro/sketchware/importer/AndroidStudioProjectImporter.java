@@ -75,6 +75,7 @@ import dev.aldi.sayuti.editor.manage.LocalLibrariesUtil;
 import mod.hey.studios.build.BuildSettings;
 import mod.hey.studios.project.ProjectSettings;
 import mod.jbk.build.BuiltInLibraries;
+import mod.jbk.editor.manage.library.EnableBuiltInLibrariesActivity;
 import mod.pranav.dependency.resolver.DependencyResolver;
 import pro.sketchware.managers.inject.InjectRootLayoutManager;
 import pro.sketchware.manifest.ProjectManifestManager;
@@ -300,7 +301,9 @@ public class AndroidStudioProjectImporter {
 
         ProjectSettings settings = new ProjectSettings(scId);
         settings.setValue(ProjectSettings.SETTING_NEW_XML_COMMAND, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
-        settings.setValue(ProjectSettings.SETTING_ENABLE_VIEWBINDING, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
+        if (gradle.viewBindingDetected || detectViewBindingInSources(detectedProject.sourceRoots)) {
+            settings.setValue(ProjectSettings.SETTING_ENABLE_VIEWBINDING, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
+        }
         settings.setValue(ProjectSettings.SETTING_MINIMUM_SDK_VERSION, String.valueOf(minSdk));
         settings.setValue(ProjectSettings.SETTING_TARGET_SDK_VERSION, String.valueOf(targetSdk));
 
@@ -405,6 +408,10 @@ public class AndroidStudioProjectImporter {
                 if (originalLayout != null && originalLayout.exists()) {
                     importedActivityLayouts.add(layoutName);
                     importLayoutForScreen(scId, fileBean, layoutName, originalLayout, rootLayoutManager, result);
+                    // Also track the visual companion name so materializeCustomViews won't re-register it
+                    if (!fileBean.fileName.equals(layoutName)) {
+                        importedActivityLayouts.add(fileBean.fileName);
+                    }
                 }
             } else {
                 result.codeOnlyFiles.add(simpleClassName + " (no XML layout was detected)");
@@ -428,6 +435,10 @@ public class AndroidStudioProjectImporter {
                 if (originalLayout != null && originalLayout.exists()) {
                     importedActivityLayouts.add(discoveredActivity.layoutName);
                     importLayoutForScreen(scId, fileBean, discoveredActivity.layoutName, originalLayout, rootLayoutManager, result);
+                    // Also track the visual companion name so materializeCustomViews won't re-register it
+                    if (!fileBean.fileName.equals(discoveredActivity.layoutName)) {
+                        importedActivityLayouts.add(fileBean.fileName);
+                    }
                 } else {
                     result.codeOnlyFiles.add(discoveredActivity.simpleClassName + " (layout @layout/" + discoveredActivity.layoutName + " was referenced but not found)");
                 }
@@ -1291,6 +1302,14 @@ public class AndroidStudioProjectImporter {
                 || "BR.java".equals(fileName)
                 || fileName.startsWith("R$")
                 || fileName.startsWith("DataBinderMapper")) {
+            return true;
+        }
+
+        // Sketchware auto-generates these files during build; importing them causes duplicates
+        if ("FileUtil.java".equals(fileName)
+                || "SketchwareUtil.java".equals(fileName)
+                || "RequestNetwork.java".equals(fileName)
+                || "RequestNetworkController.java".equals(fileName)) {
             return true;
         }
 
@@ -2557,6 +2576,8 @@ public class AndroidStudioProjectImporter {
             }
             summary.material3Detected |= content.contains("com.google.android.material:material") || content.contains("Theme.Material3") || content.contains("ThemeOverlay.Material3");
             summary.appCompatDetected |= content.contains("androidx.appcompat") || content.contains("com.google.android.material:material") || content.contains("Theme.MaterialComponents") || content.contains("Theme.AppCompat") || summary.material3Detected;
+            summary.viewBindingDetected |= content.contains("viewBinding = true") || content.contains("viewBinding.enabled = true") || content.contains("viewBinding true") || content.contains("buildFeatures.viewBinding");
+            summary.gsonDetected |= content.contains("com.google.code.gson:gson");
             Matcher activityThemeMatcher = ACTIVITY_THEME_PATTERN.matcher(content);
             if (activityThemeMatcher.find()) {
                 summary.detectedThemeFamily = activityThemeMatcher.group(1);
@@ -2711,6 +2732,23 @@ public class AndroidStudioProjectImporter {
         FileUtil.writeFile(filePathUtil.getManifestBroadcast(scId), gson.toJson(new ArrayList<>(manifest.receivers)));
     }
 
+    private boolean detectViewBindingInSources(List<File> sourceRoots) {
+        for (File sourceRoot : sourceRoots) {
+            if (sourceRoot == null || !sourceRoot.isDirectory()) continue;
+            for (File f : collectFilesRecursively(sourceRoot)) {
+                if (!f.isFile()) continue;
+                String name = f.getName().toLowerCase(Locale.US);
+                if (!name.endsWith(".java") && !name.endsWith(".kt")) continue;
+                String src = FileUtil.readFile(f.getAbsolutePath());
+                if (src.contains("Binding.inflate(") || src.contains("Binding.bind(")
+                        || src.contains("ActivityBinding") || src.contains("FragmentBinding")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private void applyDetectedThemeAndLibraryState(String scId, GradleSummary gradle, ManifestSummary manifest,
                                                    DetectedProject detectedProject, ImportResult result,
                                                    boolean expressiveDetected) {
@@ -2786,6 +2824,32 @@ public class AndroidStudioProjectImporter {
             Log.e(TAG, "Failed to apply detected library state", throwable);
             result.warnings.add("Imported project themes suggest AppCompat/Material3, but Sketchware library settings could not be updated automatically.");
         }
+
+        if (gradle.gsonDetected || detectGsonInSources(detectedProject.sourceRoots)) {
+            try {
+                EnableBuiltInLibrariesActivity.enableBuiltInLibrary(scId, mod.jbk.build.BuiltInLibraries.GSON);
+                result.warnings.add("Enabled built-in gson library based on project dependencies.");
+            } catch (Throwable throwable) {
+                Log.e(TAG, "Failed to enable gson library", throwable);
+            }
+        }
+    }
+
+    private boolean detectGsonInSources(List<File> sourceRoots) {
+        for (File sourceRoot : sourceRoots) {
+            if (sourceRoot == null || !sourceRoot.isDirectory()) continue;
+            for (File f : collectFilesRecursively(sourceRoot)) {
+                if (!f.isFile()) continue;
+                String name = f.getName().toLowerCase(Locale.US);
+                if (!name.endsWith(".java") && !name.endsWith(".kt")) continue;
+                String src = FileUtil.readFile(f.getAbsolutePath());
+                if (src.contains("import com.google.gson") || src.contains("new Gson()")
+                        || src.contains("GsonBuilder")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean detectDynamicColorsUsage(List<File> sourceRoots, List<File> resDirectories) {
@@ -3155,6 +3219,8 @@ public class AndroidStudioProjectImporter {
         int targetSdk;
         boolean appCompatDetected;
         boolean material3Detected;
+        boolean viewBindingDetected;
+        boolean gsonDetected;
         String detectedThemeFamily;
         String detectedThemeMode;
         final ArrayList<String> dependencies = new ArrayList<>();

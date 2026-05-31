@@ -125,6 +125,18 @@ public class EnableBuiltInLibrariesActivity extends BaseAppCompatActivity {
         return new Pair<>(false, Collections.emptyList());
     }
 
+    /** Enables a built-in library by name (e.g. "gson-2.13.1") for the given project. No-op if already enabled. */
+    public static void enableBuiltInLibrary(String sc_id, String libraryName) {
+        BuiltInLibraries.BuiltInLibrary.ofName(libraryName).ifPresent(lib -> {
+            Pair<Boolean, List<BuiltInLibraries.BuiltInLibrary>> existing = readConfigCompat(sc_id);
+            List<BuiltInLibraries.BuiltInLibrary> libs = new java.util.ArrayList<>(existing.second);
+            if (!libs.contains(lib)) {
+                libs.add(lib);
+                saveConfig(sc_id, true, libs);
+            }
+        });
+    }
+
     public static boolean isEnablingEnabled(String sc_id) {
         Pair<Boolean, List<BuiltInLibraries.BuiltInLibrary>> config = readConfig(sc_id);
         return config != null && config.first;
