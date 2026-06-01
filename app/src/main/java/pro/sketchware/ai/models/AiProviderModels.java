@@ -7,20 +7,24 @@ import java.util.List;
 /**
  * Curated, verified model ID lists for every AiProvider.
  *
- * Update policy:
- *  - Only add a model after confirming it responds without error (not just that it appears in
- *    a provider's documentation — providers often list models that aren't yet live).
- *  - Mark removed models with an inline comment explaining why they were removed.
- *  - Keep the list ordered: best/most capable first.
+ * Ordering rules (applied within each provider):
+ *  1. Coding-specialised models first (devstral, qwen-coder, deepseek-v3, etc.)
+ *  2. Higher capability / larger context window before smaller
+ *  3. Free models before paid models (within same provider)
+ *  4. Reasoning models after general-purpose (they use more tokens)
  *
- * Coding benchmark notes (2026, relevant for Sketchware Java/Android use):
- *  - Claude Opus 4.8   — #1 SWE-bench (80.8%), best for complex multi-file code
- *  - Claude Sonnet 4.6 — #2 SWE-bench (79.6%), best value paid model
- *  - DeepSeek V4 Flash — fastest free option with strong code output (1M ctx)
- *  - Qwen3 Coder       — best specialised free coding model (1M ctx)
- *  - GPT-OSS 20B       — OpenAI open-source, matches o3-mini on coding, free
- *  - Gemma 4 31B       — Google open model, tool-calling, 256K ctx, free
- *  - DeepSeek R1       — reasoning + code, free on OpenRouter
+ * Update policy:
+ *  - Only add a model after confirming it responds without error.
+ *  - Mark removed models with an inline comment explaining why.
+ *
+ * Coding benchmark notes (2026, Java/Android relevance):
+ *  - Claude Opus 4.8    — #1 SWE-bench 80.8%
+ *  - Claude Sonnet 4.6  — #2 SWE-bench 79.6%
+ *  - Gemini 2.5 Pro     — leads 13/16 major benchmarks
+ *  - DeepSeek V3/V4     — best open-weight code model, very affordable
+ *  - Qwen3 Coder        — best specialised open coding model (1M ctx)
+ *  - Devstral Small     — agentic coding specialist (Mistral, free)
+ *  - GPT-4o             — reliable all-round, strong at instruction following
  */
 public final class AiProviderModels {
 
@@ -34,280 +38,297 @@ public final class AiProviderModels {
             // GROUP 1 — Free, NO API key needed
             // ══════════════════════════════════════════════════════════════════
 
+            // LLM7.io — free, no API key, 30 RPM anonymous (best no-key rate limit).
+            // Models confirmed active June 2026.
+            case LLM7:
+                return Arrays.asList(
+                        "qwen2.5-coder-32b-instruct",       // Coding specialist, 32K ctx ✅
+                        "deepseek-r1-0528",                 // Latest DeepSeek R1 reasoning ✅
+                        "gpt-4o-mini-2024-07-18",           // GPT-4o Mini via proxy ✅
+                        "gemini-2.5-flash-lite",            // Gemini Flash Lite, multimodal ✅
+                        "gpt-o4-mini-2025-04-16",           // o4-mini reasoning via proxy ✅
+                        "mistral-small-3.1-24b-instruct-2503", // Mistral Small 3.1 ✅
+                        "gpt-4.1-nano-2025-04-14");         // Lightweight nano model ✅
+
+            // Pollinations AI — completely free, no sign-up.
+            // OpenAI-compatible endpoint at /openai.
+            // Models are routed by name: "openai" → GPT-4o proxy, etc.
+            case POLLINATIONS:
+                return Arrays.asList(
+                        "openai",        // GPT-4o equivalent via Pollinations proxy — strongest
+                        "mistral",       // Mistral Large equivalent — strong code
+                        "qwen-coder",    // Qwen2.5-Coder — coding specialist
+                        "claude",        // Claude proxy — strong at instructions
+                        "searchgpt");    // GPT-4o + live web search
+
             // AirForce AI (api.airforce) — community proxy, no sign-up.
-            // Works without any API key; best starting point for new users.
-            // Removed: gpt-4o, gpt-4o-mini → "Invalid API Key" from this proxy.
-            // Removed: llama-4-maverick, llama-4-scout → "Invalid API Key".
-            // Claude access: claude-3-7-sonnet and claude-3-5-sonnet work via proxy.
-            // DeepSeek access: deepseek-v3 works via proxy (free DeepSeek!).
-            // Gemini access: gemini-2.0-flash works via proxy (free Gemini!).
+            // Removed: gpt-4o, gpt-4o-mini, llama-4-maverick, llama-4-scout
+            //          → all return "Invalid API Key" from this proxy.
+            // Confirmed working (May 2026): deepseek-v3, claude-3-7-sonnet,
+            //   gemini-2.0-flash, Qwen/Qwen3-235B-A22B, claude-3-5-sonnet.
             case CHUTES:
                 return Arrays.asList(
-                        "deepseek-v3",            // DeepSeek V3 — excellent Java/Android code
-                        "claude-3-7-sonnet",      // Claude via proxy — free, strong at code
-                        "claude-3-5-sonnet",      // Claude fallback
-                        "gemini-2.0-flash",       // Gemini via proxy — free
-                        "Qwen/Qwen3-235B-A22B",   // Largest free open model
-                        "mistral-small-latest");
+                        "deepseek-v3",           // Best free code model via proxy
+                        "claude-3-7-sonnet",     // Claude 3.7 via proxy — top code quality
+                        "claude-3-5-sonnet",     // Claude 3.5 fallback
+                        "gemini-2.0-flash",      // Gemini via proxy — 1M ctx
+                        "Qwen/Qwen3-235B-A22B",  // Largest free open model, 235B MoE
+                        "mistral-small-latest"); // Lightweight fallback
 
             // ══════════════════════════════════════════════════════════════════
-            // GROUP 2 — Free WITH API key (generous free tiers)
+            // GROUP 2 — Free WITH API key (genuine ongoing free tiers)
             // ══════════════════════════════════════════════════════════════════
 
             // Google AI Studio — best free API in 2026.
-            // Free tier (as of April 2026): gemini-2.5-flash = 1,500 req/day, 1M ctx.
-            // gemini-2.5-pro = only 50 req/day on free tier → NOT practical, removed.
-            // gemma-3-*-it removed: all returned "Model Not Found" via Studio API.
-            // Gemma 4 access: gemma-4-0-preview-04-17 available via Gemini API.
+            // Free tier (June 2026): Gemini 2.5 Flash = 1,500 req/day, 1M ctx, 10 RPM.
+            // gemini-2.5-pro = only 50 req/day on free tier → not practical, omitted.
+            // Gemma 3 models removed: all returned "Model Not Found" via Studio API.
+            // gemma-4-0-preview-04-17: Gemma 4 via Gemini API (experimental).
             case GOOGLE_AI_STUDIO:
                 return Arrays.asList(
-                        "gemini-2.5-flash",               // Best free: 1,500 req/day, 1M ctx
-                        "gemini-2.0-flash",               // Fallback: 500 req/day
-                        "gemini-2.0-flash-lite",          // Lightweight: 1,500 req/day
-                        "gemma-4-0-preview-04-17");       // Gemma 4 via Studio API
+                        "gemini-2.5-flash",           // Best free: 1,500 req/day, 1M ctx
+                        "gemini-2.0-flash",           // Solid fallback: 1,500 req/day
+                        "gemini-2.0-flash-lite",      // Lightweight: 1,500 req/day
+                        "gemma-4-0-preview-04-17");   // Gemma 4 (experimental)
 
-            // SambaNova — confirmed: Meta-Llama-3.3-70B-Instruct only.
-            // Other models (Gemma 3, Llama 4) returned "Request Error".
+            // SambaNova — free tier with rate limits.
+            // Only Meta-Llama-3.3-70B-Instruct confirmed working (others → errors).
             case SAMBANOVA:
                 return Arrays.asList(
                         "Meta-Llama-3.3-70B-Instruct");
 
             // Cerebras — ultra-fast LPU inference, free tier.
-            // qwen-3-32b confirmed working (strong at code).
+            // qwen-3-32b: best for coding on Cerebras, fast inference.
             case CEREBRAS:
                 return Arrays.asList(
-                        "qwen-3-32b",      // Best for coding on Cerebras
-                        "llama-3.3-70b",
-                        "llama-3.1-8b");
+                        "qwen-3-32b",     // Best coding — Qwen3 on fast Cerebras hardware
+                        "llama-3.3-70b",  // Strong general, 128K ctx
+                        "llama-3.1-8b");  // Fastest, highest rate limits
 
-            // Groq — blazing fast LPU inference, free tier.
-            // qwen3-32b: Qwen3 latest generation, confirmed on Groq.
-            // compound-beta: Groq Compound Agent — has built-in web search + tool execution.
+            // Groq — blazing fast LPU inference, generous free tier.
+            // qwen3-32b: Qwen3 32B — strong Java/Android code, 1M ctx.
+            // compound-beta: Groq Compound Agent with built-in web search.
             // Removed: gemma2-9b-it, deepseek-r1-distill-llama-70b → Bad Request.
             // Removed: mixtral-8x7b-32768 → Bad Request.
             // Removed: llama-4-scout-17b-16e-preview → Model Not Found.
             case GROQ:
                 return Arrays.asList(
-                        "qwen3-32b",               // Qwen3 latest — strong Java/Android code
-                        "llama-3.3-70b-versatile", // Best general quality on Groq free
-                        "qwen-qwq-32b",            // Reasoning model
-                        "compound-beta",           // Agent with web search (agentic tasks)
-                        "llama-3.1-8b-instant");   // Fastest, high rate limits
+                        "qwen3-32b",               // Best coding on Groq, 1M ctx, fast
+                        "llama-3.3-70b-versatile", // Best quality general model on Groq
+                        "compound-beta",           // Agentic: web search + tool execution
+                        "qwen-qwq-32b",            // Reasoning model — complex problems
+                        "llama-3.1-8b-instant");   // Fastest, highest rate limit fallback
 
-            // HuggingFace Inference API — free $0.10/month credit for models ≤10 GB.
+            // HuggingFace Inference API — free $0.10/month credit.
+            // Prefer smaller models (< 10 GB) to stay within free credit.
+            // Mistral 7B confirmed; larger models (70B+) consume credit faster.
             case HUGGINGFACE:
                 return Arrays.asList(
-                        "Qwen/Qwen2.5-72B-Instruct",
-                        "meta-llama/Llama-3.3-70B-Instruct",
-                        "google/gemma-2-27b-it",
-                        "mistralai/Mistral-7B-Instruct-v0.3");
+                        "mistralai/Mistral-7B-Instruct-v0.3", // Reliable, small, free credit-friendly
+                        "google/gemma-2-27b-it",              // Strong general, larger
+                        "Qwen/Qwen2.5-72B-Instruct",          // Best quality (uses more credit)
+                        "meta-llama/Llama-3.3-70B-Instruct"); // Large — uses credit quickly
 
-            // Mistral — free experimental plan includes Mistral Small and Codestral.
-            // devstral-small-latest: specialised for coding/agentic tasks.
+            // Mistral — free experimental plan.
+            // devstral-small-latest: NEW (2026) — specialised for agentic coding, free.
+            // codestral-latest: code specialist, free on experimental plan.
+            // mistral-large-latest REMOVED — paid model (not on free tier).
             case MISTRAL:
                 return Arrays.asList(
-                        "devstral-small-latest",   // Best for code, free experimental
-                        "codestral-latest",         // Code specialist, free experimental
-                        "mistral-small-latest",
-                        "open-mistral-nemo",
-                        "mistral-large-latest");
+                        "devstral-small-latest",  // #1 coding: agentic code tasks, free, 32K ctx
+                        "codestral-latest",        // Code specialist: completions + FIM, free, 32K
+                        "mistral-small-latest",   // Best general free model, 128K ctx
+                        "open-mistral-nemo");     // Lightest free model, 128K ctx
 
-            // Cohere — 20 req/min, 1,000 req/month free tier.
+            // Cohere — 20 req/min, 1,000 req/month free.
+            // command-r-plus: best quality, RAG-optimised.
             case COHERE:
                 return Arrays.asList(
-                        "command-r-plus",
-                        "command-r",
-                        "command-light");
+                        "command-r-plus",  // Best quality, 128K ctx
+                        "command-r",       // Good balance
+                        "command-light");  // Fastest, cheapest
 
             // GitHub Models — free with any GitHub account.
-            // phi-4 and microsoft/phi-4-mini confirmed; phi-4-reasoning added (2026).
+            // Llama 4 Scout and GPT-4o are the strongest available for free.
+            // phi-4-mini-reasoning: small but surprisingly capable at code reasoning.
             case GITHUB_MODELS:
                 return Arrays.asList(
-                        "openai/gpt-4o",
-                        "openai/gpt-4o-mini",
-                        "meta/llama-3.3-70b-instruct",
-                        "meta/llama-4-scout",
-                        "mistral-ai/mistral-large-2411",
-                        "microsoft/phi-4",
-                        "microsoft/phi-4-mini-reasoning");
+                        "meta/llama-4-scout",                  // Most capable free model on GitHub
+                        "openai/gpt-4o",                       // GPT-4o free via GitHub — strong
+                        "meta/llama-3.3-70b-instruct",         // Reliable, 128K ctx
+                        "mistral-ai/mistral-large-2411",       // Mistral Large, free via GitHub
+                        "openai/gpt-4o-mini",                  // Fast, lightweight
+                        "microsoft/phi-4",                     // Strong reasoning for its size
+                        "microsoft/phi-4-mini-reasoning");     // Smallest, fast code reasoning
 
-            // Scaleway — 1M free token trial credit, European provider.
+            // Scaleway — 1M token one-time trial credit (then pay-per-token).
+            // Qwen 2.5 72B first: best coding model available on Scaleway.
             case SCALEWAY:
                 return Arrays.asList(
-                        "llama-3.3-70b-instruct",
-                        "llama-3.1-8b-instruct",
-                        "qwen2.5-72b-instruct",
-                        "mistral-nemo-instruct-2407");
+                        "qwen2.5-72b-instruct",       // Best coding, 128K ctx
+                        "llama-3.3-70b-instruct",     // Strong general, 128K ctx
+                        "llama-3.1-8b-instruct",      // Fast lightweight fallback
+                        "mistral-nemo-instruct-2407"); // Small Mistral fallback
 
             // Cloudflare Workers AI — 10,000 neurons/day free.
-            // UPDATED: gemma-4-26b-a4b-it added (official Cloudflare launch, April 2026).
-            //   Gemma 4: MoE 26B/4B active, 256K ctx, tool-calling, vision, multilingual.
-            //   Model page: developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/
-            // gemma-3-12b-it replaced by gemma-4-26b-a4b-it (same family, newer generation).
+            // UPDATED April 2026: gemma-4-26b-a4b-it (Gemma 4 MoE, 256K ctx, tool-calling).
+            // qwen2.5-coder-32b first after Gemma 4 as coding specialist.
             case CLOUDFLARE:
                 return Arrays.asList(
-                        "@cf/google/gemma-4-26b-a4b-it",             // Gemma 4 — 256K ctx, tool-calling ✅
-                        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",  // Llama 3.3 70B — fast fp8
-                        "@cf/deepseek-ai/deepseek-r1-distill-llama-70b", // DeepSeek R1 reasoning
-                        "@cf/qwen/qwen2.5-coder-32b-instruct",       // Qwen Coder — code specialist
-                        "@cf/meta/llama-3.1-8b-instruct");           // Lightweight fallback
+                        "@cf/google/gemma-4-26b-a4b-it",              // Gemma 4: 256K ctx, tool-calling, vision ✅
+                        "@cf/qwen/qwen2.5-coder-32b-instruct",        // Coding specialist, 32K ctx ✅
+                        "@cf/deepseek-ai/deepseek-r1-distill-llama-70b", // Reasoning + code ✅
+                        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",   // Fast fp8, 128K ctx ✅
+                        "@cf/meta/llama-3.1-8b-instruct");            // Lightweight fallback ✅
 
             // ══════════════════════════════════════════════════════════════════
             // GROUP 3 — Paid providers
             // ══════════════════════════════════════════════════════════════════
 
-            // OpenAI — o4-mini and o3 are the current reasoning models (2026).
+            // OpenAI — paid. GPT-4o: best instruction following. o4-mini: reasoning.
             // o1-mini removed (deprecated by OpenAI).
             case OPENAI:
                 return Arrays.asList(
-                        "gpt-4o",
-                        "o4-mini",     // Best value reasoning model
-                        "o3",          // Top reasoning, expensive
-                        "gpt-4o-mini",
-                        "o3-mini");
+                        "gpt-4o",       // Best all-round, strong at Java/Android
+                        "o4-mini",      // Best value reasoning model
+                        "gpt-4o-mini",  // Fast, cheap, good for simple tasks
+                        "o3",           // Top reasoning, expensive
+                        "o3-mini");     // Older reasoning, cheaper than o3
 
-            // Anthropic — Claude 4 family. Best overall for Java/Android code in 2026.
-            // SWE-bench: claude-opus-4-8 → ~80.8%, claude-sonnet-4-6 → 79.6%.
+            // Anthropic — best overall for complex Java/Android code in 2026.
+            // SWE-bench: claude-opus-4-8 80.8% (#1), claude-sonnet-4-6 79.6% (#2).
             case ANTHROPIC:
                 return Arrays.asList(
-                        "claude-opus-4-8",          // #1 coding benchmark 2026
-                        "claude-sonnet-4-6",         // Best value, strong at Java/Android
-                        "claude-haiku-4-5-20251001", // Fastest, cheapest
+                        "claude-opus-4-8",           // #1 SWE-bench 80.8% — best for code
+                        "claude-sonnet-4-6",          // #2 79.6% — best value paid Claude
+                        "claude-sonnet-4-5",          // Previous generation, still strong
+                        "claude-haiku-4-5-20251001",  // Fastest, cheapest Claude
                         "claude-opus-4-7",
                         "claude-opus-4-5",
-                        "claude-sonnet-4-5",
                         "claude-3-5-sonnet-20241022");
 
-            // Gemini paid API — gemini-2.5-pro leads 13/16 major benchmarks (Feb 2026).
-            // 60% cheaper than Claude Opus with comparable coding performance.
-            // gemini-1.5 series retired (all return "Model Not Found").
+            // Gemini paid API — gemini-2.5-pro leads 13/16 major benchmarks (2026).
+            // 1M context window; 60% cheaper than Claude Opus with comparable code quality.
+            // gemini-1.5 series removed — all return "Model Not Found".
             case GEMINI:
                 return Arrays.asList(
-                        "gemini-2.5-pro",      // Tops coding benchmarks, 1M ctx
-                        "gemini-2.5-flash",    // Best value paid Gemini
-                        "gemini-2.0-flash",
-                        "gemini-2.0-flash-lite");
+                        "gemini-2.5-pro",      // #1 in most benchmarks, 1M ctx, coding champion
+                        "gemini-2.5-flash",    // Best value: fast + strong, 1M ctx
+                        "gemini-2.0-flash",    // Reliable, 1M ctx
+                        "gemini-2.0-flash-lite"); // Lightweight option
 
-            // DeepSeek — 5M free tokens on signup (no credit card).
-            // deepseek-chat = DeepSeek V3; deepseek-reasoner = DeepSeek R1.
-            // Outstanding value: V3 rivals GPT-4o at $0.27/M input tokens.
+            // DeepSeek — deepseek-chat = V3 (outstanding code for the price).
+            // 5M free tokens on signup; very low ongoing price after.
             case DEEPSEEK:
                 return Arrays.asList(
-                        "deepseek-chat",      // DeepSeek V3 — best value code model
+                        "deepseek-chat",      // DeepSeek V3 — best value code model ($0.27/M)
                         "deepseek-reasoner"); // DeepSeek R1 — reasoning + coding
 
-            // xAI Grok — real-time web access built in.
+            // xAI Grok — real-time web knowledge built in.
             case XAI_GROK:
                 return Arrays.asList(
-                        "grok-3",
-                        "grok-3-mini");
+                        "grok-3",       // Most capable, real-time knowledge
+                        "grok-3-mini"); // Faster, cheaper
 
             // NVIDIA NIM — enterprise GPU inference.
-            // Most models failed (Model Not Found / Request Error).
-            // Only meta/llama-3.3-70b-instruct confirmed working.
+            // Only meta/llama-3.3-70b-instruct confirmed working (others → errors).
             case NVIDIA:
                 return Arrays.asList(
                         "meta/llama-3.3-70b-instruct");
 
-            // OpenRouter — aggregates 100+ models, including many free (:free suffix).
-            //
-            // FREE MODELS (confirmed May 2026, openrouter.ai/collections/free-models):
-            //  • openrouter/free        — auto-router: always picks best available free model ✅
-            //  • google/gemma-4-31b-it:free  — Gemma 4, 256K ctx, tool-calling ✅ openrouter.ai/google/gemma-4-31b-it:free
-            //  • deepseek/deepseek-v4-flash:free — fast reasoning, 1M ctx ✅ openrouter.ai/deepseek/deepseek-v4-flash
-            //  • deepseek/deepseek-r1:free  — reasoning model ✅ openrouter.ai/deepseek/deepseek-r1:free
-            //  • openai/gpt-oss-20b:free    — OpenAI open-source, matches o3-mini ✅ openrouter.ai/openai/gpt-oss-20b:free
-            //  • qwen/qwen3-coder:free      — best free coding specialist, 1M ctx
-            //  • qwen/qwq-32b:free          — QwQ reasoning model
-            //
-            // Removed (previously failing): deepseek/deepseek-r1:free (re-added, now stable),
-            //   qwen/qwen3-235b-a22b:free (still unreliable on free tier).
-            // gemma-2-9b-it:free kept as lightweight fallback.
+            // OpenRouter — aggregates 200+ models; :free suffix = zero cost.
+            // openrouter/free: auto-router — always picks the best available free model.
+            // Ordering: free router first, then best free coding models, smallest free last.
+            // openai/gpt-4o REMOVED — paid, no :free suffix.
             case OPENROUTER:
                 return Arrays.asList(
-                        "openrouter/free",                          // Auto-picks best free model — most resilient ✅
-                        "google/gemma-4-31b-it:free",               // Gemma 4 — 256K ctx, tool-calling ✅
-                        "deepseek/deepseek-v4-flash:free",          // DeepSeek V4 — 1M ctx, fast reasoning ✅
-                        "deepseek/deepseek-r1:free",                // DeepSeek R1 — reasoning ✅
-                        "openai/gpt-oss-20b:free",                  // GPT-OSS 20B — matches o3-mini ✅
-                        "qwen/qwen3-coder:free",                    // Best free coding model
-                        "qwen/qwq-32b:free",                        // QwQ reasoning
-                        "meta-llama/llama-3.3-70b-instruct:free",   // Reliable general model
-                        "mistralai/mistral-7b-instruct:free",       // Lightweight fallback
-                        "google/gemma-2-9b-it:free",                // Smallest free fallback
-                        "openai/gpt-4o");                           // Paid flagship
+                        "openrouter/free",                         // Auto-picks best free model ✅
+                        "google/gemma-4-31b-it:free",              // Gemma 4: 256K ctx, tool-calling ✅
+                        "deepseek/deepseek-v4-flash:free",         // DeepSeek V4: 1M ctx, fast code ✅
+                        "qwen/qwen3-coder:free",                   // Best free coding: 1M ctx, coding specialist ✅
+                        "deepseek/deepseek-r1:free",               // Reasoning + code ✅
+                        "openai/gpt-oss-20b:free",                 // OpenAI open-source, matches o3-mini ✅
+                        "qwen/qwq-32b:free",                       // QwQ reasoning model ✅
+                        "meta-llama/llama-3.3-70b-instruct:free",  // Reliable general fallback ✅
+                        "mistralai/mistral-7b-instruct:free",      // Lightweight free fallback ✅
+                        "google/gemma-2-9b-it:free");              // Smallest free fallback ✅
 
-            // DeepInfra — affordable GPU inference.
-            // gemma-4-27b-it: Gemma 4 27B (dense version) available on DeepInfra.
-            // gemma-3-27b-it kept as fallback.
+            // DeepInfra — affordable pay-per-token inference.
+            // Qwen3 235B first: largest open coding model available.
             case DEEPINFRA:
                 return Arrays.asList(
-                        "google/gemma-4-27b-it",              // Gemma 4 on DeepInfra
-                        "Qwen/Qwen3-235B-A22B",               // Largest Qwen3 open model
-                        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                        "google/gemma-3-27b-it",              // Gemma 3 fallback
-                        "microsoft/phi-4");
+                        "Qwen/Qwen3-235B-A22B",                    // Largest open model, best code
+                        "google/gemma-4-27b-it",                   // Gemma 4 dense, tool-calling
+                        "meta-llama/Llama-3.3-70B-Instruct-Turbo", // Fast 70B
+                        "microsoft/phi-4",                         // Strong reasoning for size
+                        "google/gemma-3-27b-it");                  // Gemma 3 fallback
 
-            // Together AI — strong open-source model selection.
-            // DeepSeek R1 and Qwen 2.5 72B confirmed working.
+            // Together AI — strong open-source model selection, trial credits on signup.
+            // DeepSeek-R1 first: best reasoning+code on Together.
             case TOGETHER:
                 return Arrays.asList(
-                        "deepseek-ai/DeepSeek-R1",            // Best reasoning on Together
-                        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                        "Qwen/Qwen2.5-72B-Instruct-Turbo",
-                        "google/gemma-2-27b-it");
+                        "deepseek-ai/DeepSeek-R1",                  // Best reasoning+code on Together
+                        "Qwen/Qwen2.5-72B-Instruct-Turbo",          // Strong coding, 128K ctx
+                        "meta-llama/Llama-3.3-70B-Instruct-Turbo",  // Reliable general
+                        "google/gemma-2-27b-it");                   // Fallback
 
-            // Hyperbolic — $10 free credit on signup.
+            // Hyperbolic — $10 free credit on signup, then pay-per-token.
             case HYPERBOLIC:
                 return Arrays.asList(
-                        "deepseek-ai/DeepSeek-R1",
-                        "meta-llama/Llama-3.3-70B-Instruct",
-                        "Qwen/Qwen2.5-72B-Instruct");
+                        "deepseek-ai/DeepSeek-R1",            // Best reasoning
+                        "Qwen/Qwen2.5-72B-Instruct",          // Strong coding
+                        "meta-llama/Llama-3.3-70B-Instruct"); // Reliable fallback
 
             // Kluster AI — batch + realtime inference.
             case KLUSTER:
                 return Arrays.asList(
-                        "klusterai/Meta-Llama-3.3-70B-Instruct-Turbo",
-                        "klusterai/Meta-Llama-3.1-8B-Instruct-Turbo",
-                        "Qwen/Qwen2.5-72B-Instruct");
+                        "Qwen/Qwen2.5-72B-Instruct",                       // Best coding
+                        "klusterai/Meta-Llama-3.3-70B-Instruct-Turbo",     // Strong general
+                        "klusterai/Meta-Llama-3.1-8B-Instruct-Turbo");     // Fast lightweight
 
-            // OVH AI — European provider, 12 req/min.
+            // OVHcloud AI Endpoints — free anonymous tier (2 RPM), no key needed.
+            // Qwen3-Coder-30B has 262K context window — excellent for large Java files.
+            // Models confirmed June 2026: https://endpoints.ai.cloud.ovh.net/catalog
             case OVH:
                 return Arrays.asList(
-                        "Llama-3.3-70B-Instruct",
-                        "Qwen2.5-72B-Instruct",
-                        "Mistral-7B-Instruct-v0.3");
+                        "Qwen3-Coder-30B-A3B-Instruct",       // Coding specialist, 262K ctx ✅
+                        "DeepSeek-R1-Distill-Llama-70B",      // Reasoning + code, 131K ctx ✅
+                        "Meta-Llama-3.3-70B-Instruct",        // Strong general, 131K ctx ✅
+                        "Qwen2.5-VL-72B-Instruct",            // Vision + text, 72B ✅
+                        "Mistral-Nemo-Instruct-2407");         // Lightweight fallback ✅
 
             // Lambda Labs — affordable GPU cloud.
+            // qwen25-coder-32b first: coding specialist.
             case LAMBDA:
                 return Arrays.asList(
-                        "llama3.3-70b-instruct-fp8",
-                        "qwen25-coder-32b-instruct",
-                        "llama3.1-8b-instruct");
+                        "qwen25-coder-32b-instruct",   // Coding specialist, best for Java/Android
+                        "llama3.3-70b-instruct-fp8",   // Strong general, fp8 fast
+                        "llama3.1-8b-instruct");        // Lightweight fallback
 
             // Fireworks AI — fast inference for large models.
-            // deepseek-v3 and llama 4 confirmed available.
+            // DeepSeek V3 first: best code quality on Fireworks.
             case FIREWORKS:
                 return Arrays.asList(
-                        "accounts/fireworks/models/deepseek-v3",
-                        "accounts/fireworks/models/llama-v3p3-70b-instruct",
-                        "accounts/fireworks/models/llama4-scout-instruct-basic",
-                        "accounts/fireworks/models/qwen2p5-72b-instruct");
+                        "accounts/fireworks/models/deepseek-v3",               // Best code quality
+                        "accounts/fireworks/models/qwen2p5-72b-instruct",       // Strong coding
+                        "accounts/fireworks/models/llama4-scout-instruct-basic", // Llama 4
+                        "accounts/fireworks/models/llama-v3p3-70b-instruct");   // Reliable fallback
 
             // Novita AI — affordable inference.
-            // gemma-3-27b-it replaced by gemma-4-27b-it (Gemma 4 available on Novita).
+            // DeepSeek V3 first: best code model.
             case NOVITA:
                 return Arrays.asList(
-                        "meta-llama/llama-3.3-70b-instruct",
-                        "deepseek/deepseek-v3",
-                        "google/gemma-4-27b-it",   // Gemma 4 on Novita
-                        "meta-llama/llama-4-scout");
+                        "deepseek/deepseek-v3",               // Best code model on Novita
+                        "google/gemma-4-27b-it",              // Gemma 4 on Novita
+                        "meta-llama/llama-3.3-70b-instruct",  // Strong general
+                        "meta-llama/llama-4-scout");           // Llama 4 Scout
 
             // Morph LLM — specialised for precise code editing (surgical diffs).
+            // morph-v3-fast first: same quality as v3 but 2x faster.
             case MORPH:
                 return Arrays.asList(
-                        "morph-v3-fast",
-                        "morph-v3");
+                        "morph-v3-fast", // Faster code editing (recommended)
+                        "morph-v3");     // Slower but slightly more thorough
 
             default:
                 return Collections.emptyList();

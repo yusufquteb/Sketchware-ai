@@ -48,18 +48,20 @@ public class AiPreferences {
 
     /** Default models per provider */
     // llama-4-maverick and llama-4-scout both return "Invalid API Key" — use deepseek-v3
+    public static final String DEFAULT_LLM7_MODEL             = "qwen2.5-coder-32b-instruct"; // Best coding, no key
+    public static final String DEFAULT_POLLINATIONS_MODEL     = "openai";           // GPT-4o equivalent, no key needed
     public static final String DEFAULT_CHUTES_MODEL           = "deepseek-v3";
-    public static final String DEFAULT_DEEPINFRA_MODEL        = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
+    public static final String DEFAULT_DEEPINFRA_MODEL        = "Qwen/Qwen3-235B-A22B";
     // compound-beta-mini removed: it uses multi-call internally and exhausts tokens/min quickly.
-    public static final String DEFAULT_GROQ_MODEL             = "llama-3.3-70b-versatile";
-    public static final String DEFAULT_TOGETHER_MODEL         = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
+    public static final String DEFAULT_GROQ_MODEL             = "qwen3-32b";        // Best coding model on Groq
+    public static final String DEFAULT_TOGETHER_MODEL         = "deepseek-ai/DeepSeek-R1";
     public static final String DEFAULT_SAMBANOVA_MODEL        = "Meta-Llama-3.3-70B-Instruct";
-    public static final String DEFAULT_GOOGLE_AI_STUDIO_MODEL = "gemini-2.0-flash";
+    public static final String DEFAULT_GOOGLE_AI_STUDIO_MODEL = "gemini-2.5-flash"; // 1,500 req/day free
     public static final String DEFAULT_DEEPSEEK_MODEL         = "deepseek-chat";
-    public static final String DEFAULT_ANTHROPIC_MODEL        = "claude-sonnet-4-6";
-    public static final String DEFAULT_OPENAI_MODEL           = "gpt-4o-mini";
-    public static final String DEFAULT_GEMINI_MODEL           = "gemini-2.0-flash";
-    public static final String DEFAULT_CEREBRAS_MODEL         = "llama-3.3-70b";
+    public static final String DEFAULT_ANTHROPIC_MODEL        = "claude-opus-4-8";  // #1 SWE-bench
+    public static final String DEFAULT_OPENAI_MODEL           = "gpt-4o";
+    public static final String DEFAULT_GEMINI_MODEL           = "gemini-2.5-pro";   // Tops 13/16 benchmarks
+    public static final String DEFAULT_CEREBRAS_MODEL         = "qwen-3-32b";       // Best coding on Cerebras
     public static final String DEFAULT_SYSTEM_PROMPT =
         "You are an expert Android developer AI agent built into Sketchware Pro "
         + "— a visual Android IDE that runs on Android devices. "
@@ -243,13 +245,11 @@ public class AiPreferences {
 
     /**
      * Returns true if the provider has been toggled ON by the user in AI Settings.
-     * Default enabled: CHUTES (free, no API key needed — works immediately).
-     * GOOGLE_AI_STUDIO and SAMBANOVA also enabled by default for failover coverage.
+     * Default enabled: all providers that require NO API key (work immediately, zero setup).
+     * All other providers (free-with-key or paid) start disabled until the user adds a key.
      */
     public boolean isProviderEnabled(@NonNull AiProvider provider) {
-        boolean defaultEnabled = provider == AiProvider.CHUTES
-                || provider == AiProvider.GOOGLE_AI_STUDIO
-                || provider == AiProvider.SAMBANOVA;
+        boolean defaultEnabled = !provider.requiresApiKey(); // POLLINATIONS + CHUTES auto-enabled
         return prefs.getBoolean(KEY_PROVIDER_ENABLED + provider.name(), defaultEnabled);
     }
 
@@ -303,6 +303,8 @@ public class AiPreferences {
         }
 
         switch (provider) {
+            case LLM7:             return DEFAULT_LLM7_MODEL;
+            case POLLINATIONS:     return DEFAULT_POLLINATIONS_MODEL;
             case CHUTES:           return DEFAULT_CHUTES_MODEL;
             case DEEPINFRA:        return DEFAULT_DEEPINFRA_MODEL;
             case GROQ:             return DEFAULT_GROQ_MODEL;
