@@ -62,14 +62,12 @@ public class DexCompiler {
 
         CompilationMode mode = builder.isReleaseBuildMode() ? CompilationMode.RELEASE : CompilationMode.DEBUG;
 
-        int threads = Math.max(1, Runtime.getRuntime().availableProcessors());
         D8.run(D8Command.builder()
                 .setMode(mode)
                 .setMinApiLevel(minApiLevel)
                 .addLibraryFiles(libraryFiles)
                 .setOutput(dexOutputDir.toPath(), OutputMode.DexIndexed)
                 .addProgramFiles(programFiles)
-                .setThreadCount(threads)
                 .build());
 
         try {
