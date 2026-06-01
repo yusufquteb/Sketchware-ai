@@ -26,23 +26,26 @@ public final class AiProviderModels {
         if (provider == null) return Collections.emptyList();
         switch (provider) {
             // ── Group 1: Free, no API ──────────────────────────────────────────
-            // gpt-4o and gpt-4o-mini removed: AirForce AI returns "Invalid API Key"
-            // for these — they are no longer proxied by this provider.
+            // gpt-4o and gpt-4o-mini removed: AirForce AI returns "Invalid API Key".
             // llama-4-maverick and llama-4-scout both return "Invalid API Key" — removed.
+            // claude-3-7-sonnet added (newer than claude-3-5-sonnet via this proxy).
             case CHUTES:           return Arrays.asList(
                     "deepseek-v3",
+                    "claude-3-7-sonnet",
                     "claude-3-5-sonnet",
                     "gemini-2.0-flash",
                     "Qwen/Qwen3-235B-A22B",
                     "mistral-small-latest");
 
             // ── Group 2: Free with API ─────────────────────────────────────────
-            // gemma-3-*-it models removed: all returned "Model Not Found" via AI Studio API.
-            // gemini-2.5-flash added as the latest available model.
+            // gemma-3-*-it models removed: all returned "Model Not Found".
+            // gemini-2.5-flash is the best free model in 2026 (1M ctx, multimodal).
+            // gemini-2.5-pro added: available on free tier with lower quota.
             case GOOGLE_AI_STUDIO: return Arrays.asList(
+                    "gemini-2.5-flash",
+                    "gemini-2.5-pro",
                     "gemini-2.0-flash",
-                    "gemini-2.0-flash-lite",
-                    "gemini-2.5-flash");
+                    "gemini-2.0-flash-lite");
 
             // Only Meta-Llama-3.3-70B-Instruct confirmed working.
             // The other three returned "Request Error" consistently.
@@ -56,9 +59,12 @@ public final class AiProviderModels {
 
             // Removed: gemma2-9b-it (Bad Request), deepseek-r1-distill-llama-70b (Bad Request),
             // llama-4-scout-17b-16e-preview (Model Not Found), mixtral-8x7b-32768 (Bad Request).
+            // Added qwen3-32b (Qwen3 latest) and compound-beta (Groq tool-calling agent with web search).
             case GROQ:             return Arrays.asList(
                     "llama-3.3-70b-versatile",
                     "qwen-qwq-32b",
+                    "qwen3-32b",
+                    "compound-beta",
                     "llama-3.1-8b-instant");
 
             case HUGGINGFACE:      return Arrays.asList(
@@ -104,23 +110,26 @@ public final class AiProviderModels {
             case OPENAI:           return Arrays.asList(
                     "gpt-4o",
                     "gpt-4o-mini",
-                    "o3-mini",
-                    "o1-mini");
+                    "o4-mini",
+                    "o3",
+                    "o3-mini");
 
+            // claude-opus-4-8 / claude-sonnet-4-6 are the current Claude 4 family (2026).
             case ANTHROPIC:        return Arrays.asList(
-                    "claude-opus-4-7",
+                    "claude-opus-4-8",
                     "claude-sonnet-4-6",
                     "claude-haiku-4-5-20251001",
+                    "claude-opus-4-7",
                     "claude-opus-4-5",
                     "claude-sonnet-4-5",
                     "claude-3-5-sonnet-20241022");
 
-            // gemini-1.5-pro and gemini-1.5-flash removed: both returned "Model Not Found".
-            // Google has retired the 1.5 series in the Gemini API.
+            // gemini-1.5 series retired. gemini-2.5-pro is the best paid Gemini model.
             case GEMINI:           return Arrays.asList(
+                    "gemini-2.5-pro",
+                    "gemini-2.5-flash",
                     "gemini-2.0-flash",
-                    "gemini-2.0-flash-lite",
-                    "gemini-2.5-flash");
+                    "gemini-2.0-flash-lite");
 
             case DEEPSEEK:         return Arrays.asList(
                     "deepseek-chat",
@@ -136,10 +145,16 @@ public final class AiProviderModels {
                     "meta/llama-3.3-70b-instruct");
 
             // Free models use the :free suffix (OpenRouter zero-cost tier).
-            // deepseek/deepseek-r1:free and qwen/qwen3-235b-a22b:free failed in prior diagnostics;
-            // distilled / smaller variants (below) are more stable on the free tier.
+            // deepseek/deepseek-r1:free and qwen/qwen3-235b-a22b:free failed in prior diagnostics.
+            // openrouter/free is a special auto-router that picks the best available free model
+            // automatically — the most reliable option when specific models go down.
+            // qwen/qwq-32b:free (reasoning model) and qwen/qwen3-coder:free (coding specialist)
+            // added per May 2026 OpenRouter free tier listings.
             case OPENROUTER:       return Arrays.asList(
+                    "openrouter/free",
                     "meta-llama/llama-3.3-70b-instruct:free",
+                    "qwen/qwq-32b:free",
+                    "qwen/qwen3-coder:free",
                     "google/gemma-2-9b-it:free",
                     "mistralai/mistral-7b-instruct:free",
                     "qwen/qwen-2.5-72b-instruct:free",
