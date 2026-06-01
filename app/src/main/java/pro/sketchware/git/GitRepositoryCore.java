@@ -7,6 +7,7 @@ import org.eclipse.jgit.api.errors.EmptyCommitException;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.StoredConfig;
+import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.json.JSONObject;
@@ -51,13 +52,21 @@ public final class GitRepositoryCore {
     }
 
     public static GitResult push(File projectPath, GitConfig config, String title, String description) {
+        String branch = config.branch == null || config.branch.isEmpty() ? "main" : config.branch;
         String message = (title == null || title.trim().isEmpty()) ? "Project update" : title.trim();
         if (description != null && !description.trim().isEmpty()) message += "\n\n" + description.trim();
         try (Git git = openOrInit(projectPath, config)) {
             git.add().addFilepattern(".").call();
             try { git.commit().setMessage(message).call(); } catch (EmptyCommitException ignored) { }
-            git.push().setRemote("origin").setCredentialsProvider(credentials(config)).call();
-            return GitResult.ok("Pushed");
+            // Explicit refspec: local HEAD → remote branch by name.
+            // setForce(true): handles first push to a non-empty repo and diverged history.
+            git.push()
+                    .setRemote("origin")
+                    .setRefSpecs(new RefSpec("HEAD:refs/heads/" + branch))
+                    .setForce(true)
+                    .setCredentialsProvider(credentials(config))
+                    .call();
+            return GitResult.ok("Pushed to " + branch);
         } catch (Exception e) {
             lastError = e.getMessage();
             return GitResult.fail("Push failed: " + lastError, e);
@@ -142,9 +151,15 @@ public final class GitRepositoryCore {
     }
 
     private static Git openOrInit(File projectPath, GitConfig config) throws Exception {
-        if (new File(projectPath, ".git").exists()) return Git.open(projectPath);
+        String branch = config.branch == null || config.branch.isEmpty() ? "main" : config.branch;
+        if (new File(projectPath, ".git").exists()) {
+            Git git = Git.open(projectPath);
+            syncRemoteUrl(git, GitUrlNormalizer.normalize(config.remoteUrl));
+            return git;
+        }
         SafeFileOps.ensureDirectory(projectPath);
-        Git git = Git.init().setDirectory(projectPath).call();
+        // Use the configured branch name so local HEAD matches remote (avoids main/master mismatch)
+        Git git = Git.init().setInitialBranch(branch).setDirectory(projectPath).call();
         git.remoteAdd().setName("origin").setUri(new URIish(GitUrlNormalizer.normalize(config.remoteUrl))).call();
         return git;
     }
