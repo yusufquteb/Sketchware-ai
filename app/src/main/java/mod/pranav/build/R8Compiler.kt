@@ -21,6 +21,7 @@ class R8Compiler(
     fun compile() {
         val output = Paths.get(yq.binDirectoryPath, "dex")
         Files.createDirectories(output)
+        val threads = maxOf(1, Runtime.getRuntime().availableProcessors())
         val command = R8Command.builder()
             .addProgramFiles(inputs.map { Paths.get(it) })
             .addProguardConfiguration(rules, Origin.unknown())
@@ -30,6 +31,7 @@ class R8Compiler(
             .addLibraryFiles(libs.map { Paths.get(it) })
             .setOutput(output, OutputMode.DexIndexed)
             .setMode(CompilationMode.RELEASE)
+            .setThreadCount(threads)
             .build()
 
         R8.run(command)

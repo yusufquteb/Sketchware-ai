@@ -6,26 +6,43 @@ public enum AiProvider {
     // GROUP 1 — Free, no API key needed
     // ════════════════════════════════════════════════════════
 
+    // LLM7.io — 30 req/min anonymous (no key), 120 RPM with free token.
+    // Best rate-limit of any no-key provider. OpenAI-compatible. UK-based, actively maintained.
+    LLM7("LLM7.io",
+            "https://api.llm7.io",
+            "/v1/models", "/v1/chat/completions", false, false,
+            "LLM7.io — completely free, no sign-up or API key required. " +
+            "Best rate-limit of all no-key providers: 30 req/min anonymous. " +
+            "OpenAI-compatible. Includes GPT-4o-mini, DeepSeek R1, Qwen Coder, Gemini Flash Lite."),
+
+    POLLINATIONS("Pollinations AI",
+            "https://text.pollinations.ai",
+            "/models", "/openai", false, false,
+            "Pollinations AI — completely free, no sign-up or API key needed. " +
+            "OpenAI-compatible endpoint routing to GPT-4o, Claude Opus 4.8, DeepSeek V3, Mistral, Qwen. " +
+            "Note: anonymous use is rate-limited to ~1 req/min. Get a free key at enter.pollinations.ai for higher limits."),
+
     CHUTES("AirForce AI",
             "https://api.airforce",
             "/v1/models", "/v1/chat/completions", false, false,
             "AirForce AI — completely free community API, no API key required. " +
-            "Supports GPT-4o, Claude, Gemini Flash, Llama 4, DeepSeek V3 and more. " +
-            "Perfect default for first-time users — zero setup required."),
+            "Provides access to Claude, DeepSeek V3, Gemini Flash, and Qwen3 235B via proxy. " +
+            "Zero setup — perfect default for first-time users."),
 
     // ════════════════════════════════════════════════════════
-    // GROUP 2 — Free with API key (generous free tiers)
+    // GROUP 2 — Free with API key (genuine ongoing free tiers)
     // ════════════════════════════════════════════════════════
 
     GOOGLE_AI_STUDIO("Google AI Studio",
             "https://generativelanguage.googleapis.com",
             "/v1beta/openai/models", "/v1beta/openai/chat/completions", true, false,
-            "Google AI Studio — free access to Gemma 3 models (1B, 4B, 12B, 27B) and Gemini Flash. Free API key at aistudio.google.com."),
+            "Google AI Studio — best free API in 2026. Gemini 2.5 Flash: 1,500 req/day, 1M context. " +
+            "Also includes Gemini 2.0 Flash and Gemma 4. Free API key at aistudio.google.com."),
 
     SAMBANOVA("SambaNova",
             "https://api.sambanova.ai",
             "/v1/models", "/v1/chat/completions", true, false,
-            "SambaNova Cloud — free fast inference for Gemma 3, Gemma 2, Llama 4, DeepSeek R1. Free API key at cloud.sambanova.ai."),
+            "SambaNova Cloud — free fast inference for Meta-Llama-3.3-70B. Free API key at cloud.sambanova.ai."),
 
     CEREBRAS("Cerebras",
             "https://api.cerebras.ai",
@@ -47,7 +64,8 @@ public enum AiProvider {
     MISTRAL("Mistral",
             "https://api.mistral.ai",
             "/v1/models", "/v1/chat/completions", true, false,
-            "Mistral — La Plateforme. Free experimental plan with Mistral Small and NeMo. API key at console.mistral.ai."),
+            "Mistral — La Plateforme. Free experimental plan: Devstral Small (coding), Codestral, Mistral Small, NeMo. " +
+            "Devstral is specialised for agentic coding tasks. API key at console.mistral.ai."),
 
     COHERE("Cohere",
             "https://api.cohere.com",
@@ -67,7 +85,8 @@ public enum AiProvider {
     CLOUDFLARE("Cloudflare Workers AI",
             "https://api.cloudflare.com",
             "/client/v4/accounts/{account_id}/ai/models/search", "/client/v4/accounts/{account_id}/ai/run/{model}", true, false,
-            "Cloudflare Workers AI — 10,000 neurons/day free tier. Supports Llama 3.3, Mistral, Gemma, and DeepSeek models."),
+            "Cloudflare Workers AI — 10,000 neurons/day free tier. Includes Gemma 4 (256K ctx, tool-calling), " +
+            "Llama 3.3 70B, DeepSeek R1, and Qwen Coder 32B. Account ID required alongside API key."),
 
     // ════════════════════════════════════════════════════════
     // GROUP 3 — Paid providers
@@ -116,7 +135,8 @@ public enum AiProvider {
     TOGETHER("Together AI",
             "https://api.together.xyz",
             "/v1/models", "/v1/chat/completions", true, false,
-            "Together AI — open-source models including Gemma 3 27B, Llama 3.3, DeepSeek R1, and Qwen 2.5."),
+            "Together AI — wide open-source model selection. $100 in trial credits on signup (no credit card). " +
+            "Pay-per-token after credits expire. Best for testing DeepSeek R1 and Qwen 2.5 72B."),
 
     HYPERBOLIC("Hyperbolic",
             "https://api.hyperbolic.xyz",
@@ -128,10 +148,15 @@ public enum AiProvider {
             "/v1/models", "/v1/chat/completions", true, false,
             "Kluster AI — affordable batch and realtime inference for Llama, Mistral, and Qwen models."),
 
-    OVH("OVH AI",
+    // OVHcloud — free anonymous tier: 2 RPM, no account, no sign-up.
+    // Use empty API key or "anonymous" — documented permanent free tier from a major EU cloud provider.
+    // For higher limits (400 RPM), create a free OVH account.
+    OVH("OVHcloud AI",
             "https://oai.endpoints.kepler.ai.cloud.ovh.net",
-            "/v1/models", "/v1/chat/completions", true, false,
-            "OVH AI Endpoints — European provider with 12 req/min on Llama and Mistral models."),
+            "/v1/models", "/v1/chat/completions", false, false,
+            "OVHcloud AI Endpoints — permanent free anonymous tier, no sign-up required. " +
+            "2 req/min anonymous; up to 400 RPM with free OVH account. " +
+            "EU-hosted (GDPR). 40+ open models: Llama 3.3, DeepSeek R1, Qwen3 Coder 262K ctx."),
 
     LAMBDA("Lambda Labs",
             "https://api.lambdalabs.com",
@@ -189,32 +214,42 @@ public enum AiProvider {
     /** Short rate-limit summary shown under the provider card in Settings. */
     public String getLimitsText() {
         switch (this) {
+            case LLM7:
+                return "30 RPM anonymous (no key) • 120 RPM with free token from token.llm7.io";
+            case POLLINATIONS:
+                return "~1 req/min anonymous (no key) — get free key at enter.pollinations.ai for higher limits";
             case CHUTES:
                 return "Completely free — no API key — no published rate limits";
             case GOOGLE_AI_STUDIO:
-                return "Gemini 2.5 Flash: 5 RPM • 20 req/day • 250K TPM\n"
-                     + "Gemini 2.0 Flash: 15 RPM • 500 req/day • 250K TPM\n"
-                     + "Gemma 3 27B: 30 RPM • 14,400 req/day • 15K TPM";
+                return "Gemini 2.5 Flash: 10 RPM • 1,500 req/day • 1M ctx (free)\n"
+                     + "Gemini 2.0 Flash: 15 RPM • 1,500 req/day • 250K TPM\n"
+                     + "Gemma 4: available on free tier via API";
             case SAMBANOVA:
-                return "$5 free credit for 3 months (trial), then paid";
+                return "Free tier — rate limited. API key at cloud.sambanova.ai";
             case CEREBRAS:
                 return "30 RPM • 60K TPM • 14,400 req/day • 1M tokens/day";
             case GROQ:
-                return "Llama 3.3 70B: 1,000 req/day • 12K TPM\n"
-                     + "Llama 3.1 8B: 14,400 req/day • 6K TPM";
+                return "Qwen3 32B: 1,000 req/day • 6K tokens/min\n"
+                     + "Llama 3.3 70B: 1,000 req/day • 12K TPM\n"
+                     + "Llama 3.1 8B: 14,400 req/day • high TPM";
             case HUGGINGFACE:
-                return "$0.10 / month in free credits (models under 10 GB)";
+                return "Free $0.10/month inference credit (small models ≤ 10 GB)";
             case MISTRAL:
-                return "Standard: 1 req/sec • 500K TPM • 1B tokens/month\n"
-                     + "Codestral: 30 RPM • 2,000 req/day";
+                return "Free experimental: Devstral, Codestral, Mistral Small, NeMo\n"
+                     + "Codestral: 30 RPM • 2,000 req/day\n"
+                     + "Mistral Small: 1 req/sec • 1B tokens/month";
             case COHERE:
                 return "20 RPM • 1,000 req/month";
             case GITHUB_MODELS:
-                return "Limits vary by Copilot tier — very restrictive on free GitHub accounts";
+                return "Free with any GitHub account — low limits on free tier\n"
+                     + "Higher limits with GitHub Copilot subscription";
             case SCALEWAY:
-                return "1M tokens one-time free trial credit";
+                return "1M tokens one-time free trial credit (pay after)";
             case CLOUDFLARE:
-                return "10,000 neurons/day (~1,000–2,000 requests/day)";
+                return "10,000 neurons/day (≈ 1,000–2,000 requests/day)\n"
+                     + "Requires account_id alongside API key";
+            case OVH:
+                return "2 RPM anonymous (no key) — 400 RPM with free OVH account";
             default:
                 return "";
         }

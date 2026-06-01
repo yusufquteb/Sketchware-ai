@@ -458,49 +458,58 @@ public class JavaToBlocksActivity extends BaseAppCompatActivity {
         StringBuilder sb = new StringBuilder();
         sb.append("Found ").append(methods.size()).append(" method(s):\n");
 
+        int totalBlocks = 0;
+        int totalRaw = 0;
         for (JavaToBlocksConverter.ParsedMethod method : methods) {
             JavaToBlocksConverter.MethodKind kind = JavaToBlocksConverter.classify(method);
             List<JsonObject> blocks = JavaToBlocksConverter.convertMethodBody(method.body);
+            int rawCount = 0;
+            java.util.Map<String, Integer> opCounts = new java.util.LinkedHashMap<>();
+            for (JsonObject b : blocks) {
+                String op = b.get("opCode").getAsString();
+                opCounts.merge(op, 1, Integer::sum);
+                if ("addSourceDirectly".equals(op)) rawCount++;
+            }
+            totalBlocks += blocks.size();
+            totalRaw += rawCount;
+
             sb.append("\n").append(method.name).append(" → ").append(kind.name()).append("\n");
-            sb.append("  Blocks: ").append(blocks.size()).append("\n");
+            sb.append("  Blocks: ").append(blocks.size());
+            if (rawCount > 0) sb.append(" (").append(rawCount).append(" raw/unconverted)");
+            sb.append("\n");
 
             switch (kind) {
                 case LIFECYCLE_EVENT:
-                    sb.append("  Action: add blocks to \"").append(method.name).append("\" event\n");
-                    break;
                 case KNOWN_EVENT:
                     sb.append("  Action: add blocks to \"").append(method.name).append("\" event\n");
                     break;
                 case MORE_BLOCK:
                     sb.append("  Action: create More Block \"onMoreBlock_").append(method.name).append("\"\n");
-                    sb.append("  Entry:  ").append(defaultActName).append(".java_onMoreBlock_").append(method.name).append("\n");
                     break;
             }
 
-            // Show block types summary
             if (!blocks.isEmpty()) {
                 sb.append("  Block types: ");
-                java.util.Map<String, Integer> opCounts = new java.util.LinkedHashMap<>();
-                for (JsonObject b : blocks) {
-                    String op = b.get("opCode").getAsString();
-                    opCounts.merge(op, 1, Integer::sum);
-                }
                 boolean first = true;
                 for (java.util.Map.Entry<String, Integer> e : opCounts.entrySet()) {
                     if (!first) sb.append(", ");
-                    sb.append(e.getKey());
-                    if (e.getValue() > 1) sb.append("(x").append(e.getValue()).append(")");
+                    if ("addSourceDirectly".equals(e.getKey())) {
+                        sb.append("[raw x").append(e.getValue()).append("]");
+                    } else {
+                        sb.append(e.getKey());
+                        if (e.getValue() > 1) sb.append("(x").append(e.getValue()).append(")");
+                    }
                     first = false;
                 }
                 sb.append("\n");
             }
         }
 
-        int totalBlocks = 0;
-        for (JavaToBlocksConverter.ParsedMethod m : methods) {
-            totalBlocks += JavaToBlocksConverter.convertMethodBody(m.body).size();
+        sb.append("\nTotal blocks: ").append(totalBlocks);
+        if (totalRaw > 0) {
+            sb.append("  (").append(totalBlocks - totalRaw).append(" converted + ")
+              .append(totalRaw).append(" raw source)");
         }
-        sb.append("\nTotal blocks to insert: ").append(totalBlocks);
 
         classAnalysisView.setText(sb);
     }
