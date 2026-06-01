@@ -309,34 +309,47 @@ public final class JavaToBlocksConverter {
         }
 
         // ── variable assignment ───────────────────────────────────────────
+        // Only match simple literal / arithmetic assignments — NOT method calls,
+        // object instantiations, or field accesses (those go to addSourceDirectly).
         {
-            Matcher m = Pattern.compile("String\\s+(\\w+)\\s*=\\s*(.+);?").matcher(s);
-            if (m.matches()) return block("setVarStr", m.group(1).trim(), m.group(2).trim());
+            Matcher m = Pattern.compile("String\\s+(\\w+)\\s*=\\s*(.+?);?").matcher(s);
+            if (m.matches()) {
+                String value = m.group(2).trim();
+                // Only convert if value is a string literal or simple variable
+                if (value.startsWith("\"") || (!value.contains("(") && !value.contains("new "))) {
+                    return block("setVarStr", m.group(1).trim(), value);
+                }
+            }
         }
         {
-            Matcher m = Pattern.compile("boolean\\s+(\\w+)\\s*=\\s*(.+);?").matcher(s);
-            if (m.matches()) return block("setVarBoolean", m.group(1).trim(), m.group(2).trim());
+            Matcher m = Pattern.compile("boolean\\s+(\\w+)\\s*=\\s*(.+?);?").matcher(s);
+            if (m.matches()) {
+                String value = m.group(2).trim();
+                if (value.equals("true") || value.equals("false")) {
+                    return block("setVarBoolean", m.group(1).trim(), value);
+                }
+            }
         }
         {
-            // int varName = value;  or  varName = value; (already declared int)
-            Matcher m = Pattern.compile("(?:int\\s+)?(\\w+)\\s*=\\s*(.+);?").matcher(s);
+            // int varName = literal;  or  varName = literal;
+            // Guard: skip if value contains a method call or object creation
+            Matcher m = Pattern.compile("(?:int\\s+)?(\\w+)\\s*=\\s*(.+?);?").matcher(s);
             if (m.matches()) {
                 String varName = m.group(1).trim();
                 String value = m.group(2).trim();
-                // Check if it looks like a number assignment
-                if (value.matches("-?\\d+(\\.\\d+)?") || value.matches(".*[+\\-*/].*")) {
-                    return block("setVarInt", varName, value);
+                // Skip complex right-hand sides (method calls, new, field access chains)
+                if (value.contains("(") || value.contains("new ") || value.contains(".")) {
+                    // fall through to addSourceDirectly
+                } else if (value.matches("-?\\d+(\\.\\d+)?") || value.matches("[\\w+\\-*/\\s]+")) {
+                    // Pure numeric literal or simple arithmetic between variables/numbers
+                    if (value.startsWith("\"")) {
+                        return block("setVarStr", varName, value);
+                    } else if (value.equals("true") || value.equals("false")) {
+                        return block("setVarBoolean", varName, value);
+                    } else {
+                        return block("setVarInt", varName, value);
+                    }
                 }
-                // Check for string assignment
-                if (value.startsWith("\"")) {
-                    return block("setVarStr", varName, value);
-                }
-                // Check for boolean
-                if (value.equals("true") || value.equals("false")) {
-                    return block("setVarBoolean", varName, value);
-                }
-                // Generic — try setVarStr
-                return block("setVarStr", varName, value);
             }
         }
 
@@ -384,10 +397,15 @@ public final class JavaToBlocksConverter {
     /**
      * Parses a Java source snippet to extract method declarations.
      * Handles both full class bodies and multiple method definitions.
+     * Skips methods inside anonymous inner classes / lambdas (depth > 1).
      */
     public static List<ParsedMethod> parseMethods(String source) {
         List<ParsedMethod> methods = new ArrayList<>();
         if (source == null || source.trim().isEmpty()) return methods;
+
+        // Pre-compute brace depth at every character (ignoring string/comment content)
+        // so we can reject matches that are inside anonymous inner classes.
+        int[] braceDepth = computeBraceDepths(source);
 
         // Match method declarations: optional @Override, access modifier, void/type, name, params, body
         Pattern methodPat = Pattern.compile(
@@ -396,7 +414,17 @@ public final class JavaToBlocksConverter {
         );
         Matcher m = methodPat.matcher(source);
 
+        // Determine whether the source contains a top-level class declaration.
+        // If it does, valid methods sit at brace depth 1 (inside the class body).
+        // If it's a bare snippet with no class wrapper, depth 0 is acceptable.
+        boolean hasClassWrapper = source.contains(" class ") || source.startsWith("class ");
+
         while (m.find()) {
+            int depthAtMatch = braceDepth[m.start()];
+            // Skip methods that are inside anonymous/inner classes
+            if (hasClassWrapper && depthAtMatch > 1) continue;
+            if (!hasClassWrapper && depthAtMatch > 0) continue;
+
             String sig     = m.group(1);
             String name    = m.group(2);
             String params  = m.group(3).trim();
@@ -418,6 +446,44 @@ public final class JavaToBlocksConverter {
             methods.add(new ParsedMethod(name, sig, body, isPrivate, isPublic, isOverride, params));
         }
         return methods;
+    }
+
+    /**
+     * Computes the brace-depth at each character position in {@code source},
+     * ignoring content inside string literals and comments so that braces
+     * inside strings/comments don't affect the count.
+     */
+    private static int[] computeBraceDepths(String source) {
+        int[] depths = new int[source.length()];
+        int depth = 0;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        boolean inString = false;
+        boolean inChar = false;
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.charAt(i);
+            char next = (i + 1 < source.length()) ? source.charAt(i + 1) : 0;
+            if (inLineComment) {
+                if (c == '\n') inLineComment = false;
+            } else if (inBlockComment) {
+                if (c == '*' && next == '/') { inBlockComment = false; i++; }
+            } else if (inString) {
+                if (c == '\\') { i++; } // skip escaped char
+                else if (c == '"') inString = false;
+            } else if (inChar) {
+                if (c == '\\') { i++; }
+                else if (c == '\'') inChar = false;
+            } else {
+                if (c == '/' && next == '/') { inLineComment = true; i++; }
+                else if (c == '/' && next == '*') { inBlockComment = true; i++; }
+                else if (c == '"') inString = true;
+                else if (c == '\'') inChar = true;
+                else if (c == '{') depth++;
+                else if (c == '}') depth = Math.max(0, depth - 1);
+            }
+            depths[i] = depth;
+        }
+        return depths;
     }
 
     /**
