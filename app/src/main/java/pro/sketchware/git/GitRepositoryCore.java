@@ -1,10 +1,12 @@
 package pro.sketchware.git;
 
-import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.ResetCommand;
+import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.errors.EmptyCommitException;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.json.JSONObject;
@@ -62,12 +64,52 @@ public final class GitRepositoryCore {
         }
     }
 
+    /**
+     * Pull latest changes from remote into projectPath.
+     *
+     * Strategy:
+     *  1. If no .git directory → clone (first-time setup from remote).
+     *  2. Otherwise → fetch + hard-reset to origin/<branch>.
+     *     This is a force-sync: remote always wins, no merge conflicts.
+     *  3. If fetch/reset fails → fallback to fresh clone.
+     */
     public static GitResult pull(File projectPath, GitConfig config) {
+        String branch = config.branch == null || config.branch.isEmpty() ? "main" : config.branch;
+
+        // First time — no local repo yet: clone from remote
+        if (!new File(projectPath, ".git").exists()) {
+            GitResult cloneResult = cloneRepository(projectPath, config);
+            if (cloneResult.success) {
+                return GitResult.ok("Cloned repository (" + branch + ") — project is now up to date.");
+            }
+            return cloneResult;
+        }
+
+        // Repo exists: fetch latest then hard-reset to origin/branch
         try (Git git = Git.open(projectPath)) {
-            git.pull().setCredentialsProvider(credentials(config)).call();
-            return GitResult.ok("Pulled");
+            // Keep remote URL in sync with what user configured
+            syncRemoteUrl(git, GitUrlNormalizer.normalize(config.remoteUrl));
+
+            // Fetch all refs from origin
+            git.fetch()
+                    .setRemote("origin")
+                    .setCredentialsProvider(credentials(config))
+                    .call();
+
+            // Hard reset to remote branch — always accept remote, no conflicts
+            git.reset()
+                    .setMode(ResetCommand.ResetType.HARD)
+                    .setRef("origin/" + branch)
+                    .call();
+
+            return GitResult.ok("Pulled — now at origin/" + branch);
         } catch (Exception e) {
             lastError = e.getMessage();
+            // Fallback: fresh clone (handles wrong branch, corrupted repo, etc.)
+            GitResult cloneResult = cloneRepository(projectPath, config);
+            if (cloneResult.success) {
+                return GitResult.ok("Re-cloned repository (" + branch + ") — project is now up to date.");
+            }
             return GitResult.fail("Pull failed: " + lastError, e);
         }
     }
@@ -105,6 +147,16 @@ public final class GitRepositoryCore {
         Git git = Git.init().setDirectory(projectPath).call();
         git.remoteAdd().setName("origin").setUri(new URIish(GitUrlNormalizer.normalize(config.remoteUrl))).call();
         return git;
+    }
+
+    /** Updates the stored origin URL without touching other config entries. */
+    private static void syncRemoteUrl(Git git, String normalizedUrl) {
+        try {
+            StoredConfig cfg = git.getRepository().getConfig();
+            cfg.setString("remote", "origin", "url", normalizedUrl);
+            cfg.setString("remote", "origin", "fetch", "+refs/heads/*:refs/remotes/origin/*");
+            cfg.save();
+        } catch (Exception ignored) { }
     }
 
     private static UsernamePasswordCredentialsProvider credentials(GitConfig config) {
