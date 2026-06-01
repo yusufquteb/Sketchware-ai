@@ -242,7 +242,10 @@ public class AiSettingsActivity extends AppCompatActivity {
 
     private List<ModelInfo> validateModels(AiApiClient client, AiProvider provider,
                                            List<ModelInfo> all) {
-        // Skip ping for large or free providers — too many models / no key to test
+        // Skip ping for large or free providers — too many models / no key to test.
+        // Also skip NVIDIA and LLM7/Pollinations: NVIDIA returns many models but most fail
+        // a "hi" ping due to specific model requirements; LLM7/Pollinations are free proxies
+        // with rate limits that make per-model validation impractical.
         if (all.size() > 25
                 || provider == AiProvider.OPENROUTER
                 || provider == AiProvider.DEEPINFRA
@@ -254,7 +257,10 @@ public class AiSettingsActivity extends AppCompatActivity {
                 || provider == AiProvider.GITHUB_MODELS
                 || provider == AiProvider.FIREWORKS
                 || provider == AiProvider.NOVITA
-                || provider == AiProvider.KLUSTER) {
+                || provider == AiProvider.KLUSTER
+                || provider == AiProvider.NVIDIA
+                || provider == AiProvider.LLM7
+                || provider == AiProvider.POLLINATIONS) {
             return all;
         }
 

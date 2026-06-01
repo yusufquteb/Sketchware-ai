@@ -12,7 +12,7 @@ import pro.sketchware.ai.storage.AiPreferences;
 
 /**
  * Centralized factory for creating AI API clients.
- * Supported: GEMINI, OPENAI, ANTHROPIC, DEEPSEEK, XAI_GROK, GROQ, NVIDIA,
+ * Supported: LLM7, POLLINATIONS, GEMINI, OPENAI, ANTHROPIC, DEEPSEEK, XAI_GROK, GROQ, NVIDIA,
  *            OPENROUTER, DEEPINFRA, TOGETHER, HUGGINGFACE, CEREBRAS,
  *            GOOGLE_AI_STUDIO, SAMBANOVA, MISTRAL, COHERE, HYPERBOLIC,
  *            KLUSTER, OVH, CLOUDFLARE, GITHUB_MODELS, LAMBDA, SCALEWAY,
@@ -38,6 +38,8 @@ public final class AiClientFactory {
         }
         AiPreferences preferences = AiPreferences.getInstance(context);
         switch (provider) {
+            case LLM7:             return new Llm7ApiClient(apiKey);
+            case POLLINATIONS:     return new PollinationsApiClient(apiKey);
             case GEMINI:           return new GeminiApiClient(apiKey);
             case OPENAI:           return new OpenAiApiClient(apiKey);
             case ANTHROPIC:        return new AnthropicApiClient(apiKey);
@@ -83,6 +85,8 @@ public final class AiClientFactory {
 
     public static String getCompatibilityNote(AiProvider provider) {
         switch (provider) {
+            case LLM7:             return "\u2705 Free \u2014 no API key needed. 30 req/min. Use qwen2.5-coder-32b-instruct for coding";
+            case POLLINATIONS:     return "\u2705 Free \u2014 no API key needed. ~1 req/min anonymous. Use \u2018openai\u2019 or \u2018qwen-coder\u2019";
             case GEMINI:           return "\u2705 Stable \u2014 use gemini-2.0-flash or gemini-2.5-pro";
             case OPENAI:           return "\u2705 Stable \u2014 use gpt-4o-mini for best cost/performance";
             case ANTHROPIC:        return "\u2705 Stable \u2014 prompt caching enabled (saves ~90% tokens)";
@@ -115,6 +119,8 @@ public final class AiClientFactory {
     }
 
     public static boolean requiresApiKey(AiProvider provider) {
-        return provider != AiProvider.CHUTES;
+        return provider != AiProvider.CHUTES
+                && provider != AiProvider.LLM7
+                && provider != AiProvider.POLLINATIONS;
     }
 }
