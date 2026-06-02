@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import pro.sketchware.ai.core.AiError;
 import pro.sketchware.ai.core.AiHealthMonitor;
+import pro.sketchware.ai.core.ModelCapabilities;
 import pro.sketchware.ai.core.ProviderCapabilities;
 import pro.sketchware.ai.core.ToolCallValidator;
 import pro.sketchware.ai.api.AiApiClient;
@@ -39,6 +40,7 @@ import pro.sketchware.ai.engine.approval.ApprovalCallback;
 import pro.sketchware.ai.engine.approval.ApprovalManager;
 import pro.sketchware.ai.engine.risk.ApprovalMode;
 import pro.sketchware.ai.engine.snapshot.ProjectSnapshotManager;
+import pro.sketchware.ai.engine.validation.RuntimeToolValidator;
 import pro.sketchware.ai.engine.validation.ToolValidationResult;
 import pro.sketchware.ai.engine.validation.ToolValidator;
 import pro.sketchware.ai.tools.AgentTool;
@@ -217,14 +219,20 @@ public class AgentExecutor {
                 // Pass the provider so the budget adapts to its actual context window.
                 List<ChatMessage> messages = TokenOptimizer.optimise(
                         new ArrayList<>(conversationHistory), provider);
-                // Use a compact system prompt for providers with small context windows
-                // to avoid consuming most of the context budget before the conversation starts.
-                ProviderCapabilities caps = ProviderCapabilities.of(provider);
+                // Resolve effective capabilities at the MODEL level, not just provider level.
+                // Some providers (OpenRouter, Groq, LLM7) host models with varying tool support.
+                ProviderCapabilities caps = ModelCapabilities.resolve(
+                        provider, modelHolder[0], ProviderCapabilities.of(provider));
                 boolean usingCompactPrompt = (caps.maxContextTokens > 0 && caps.maxContextTokens < 40_000);
                 String effectiveSystemPrompt = usingCompactPrompt
                         ? buildCompactSystemPrompt(systemPrompt, allowedProjectIds, pageContext)
                         : buildSystemPrompt(systemPrompt, allowedProjectIds, pageContext);
-                List<ToolDefinition> toolDefs    = toolRegistry.getToolDefinitions();
+                // Capability gate: only send tool definitions when the provider supports tool calling.
+                // Providers with supportsTools=false receive an empty list so they behave as plain
+                // chat models, avoiding malformed requests that would silently fail.
+                List<ToolDefinition> toolDefs = caps.supportsTools
+                        ? toolRegistry.getToolDefinitions()
+                        : java.util.Collections.emptyList();
                 // Tracks which provider is currently active (changes on failover).
                 final pro.sketchware.ai.models.AiProvider[] currentProviderHolder = {provider};
                 // Pre-built ordered queue of (provider, model) pairs to try on failure.
@@ -422,6 +430,19 @@ public class AgentExecutor {
                                 currentClient = pro.sketchware.ai.api.AiClientFactory
                                         .createClient(context, nextPair.provider, key != null ? key : "");
                                 currentProviderHolder[0] = nextPair.provider;
+                                // Re-evaluate tool capability at model level for the new provider.
+                                ProviderCapabilities nextCaps = ModelCapabilities.resolve(
+                                        nextPair.provider, nextPair.modelId,
+                                        ProviderCapabilities.of(nextPair.provider));
+                                toolDefs = nextCaps.supportsTools
+                                        ? toolRegistry.getToolDefinitions()
+                                        : java.util.Collections.emptyList();
+                                // Switch to compact prompt if new provider has a small context window.
+                                if (nextCaps.maxContextTokens > 0 && nextCaps.maxContextTokens < 40_000) {
+                                    usingCompactPrompt = true;
+                                    effectiveSystemPrompt = buildCompactSystemPrompt(
+                                            systemPrompt, allowedProjectIds, pageContext);
+                                }
                             }
                             modelHolder[0] = nextPair.modelId;
                             continue;
@@ -593,6 +614,13 @@ public class AgentExecutor {
             return ToolResult.failure(toolCall.getId(),
                     "Invalid arguments for '" + toolCall.getName() + "': "
                     + schemaValidation.errorMessage + ". Fix the arguments and retry.");
+        }
+
+        // ── Runtime pre-flight (file existence, project scope) ───────────────
+        RuntimeToolValidator.RuntimeValidationResult runtimeCheck =
+                RuntimeToolValidator.validate(toolCall.getName(), args, toolContext);
+        if (!runtimeCheck.isValid()) {
+            return ToolResult.failure(toolCall.getId(), runtimeCheck.getErrorMessage());
         }
 
         // ── Snapshot before MEDIUM/CRITICAL ops ──────────────────────────────

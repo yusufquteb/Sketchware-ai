@@ -611,11 +611,16 @@ public class ChatActivity extends AppCompatActivity implements AgentExecutor.Age
 
     /**
      * Shows a brief Snackbar if ModelRouter recommends a different profile than
-     * the one currently active. The Snackbar is advisory — user can dismiss.
-     * Only fires when profiles clearly differ (e.g. typing a build request on Quick).
+     * the one currently active — but ONLY when confidence is high enough to bother
+     * the user. Low-confidence suggestions are silently ignored.
      */
     private void suggestProfileIfNeeded(String text) {
-        String recommended = ModelRouter.recommendProfile(text);
+        ModelRouter.ClassificationResult result = ModelRouter.classifyWithConfidence(text);
+        // Suppress advisory when the classifier isn't confident — ambiguous messages
+        // should not trigger disruptive UI hints.
+        if (result.isUncertain()) return;
+
+        String recommended = ModelRouter.recommendedProfile(result.type);
         String current     = preferences.getActiveProfile();
         if (recommended.equalsIgnoreCase(current)) return;
 

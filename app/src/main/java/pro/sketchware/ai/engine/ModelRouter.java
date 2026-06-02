@@ -3,6 +3,7 @@ package pro.sketchware.ai.engine;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -14,6 +15,11 @@ import java.util.regex.Pattern;
  * sub-millisecond execution. It integrates with the existing Quick/Deep profile
  * system in {@link pro.sketchware.ai.storage.AiPreferences}.
  *
+ * <p>Each classification now returns a {@link ClassificationResult} carrying both
+ * the task type and a confidence score [0.0–1.0]. When confidence falls below
+ * {@link #LOW_CONFIDENCE_THRESHOLD}, callers should prefer a safer fallback
+ * (e.g., ANALYSIS or the deep profile).
+ *
  * <p>Design intent: keep this simple. The routing decision is advisory — the
  * user's explicit profile choice always takes precedence.
  */
@@ -21,11 +27,11 @@ public final class ModelRouter {
 
     private ModelRouter() {}
 
+    /** Minimum confidence below which the result should be treated as uncertain. */
+    public static final float LOW_CONFIDENCE_THRESHOLD = 0.65f;
+
     // ── Task taxonomy ─────────────────────────────────────────────────────────
 
-    /**
-     * Coarse task classification for routing purposes.
-     */
     public enum TaskType {
         /** Short conversational question, no coding required. */
         QUICK_REPLY,
@@ -37,6 +43,26 @@ public final class ModelRouter {
         CREATIVE,
         /** Long transcript, multi-file context, or context-heavy review. */
         LONG_CONTEXT,
+    }
+
+    /**
+     * Result of a classification: task type plus a confidence score in [0.0–1.0].
+     * Confidence reflects how many distinct signals matched and how unambiguous they were.
+     */
+    public static final class ClassificationResult {
+        public final TaskType type;
+        /** 0.0 = no signal, 1.0 = very confident. */
+        public final float confidence;
+
+        private ClassificationResult(TaskType type, float confidence) {
+            this.type       = type;
+            this.confidence = Math.max(0f, Math.min(1f, confidence));
+        }
+
+        /** Returns true when confidence is below {@link #LOW_CONFIDENCE_THRESHOLD}. */
+        public boolean isUncertain() {
+            return confidence < LOW_CONFIDENCE_THRESHOLD;
+        }
     }
 
     /** Profile key constant — matches the value stored by AiSettingsActivity's toggle. */
@@ -68,50 +94,77 @@ public final class ModelRouter {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Classifies {@code userMessage} into a {@link TaskType}.
+     * Classifies {@code userMessage} and returns a {@link ClassificationResult}
+     * with both the task type and a confidence score.
      *
-     * @param userMessage the raw user message (may be null/empty)
-     * @return a non-null TaskType; defaults to {@link TaskType#QUICK_REPLY} when uncertain
+     * <p>Confidence calculation:
+     * <ul>
+     *   <li>Strong structural signal (long context, path refs): 0.95</li>
+     *   <li>Multiple matching keywords in the same category: 0.85+</li>
+     *   <li>Single keyword match: 0.75</li>
+     *   <li>Short message, no keywords: 0.60 (uncertain QUICK_REPLY)</li>
+     *   <li>Medium length, ambiguous: 0.55 (uncertain ANALYSIS)</li>
+     * </ul>
      */
     @NonNull
-    public static TaskType classify(@Nullable String userMessage) {
-        if (userMessage == null || userMessage.trim().isEmpty()) return TaskType.QUICK_REPLY;
+    public static ClassificationResult classifyWithConfidence(@Nullable String userMessage) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return new ClassificationResult(TaskType.QUICK_REPLY, 0.90f);
+        }
         String msg = userMessage.trim();
 
-        // Long messages or multi-file references → LONG_CONTEXT
+        // Strong structural signal — very high confidence
         if (msg.length() > 500 || P_LONG_CONTEXT.matcher(msg).find()) {
-            return TaskType.LONG_CONTEXT;
+            return new ClassificationResult(TaskType.LONG_CONTEXT, 0.95f);
         }
 
-        // Explicit coding intent → CODING
-        if (P_CODING.matcher(msg).find()) return TaskType.CODING;
+        // Count keyword matches per category to score confidence
+        int codingMatches    = countMatches(P_CODING,    msg);
+        int analysisMatches  = countMatches(P_ANALYSIS,  msg);
+        int creativeMatches  = countMatches(P_CREATIVE,  msg);
 
-        // Analysis/explanation → ANALYSIS
-        if (P_ANALYSIS.matcher(msg).find()) return TaskType.ANALYSIS;
+        int maxMatches = Math.max(codingMatches, Math.max(analysisMatches, creativeMatches));
 
-        // Creative/design → CREATIVE
-        if (P_CREATIVE.matcher(msg).find()) return TaskType.CREATIVE;
+        // Ambiguity penalty: reduce confidence when two categories score equally
+        boolean ambiguous = (codingMatches > 0 && analysisMatches > 0 && codingMatches == analysisMatches)
+                || (codingMatches > 0 && creativeMatches > 0 && codingMatches == creativeMatches);
 
-        // Short message, no strong signal → QUICK_REPLY
-        if (msg.length() < 80) return TaskType.QUICK_REPLY;
+        if (maxMatches == 0) {
+            // No keyword signal
+            if (msg.length() < 80) return new ClassificationResult(TaskType.QUICK_REPLY, 0.60f);
+            return new ClassificationResult(TaskType.ANALYSIS, 0.55f);
+        }
 
-        // Default for medium-length ambiguous messages
-        return TaskType.ANALYSIS;
+        float baseConfidence = maxMatches >= 3 ? 0.90f : (maxMatches == 2 ? 0.80f : 0.75f);
+        if (ambiguous) baseConfidence -= 0.15f;
+
+        if (codingMatches >= analysisMatches && codingMatches >= creativeMatches) {
+            return new ClassificationResult(TaskType.CODING,    baseConfidence);
+        }
+        if (creativeMatches > analysisMatches) {
+            return new ClassificationResult(TaskType.CREATIVE,  baseConfidence);
+        }
+        return new ClassificationResult(TaskType.ANALYSIS, baseConfidence);
     }
 
     /**
-     * Returns the recommended profile ("quick" or "deep") for the given task type.
-     *
-     * <ul>
-     *   <li>{@code QUICK_REPLY} → "quick" (fast, cheap model)</li>
-     *   <li>{@code ANALYSIS}    → "quick" (conversational, moderate complexity)</li>
-     *   <li>{@code CODING}      → "deep" (requires strong reasoning)</li>
-     *   <li>{@code CREATIVE}    → "deep" (creative generation benefits from capable models)</li>
-     *   <li>{@code LONG_CONTEXT}→ "deep" (needs large context window)</li>
-     * </ul>
-     *
-     * @param taskType the classified task type
-     * @return {@link #PROFILE_QUICK} or {@link #PROFILE_DEEP}
+     * Classifies {@code userMessage} into a {@link TaskType}.
+     * When confidence is below {@link #LOW_CONFIDENCE_THRESHOLD}, falls back to
+     * {@link TaskType#ANALYSIS} as a safe default.
+     */
+    @NonNull
+    public static TaskType classify(@Nullable String userMessage) {
+        ClassificationResult result = classifyWithConfidence(userMessage);
+        if (result.isUncertain() && result.type == TaskType.QUICK_REPLY) {
+            // Uncertain short messages might actually need a capable model
+            return TaskType.ANALYSIS;
+        }
+        return result.type;
+    }
+
+    /**
+     * Returns the recommended profile for the given task type.
+     * QUICK_REPLY and ANALYSIS → QUICK; everything else → DEEP.
      */
     @NonNull
     public static String recommendedProfile(@NonNull TaskType taskType) {
@@ -128,14 +181,23 @@ public final class ModelRouter {
     }
 
     /**
-     * Convenience method: classifies {@code userMessage} and returns the
-     * recommended profile in one call.
-     *
-     * @param userMessage the raw user message
-     * @return {@link #PROFILE_QUICK} or {@link #PROFILE_DEEP}
+     * Classifies {@code userMessage} and returns the recommended profile.
+     * Low-confidence classifications fall back to PROFILE_DEEP to avoid routing
+     * a complex task to an underpowered model.
      */
     @NonNull
     public static String recommendProfile(@Nullable String userMessage) {
-        return recommendedProfile(classify(userMessage));
+        ClassificationResult result = classifyWithConfidence(userMessage);
+        if (result.isUncertain()) return PROFILE_DEEP;
+        return recommendedProfile(result.type);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static int countMatches(Pattern pattern, String text) {
+        Matcher m = pattern.matcher(text);
+        int count = 0;
+        while (m.find()) count++;
+        return count;
     }
 }

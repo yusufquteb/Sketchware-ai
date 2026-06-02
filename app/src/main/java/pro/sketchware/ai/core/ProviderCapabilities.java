@@ -222,7 +222,8 @@ public final class ProviderCapabilities {
 
     // ── Builder ───────────────────────────────────────────────────────────────
 
-    private static final class Builder {
+    /** Public builder — allows {@link pro.sketchware.ai.core.ModelCapabilities} to create overrides. */
+    public static final class Builder {
         boolean supportsStreaming     = true;
         boolean supportsTools         = false;
         boolean supportsVision        = false;
@@ -235,19 +236,37 @@ public final class ProviderCapabilities {
         int     freeRpmLimit          = -1;
         String  freeTierSummary       = "";
 
-        Builder streaming(boolean v)      { supportsStreaming = v;     return this; }
-        Builder tools(boolean v)          { supportsTools = v;         return this; }
-        Builder vision(boolean v)         { supportsVision = v;        return this; }
-        Builder jsonMode(boolean v)       { supportsJsonMode = v;      return this; }
-        Builder reasoning(boolean v)      { supportsReasoning = v;     return this; }
-        Builder systemPrompts(boolean v)  { supportsSystemPrompts = v; return this; }
-        Builder temperature(boolean v)    { supportsTemperature = v;   return this; }
-        Builder maxContext(int v)         { maxContextTokens = v;      return this; }
-        Builder maxOutput(int v)          { maxOutputTokens = v;       return this; }
-        Builder freeRpm(int v)            { freeRpmLimit = v;          return this; }
-        Builder freeTierSummary(String v) { freeTierSummary = v != null ? v : ""; return this; }
+        public Builder() {}
 
-        ProviderCapabilities build() { return new ProviderCapabilities(this); }
+        /** Copy-constructor: initialises all fields from an existing instance. */
+        public Builder from(@NonNull ProviderCapabilities src) {
+            this.supportsStreaming     = src.supportsStreaming;
+            this.supportsTools         = src.supportsTools;
+            this.supportsVision        = src.supportsVision;
+            this.supportsJsonMode      = src.supportsJsonMode;
+            this.supportsReasoning     = src.supportsReasoning;
+            this.supportsSystemPrompts = src.supportsSystemPrompts;
+            this.supportsTemperature   = src.supportsTemperature;
+            this.maxContextTokens      = src.maxContextTokens;
+            this.maxOutputTokens       = src.maxOutputTokens;
+            this.freeRpmLimit          = src.freeRpmLimit;
+            this.freeTierSummary       = src.freeTierSummary;
+            return this;
+        }
+
+        public Builder streaming(boolean v)      { supportsStreaming = v;     return this; }
+        public Builder tools(boolean v)          { supportsTools = v;         return this; }
+        public Builder vision(boolean v)         { supportsVision = v;        return this; }
+        public Builder jsonMode(boolean v)       { supportsJsonMode = v;      return this; }
+        public Builder reasoning(boolean v)      { supportsReasoning = v;     return this; }
+        public Builder systemPrompts(boolean v)  { supportsSystemPrompts = v; return this; }
+        public Builder temperature(boolean v)    { supportsTemperature = v;   return this; }
+        public Builder maxContext(int v)         { maxContextTokens = v;      return this; }
+        public Builder maxOutput(int v)          { maxOutputTokens = v;       return this; }
+        public Builder freeRpm(int v)            { freeRpmLimit = v;          return this; }
+        public Builder freeTierSummary(String v) { freeTierSummary = v != null ? v : ""; return this; }
+
+        public ProviderCapabilities build() { return new ProviderCapabilities(this); }
     }
 
     @Override
