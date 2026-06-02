@@ -19,6 +19,7 @@ import mod.hey.studios.compiler.kotlin.KotlinCompilerBridge;
 import mod.hey.studios.project.proguard.ProguardHandler;
 import mod.hey.studios.project.stringfog.StringfogHandler;
 import mod.jbk.build.BuiltInLibraries;
+import pro.sketchware.ai.engine.risk.RiskLevel;
 import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.utility.FileUtil;
 import pro.sketchware.util.library.BuiltInLibraryCompatibilityMatrix;
@@ -188,6 +189,9 @@ public final class BuildTools {
         public String getName() {
             return "build_project";
         }
+
+        @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
 
         @Override
         public String getDescription() {

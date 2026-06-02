@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import pro.sketchware.ai.engine.risk.RiskLevel;
 import pro.sketchware.ai.models.ToolResult;
 
 /**
@@ -323,6 +324,9 @@ public final class FileTools {
         }
 
         @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
+
+        @Override
         public String getDescription() {
             return "Writes content to an editable Sketchware project source file. Use java/, res/, or assets/ paths. "
                     + "Generated build output under .sketchware/mysc is never written directly.";
@@ -400,6 +404,9 @@ public final class FileTools {
         public String getName() {
             return "delete_file";
         }
+
+        @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.CRITICAL; }
 
         @Override
         public String getDescription() {
@@ -557,6 +564,9 @@ public final class FileTools {
         }
 
         @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
+
+        @Override
         public String getDescription() {
             return "Copies a file within or between projects using the editable logical roots.";
         }
@@ -653,6 +663,9 @@ public final class FileTools {
         public String getName() {
             return "move_file";
         }
+
+        @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
 
         @Override
         public String getDescription() {
@@ -861,6 +874,7 @@ public final class FileTools {
 
     public static class PatchFileTool implements AgentTool {
         @Override public String getName() { return "patch_file"; }
+        @Override public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
         @Override public String getDescription() { return "Replace a specific text block in a file. Uses surgical mutation to save tokens."; }
         @Override public JsonObject getParametersSchema() {
             JsonObject p = new JsonObject();
@@ -889,6 +903,7 @@ public final class FileTools {
 
     public static class AppendCodeTool implements AgentTool {
         @Override public String getName() { return "append_code"; }
+        @Override public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
         @Override public String getDescription() { return "Append code to the end of a file."; }
         @Override public JsonObject getParametersSchema() {
             JsonObject p = new JsonObject();
@@ -915,6 +930,7 @@ public final class FileTools {
 
     public static class InsertCodeAtLineTool implements AgentTool {
         @Override public String getName() { return "insert_code_at_line"; }
+        @Override public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
         @Override public String getDescription() { return "Insert code at a specific line number."; }
         @Override public JsonObject getParametersSchema() {
             JsonObject p = new JsonObject();
