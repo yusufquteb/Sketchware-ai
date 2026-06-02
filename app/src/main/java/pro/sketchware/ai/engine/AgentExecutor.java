@@ -35,6 +35,12 @@ import pro.sketchware.ai.models.ToolCall;
 import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.fix.AiFixSupport;
+import pro.sketchware.ai.engine.approval.ApprovalCallback;
+import pro.sketchware.ai.engine.approval.ApprovalManager;
+import pro.sketchware.ai.engine.risk.ApprovalMode;
+import pro.sketchware.ai.engine.snapshot.ProjectSnapshotManager;
+import pro.sketchware.ai.engine.validation.ToolValidationResult;
+import pro.sketchware.ai.engine.validation.ToolValidator;
 import pro.sketchware.ai.tools.AgentTool;
 import pro.sketchware.ai.tools.ToolContext;
 import pro.sketchware.ai.tools.ToolRegistry;
@@ -88,6 +94,11 @@ public class AgentExecutor {
 
     private volatile AiApiClient currentClient;
 
+    // ── Risk / Approval / Snapshot pipeline ──────────────────────────────────
+    private final ToolValidator toolValidator;
+    private ApprovalManager approvalManager;
+    private ProjectSnapshotManager snapshotManager;
+
     public interface AgentCallback {
         void onStreamingChunk(String chunk);
         void onAssistantMessage(ChatMessage assistantMessage);
@@ -124,10 +135,16 @@ public class AgentExecutor {
         } else {
             this.toolRegistry = ToolRegistry.createGlobal();
         }
-        this.executor    = Executors.newSingleThreadExecutor();
-        this.mainHandler = new Handler(Looper.getMainLooper());
-        this.isCancelled = new AtomicBoolean(false);
+        this.executor      = Executors.newSingleThreadExecutor();
+        this.mainHandler   = new Handler(Looper.getMainLooper());
+        this.isCancelled   = new AtomicBoolean(false);
         this.sessionLogger = AiSessionLogger.getInstance(this.context);
+        this.toolValidator = new ToolValidator(ApprovalMode.BALANCED);
+    }
+
+    /** Wires the approval dialog callback. Must be called before execute() if approval is needed. */
+    public void setApprovalCallback(ApprovalCallback callback) {
+        this.approvalManager = new ApprovalManager(ApprovalMode.BALANCED, callback);
     }
 
     /**
@@ -547,11 +564,6 @@ public class AgentExecutor {
 
     private ToolResult executeTool(ToolCall toolCall, ToolContext toolContext) {
         AgentTool tool = toolRegistry.getTool(toolCall.getName());
-        if (tool == null) {
-            return ToolResult.failure(toolCall.getId(),
-                    "Unknown tool: '" + toolCall.getName() + "'. "
-                    + "Check the tool catalog above and use only listed tool names.");
-        }
 
         // ── Parse arguments ──────────────────────────────────────────────────
         JsonObject args;
@@ -568,16 +580,55 @@ public class AgentExecutor {
             args = new JsonObject();
         }
 
-        // ── Schema validation (Phase 8) ──────────────────────────────────────
-        ToolCallValidator.ValidationResult validation =
-                ToolCallValidator.validate(args, tool.getParametersSchema());
-        if (!validation.valid) {
-            return ToolResult.failure(toolCall.getId(),
-                    "Invalid arguments for '" + toolCall.getName() + "': "
-                    + validation.errorMessage + ". Fix the arguments and retry.");
+        // ── Risk validation (resolves riskLevel + approval/snapshot flags) ───
+        ToolValidationResult riskResult = toolValidator.validate(tool, toolCall.getName(), args, toolContext);
+        if (!riskResult.valid) {
+            return ToolResult.failure(toolCall.getId(), riskResult.reason);
         }
 
-        // ── Execute with timeout + telemetry (Phase 6) ───────────────────────
+        // ── Schema validation ────────────────────────────────────────────────
+        ToolCallValidator.ValidationResult schemaValidation =
+                ToolCallValidator.validate(args, tool.getParametersSchema());
+        if (!schemaValidation.valid) {
+            return ToolResult.failure(toolCall.getId(),
+                    "Invalid arguments for '" + toolCall.getName() + "': "
+                    + schemaValidation.errorMessage + ". Fix the arguments and retry.");
+        }
+
+        // ── Snapshot before MEDIUM/CRITICAL ops ──────────────────────────────
+        if (riskResult.requiresSnapshot) {
+            String scId = args.has("sc_id") ? args.get("sc_id").getAsString() : null;
+            if (scId != null && !scId.isEmpty()) {
+                if (snapshotManager == null) {
+                    snapshotManager = new ProjectSnapshotManager(toolContext);
+                }
+                snapshotManager.createSnapshot(scId,
+                        "before " + toolCall.getName(), toolCall.getName());
+            }
+        }
+
+        // ── Approval gate ─────────────────────────────────────────────────────
+        if (riskResult.requiresApproval && approvalManager != null) {
+            ApprovalManager.Decision decision = approvalManager.requestApproval(
+                    tool, args, riskResult, null, null, null);
+            if (decision == ApprovalManager.Decision.DENIED) {
+                return ToolResult.failure(toolCall.getId(),
+                        "Tool '" + toolCall.getName() + "' was denied by the user. "
+                        + "Ask the user what to do next.");
+            }
+            if (decision == ApprovalManager.Decision.CANCELLED) {
+                isCancelled.set(true);
+                return ToolResult.failure(toolCall.getId(),
+                        "Operation cancelled by user.");
+            }
+            if (decision == ApprovalManager.Decision.TIMEOUT) {
+                return ToolResult.failure(toolCall.getId(),
+                        "Approval timed out for '" + toolCall.getName() + "'. "
+                        + "Ask the user to confirm and retry.");
+            }
+        }
+
+        // ── Execute with timeout + telemetry ─────────────────────────────────
         return ToolExecutionGuard.executeWithTimeout(tool, args, toolContext, toolCall.getId());
     }
 

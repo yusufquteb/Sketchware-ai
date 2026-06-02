@@ -7,6 +7,11 @@ import java.util.List;
 import java.util.Map;
 
 import pro.sketchware.ai.api.ToolDefinition;
+import pro.sketchware.ai.tools.audit.MaterialAuditTool;
+import pro.sketchware.ai.tools.audit.RtlAuditTool;
+import pro.sketchware.ai.tools.snapshot.CreateSnapshotTool;
+import pro.sketchware.ai.tools.snapshot.ListSnapshotsTool;
+import pro.sketchware.ai.tools.snapshot.RestoreSnapshotTool;
 
 /**
  * Registry that holds all available AI agent tools.
@@ -203,6 +208,15 @@ public class ToolRegistry {
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
         registry.register(new AI_GitHub_Analyzer.GitHubSearchTool());
 
+        // ── Audit Tools (deterministic, no LLM) ──────────────────────────────
+        registry.register(new RtlAuditTool());
+        registry.register(new MaterialAuditTool());
+
+        // ── Snapshot Tools ────────────────────────────────────────────────────
+        registry.register(new ListSnapshotsTool());
+        registry.register(new CreateSnapshotTool());
+        registry.register(new RestoreSnapshotTool());
+
         return registry;
     }
 
@@ -348,6 +362,15 @@ public class ToolRegistry {
         // ── GitHub Intelligence Tools ────────────────────────────────────────
         registry.register(new AI_GitHub_Analyzer.GitHubCompareTool());
         registry.register(new AI_GitHub_Analyzer.GitHubSearchTool());
+
+        // ── Audit Tools (deterministic, no LLM) ──────────────────────────────
+        registry.register(new RtlAuditTool());
+        registry.register(new MaterialAuditTool());
+
+        // ── Snapshot Tools ────────────────────────────────────────────────────
+        registry.register(new ListSnapshotsTool());
+        registry.register(new CreateSnapshotTool());
+        registry.register(new RestoreSnapshotTool());
 
         return registry;
     }

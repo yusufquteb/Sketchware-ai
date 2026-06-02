@@ -2,6 +2,7 @@ package pro.sketchware.ai.tools;
 
 import com.google.gson.JsonObject;
 
+import pro.sketchware.ai.engine.risk.RiskLevel;
 import pro.sketchware.ai.models.ToolResult;
 
 /**
@@ -30,6 +31,18 @@ public interface AgentTool {
      *         and "required" fields
      */
     JsonObject getParametersSchema();
+
+    /**
+     * Returns the risk level for this tool.
+     * LOW      → read-only, no side effects.
+     * MEDIUM   → modifies project files or state.
+     * CRITICAL → destructive, irreversible, or executes code.
+     *
+     * Default is LOW — override in tools that modify or delete data.
+     */
+    default RiskLevel getRiskLevel() {
+        return RiskLevel.LOW;
+    }
 
     /**
      * Executes the tool with the given arguments and context.

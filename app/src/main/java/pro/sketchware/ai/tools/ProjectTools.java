@@ -30,6 +30,7 @@ import a.a.a.lC;
 import a.a.a.oB;
 import a.a.a.wq;
 import mod.hey.studios.project.ProjectSettings;
+import pro.sketchware.ai.engine.risk.RiskLevel;
 import pro.sketchware.ai.models.ToolResult;
 import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.WorkspaceManager;
@@ -340,6 +341,9 @@ public final class ProjectTools {
         }
 
         @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
+
+        @Override
         public String getDescription() {
             return "Creates a new Sketchware Pro project using the real project bootstrap flow, "
                     + "including metadata, storage directories, resources, and default project settings.";
@@ -450,6 +454,9 @@ public final class ProjectTools {
         }
 
         @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.CRITICAL; }
+
+        @Override
         public String getDescription() {
             return "Deletes a Sketchware Pro project and all its associated files. This action cannot be undone.";
         }
@@ -530,6 +537,9 @@ public final class ProjectTools {
         public String getName() {
             return "duplicate_project";
         }
+
+        @Override
+        public RiskLevel getRiskLevel() { return RiskLevel.MEDIUM; }
 
         @Override
         public String getDescription() {
