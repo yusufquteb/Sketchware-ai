@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.widget.CheckBox;
 import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
