@@ -52,8 +52,8 @@ public class ECJCompilerService extends Service {
         }
     }
 
-    /** Compilation timeout in milliseconds — 10 minutes to support large source trees. */
-    private static final long COMPILE_TIMEOUT_MS = 10 * 60 * 1000L;
+    /** Compilation timeout in milliseconds — 30 minutes to support very large source trees. */
+    private static final long COMPILE_TIMEOUT_MS = 30 * 60 * 1000L;
 
     private static void compile(String[] userArgs, Messenger replyTo) {
         sendProgress(replyTo, "Starting isolated Java compiler…");

@@ -1026,7 +1026,7 @@ public class ProjectBuilder {
         }
 
         try {
-            if (!latch.await(600, TimeUnit.SECONDS)) {
+            if (!latch.await(1800, TimeUnit.SECONDS)) {
                 failed.set(true);
                 bestError.compareAndSet("", "Timed out while waiting for parallel Java compilation");
             }
@@ -1095,7 +1095,7 @@ public class ProjectBuilder {
         });
 
         try {
-            latch.await(600, TimeUnit.SECONDS);
+            latch.await(1800, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new zy("Java compilation interrupted");

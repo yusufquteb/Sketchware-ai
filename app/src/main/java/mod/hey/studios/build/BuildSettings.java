@@ -15,6 +15,7 @@ public class BuildSettings extends ProjectSettings implements Serializable {
     public static final String SETTING_NO_WARNINGS = "no_warn";
     public static final String SETTING_ENABLE_LOGCAT = "enable_logcat";
     public static final String SETTING_PARALLEL_ECJ = "parallel_ecj";
+    public static final String SETTING_AUTO_CLEAN_AFTER_BUILD = "auto_clean_build";
 
     public static final String SETTING_BUILD_OUTPUT_FORMAT = "build_output_format";
     public static final String SETTING_BUILD_SIGNING_MODE = "build_signing_mode";

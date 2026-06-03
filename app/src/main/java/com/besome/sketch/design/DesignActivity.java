@@ -7,9 +7,8 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.widget.CheckBox;
-import android.widget.LinearLayout;
 import android.content.IntentFilter;
+import android.widget.CheckBox;
 import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
@@ -131,6 +130,7 @@ import pro.sketchware.activities.editor.command.ManageXMLCommandActivity;
 import pro.sketchware.activities.editor.view.CodeViewerActivity;
 import pro.sketchware.activities.editor.view.ViewCodeEditorActivity;
 import pro.sketchware.activities.resourceseditor.ResourcesEditorActivity;
+import mod.hey.studios.build.BuildSettings;
 import pro.sketchware.dialogs.BuildSettingsBottomSheet;
 import pro.sketchware.utility.FilePathUtil;
 import pro.sketchware.utility.FileUtil;
@@ -448,6 +448,27 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
     /**
      * Opens the debug APK to install.
      */
+    private static void silentlyCleanBuildTemps(yq yq) {
+        try {
+            // Remove intermediate DEX files (D8 recreates them on next build from .class cache).
+            File dexDir = new File(yq.binDirectoryPath, "dex");
+            if (dexDir.exists()) {
+                File[] dexFiles = dexDir.listFiles((d, name) -> name.endsWith(".dex"));
+                if (dexFiles != null) {
+                    for (File f : dexFiles) f.delete();
+                }
+                // Also remove the marker so D8 will re-dex on next build.
+                new File(yq.binDirectoryPath, ".dex_marker").delete();
+            }
+            // Remove intermediate APK blobs (the final signed APK is already copied out).
+            new File(yq.unsignedUnalignedApkPath).delete();
+            new File(yq.unsignedAlignedApkPath).delete();
+            // Remove ProGuard output classes jar (kept in the .class cache anyway).
+            new File(yq.proguardClassesPath).delete();
+        } catch (Exception ignored) {
+        }
+    }
+
     private void installBuiltApk() {
         installBuiltApk(q.finalToInstallApkPath);
     }
@@ -1948,6 +1969,11 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
                 }
 
                 buildSucceeded = true;
+                if (!buildRequest.isDebugRun()
+                        && "true".equals(builder.build_settings.getValue(
+                                BuildSettings.SETTING_AUTO_CLEAN_AFTER_BUILD, "false"))) {
+                    silentlyCleanBuildTemps(builder.yq);
+                }
                 isBuildFinished = true;
             } catch (MissingFileException e) {
                 isBuildFinished = true;
