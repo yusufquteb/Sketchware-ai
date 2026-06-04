@@ -102,6 +102,12 @@ public class AndroidStudioProjectImporter {
     private static final Pattern DATABINDING_INFLATE_PATTERN = Pattern.compile("DataBindingUtil\\s*\\.\\s*inflate\\s*\\([^,]+,\\s*R\\.layout\\.([A-Za-z0-9_]+)\\s*,");
     private static final Pattern VIEWBINDING_INFLATE_PATTERN = Pattern.compile("\\b([A-Za-z0-9_]+)Binding\\s*\\.\\s*inflate\\s*\\(");
     private static final Pattern ACTIVITY_THEME_PATTERN = Pattern.compile("Theme\\.(Material3|MaterialComponents|AppCompat)([^\\n]*)");
+    private static final Pattern CATALOG_ACCESSOR_PATTERN = Pattern.compile(
+            "(?m)^[\\t ]*(implementation|api|runtimeOnly|kapt|ksp)\\s*(?:\\(|\\s)\\s*libs\\.([A-Za-z0-9.]+)\\s*\\)?");
+    private static final Pattern BOM_DEPENDENCY_PATTERN = Pattern.compile(
+            "(?m)^[\\t ]*(implementation|api)\\s*(?:\\(|\\s)\\s*platform\\s*\\(\\s*['\"]([^:'\"\\s]+):([^:'\"\\s]+):([^'\")\\s]+)['\"]\\s*\\)");
+    private static final Pattern GRADLE_VARIABLE_PATTERN = Pattern.compile(
+            "(?m)^[\\t ]*(?:def|val|var)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*['\"]([^'\"]+)['\"]");
     private static final Map<List<String>, Pattern> NUMERIC_PATTERN_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L;
     private static final int MAX_EXTRACTED_FILES = 20000;
@@ -2548,6 +2554,9 @@ public class AndroidStudioProjectImporter {
         }
         LinkedHashSet<String> dependencies = new LinkedHashSet<>();
 
+        Map<String, String> gradleVariables = extractGradleVariables(detectedProject.gradleFiles);
+        Map<String, String> versionCatalog = parseVersionCatalog(detectedProject.rootDirectory);
+
         for (File gradleFile : detectedProject.gradleFiles) {
             if (gradleFile == null || !gradleFile.isFile()) {
                 continue;
@@ -2608,13 +2617,34 @@ public class AndroidStudioProjectImporter {
                 summary.warnings.add("Native source builds were detected. Checked-in/prebuilt jniLibs are imported, but compiling NDK/CMake sources still requires Android Studio or another external native build environment.");
             }
 
+            // Match standard "group:artifact:version" dependencies (with variable version resolution)
             Matcher dependencyMatcher = DEPENDENCY_PATTERN.matcher(content);
             while (dependencyMatcher.find()) {
                 String configuration = dependencyMatcher.group(1);
                 if ("compileOnly".equals(configuration)) {
                     continue;
                 }
-                dependencies.add(dependencyMatcher.group(2) + ":" + dependencyMatcher.group(3) + ":" + dependencyMatcher.group(4));
+                String version = resolveVersionVariable(dependencyMatcher.group(4), gradleVariables);
+                dependencies.add(dependencyMatcher.group(2) + ":" + dependencyMatcher.group(3) + ":" + version);
+            }
+
+            // Match Version Catalog accessor references: implementation(libs.retrofit)
+            if (!versionCatalog.isEmpty()) {
+                Matcher catalogMatcher = CATALOG_ACCESSOR_PATTERN.matcher(content);
+                while (catalogMatcher.find()) {
+                    String configuration = catalogMatcher.group(1);
+                    if ("compileOnly".equals(configuration)) continue;
+                    String resolved = resolveCatalogAlias(catalogMatcher.group(2), versionCatalog);
+                    if (resolved != null) {
+                        dependencies.add(resolved);
+                    }
+                }
+            }
+
+            // Match platform/BOM dependencies: implementation(platform("group:artifact:version"))
+            Matcher bomMatcher = BOM_DEPENDENCY_PATTERN.matcher(content);
+            while (bomMatcher.find()) {
+                dependencies.add(bomMatcher.group(2) + ":" + bomMatcher.group(3) + ":" + bomMatcher.group(4));
             }
         }
         scanVersionCatalogs(detectedProject.rootDirectory, summary);
@@ -2673,6 +2703,192 @@ public class AndroidStudioProjectImporter {
                 summary.appCompatDetected = true;
             }
         }
+    }
+
+    /**
+     * Parses all .toml version catalog files under gradle/ and returns a map of
+     * alias → "group:artifact:version" Maven coordinate.
+     */
+    private Map<String, String> parseVersionCatalog(File projectRoot) {
+        Map<String, String> catalog = new LinkedHashMap<>();
+        if (projectRoot == null || !projectRoot.isDirectory()) {
+            return catalog;
+        }
+        File gradleDir = new File(projectRoot, "gradle");
+        if (!gradleDir.isDirectory()) {
+            return catalog;
+        }
+        File[] tomlFiles = gradleDir.listFiles((dir, name) -> name.endsWith(".toml"));
+        if (tomlFiles == null) {
+            return catalog;
+        }
+        for (File tomlFile : tomlFiles) {
+            String content = FileUtil.readFile(tomlFile.getAbsolutePath());
+            if (!TextUtils.isEmpty(content)) {
+                parseTomlLibraries(content, catalog);
+            }
+        }
+        return catalog;
+    }
+
+    /**
+     * Parses a TOML version catalog, populating result with alias → "group:artifact:version".
+     * Handles [versions] for version references and [libraries] with inline-table and string forms.
+     */
+    private void parseTomlLibraries(String content, Map<String, String> result) {
+        Map<String, String> versions = new LinkedHashMap<>();
+        String[] lines = content.split("\\n");
+        String currentSection = "";
+
+        // First pass: collect [versions]
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            if (line.startsWith("[")) {
+                currentSection = line.replaceAll("[\\[\\]]", "").trim().toLowerCase(Locale.US);
+                continue;
+            }
+            if ("versions".equals(currentSection)) {
+                Matcher m = Pattern.compile("^([A-Za-z0-9_.\\-]+)\\s*=\\s*['\"]([^'\"]+)['\"]").matcher(line);
+                if (m.find()) {
+                    versions.put(m.group(1), m.group(2).trim());
+                }
+            }
+        }
+
+        // Second pass: collect [libraries]
+        currentSection = "";
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            if (line.startsWith("[")) {
+                currentSection = line.replaceAll("[\\[\\]]", "").trim().toLowerCase(Locale.US);
+                continue;
+            }
+            if (!"libraries".equals(currentSection)) continue;
+
+            int eqIdx = line.indexOf("=");
+            if (eqIdx < 0) continue;
+            String alias = line.substring(0, eqIdx).trim();
+            String valuePart = line.substring(eqIdx + 1).trim();
+
+            // Form 1: alias = "group:artifact:version"
+            Matcher shortForm = Pattern.compile("^['\"]([A-Za-z0-9._\\-]+\\.[A-Za-z0-9._\\-]+):([A-Za-z0-9._\\-]+):([^'\"]+)['\"]$").matcher(valuePart);
+            if (shortForm.find()) {
+                result.put(alias, shortForm.group(1) + ":" + shortForm.group(2) + ":" + shortForm.group(3).trim());
+                continue;
+            }
+
+            // Form 2: inline table { ... }
+            if (valuePart.startsWith("{")) {
+                String group = null, name = null, ver = null;
+
+                // module = "group:artifact" shorthand
+                Matcher modM = Pattern.compile("module\\s*=\\s*['\"]([^:\"']+):([^\"']+)['\"]").matcher(valuePart);
+                if (modM.find()) {
+                    group = modM.group(1).trim();
+                    name = modM.group(2).trim();
+                } else {
+                    Matcher gm = Pattern.compile("group\\s*=\\s*['\"]([^\"']+)['\"]").matcher(valuePart);
+                    Matcher nm = Pattern.compile("\\bname\\s*=\\s*['\"]([^\"']+)['\"]").matcher(valuePart);
+                    if (gm.find()) group = gm.group(1).trim();
+                    if (nm.find()) name = nm.group(1).trim();
+                }
+
+                // version.ref = "alias" or version = "literal"
+                Matcher vrm = Pattern.compile("version\\.ref\\s*=\\s*['\"]([^\"']+)['\"]").matcher(valuePart);
+                if (vrm.find()) {
+                    ver = versions.get(vrm.group(1));
+                } else {
+                    Matcher vdm = Pattern.compile("(?<![.])version\\s*=\\s*['\"]([^\"']+)['\"]").matcher(valuePart);
+                    if (vdm.find()) {
+                        ver = vdm.group(1).trim();
+                    }
+                }
+
+                if (group != null && name != null && ver != null) {
+                    result.put(alias, group + ":" + name + ":" + ver);
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves a Version Catalog accessor (e.g. "retrofit.converter.gson") to a Maven coordinate
+     * by trying hyphens, dots, and underscores as separators.
+     */
+    private String resolveCatalogAlias(String accessor, Map<String, String> catalog) {
+        if (accessor == null || catalog.isEmpty()) return null;
+        // Most common: dots → hyphens (e.g. libs.retrofit.converter.gson → retrofit-converter-gson)
+        String withHyphens = accessor.replace('.', '-');
+        String resolved = catalog.get(withHyphens);
+        if (resolved != null) return resolved;
+        // Try literal (e.g. alias already uses dots in catalog key)
+        resolved = catalog.get(accessor);
+        if (resolved != null) return resolved;
+        // Try underscores
+        resolved = catalog.get(accessor.replace('.', '_'));
+        return resolved;
+    }
+
+    /**
+     * Collects variable declarations (def/val/var and ext-block assignments) from all Gradle files.
+     * Used to resolve $variable references in dependency version strings.
+     */
+    private Map<String, String> extractGradleVariables(List<File> gradleFiles) {
+        Map<String, String> variables = new LinkedHashMap<>();
+        for (File gradleFile : gradleFiles) {
+            if (gradleFile == null || !gradleFile.isFile()) continue;
+            String content = FileUtil.readFile(gradleFile.getAbsolutePath());
+            if (TextUtils.isEmpty(content)) continue;
+
+            // def/val/var declarations
+            Matcher varMatcher = GRADLE_VARIABLE_PATTERN.matcher(content);
+            while (varMatcher.find()) {
+                variables.putIfAbsent(varMatcher.group(1), varMatcher.group(2));
+            }
+
+            // key = "value" assignments that look like version strings (contain a digit)
+            Matcher assignMatcher = STRING_ASSIGNMENT.matcher(content);
+            while (assignMatcher.find()) {
+                String key = assignMatcher.group(1);
+                String value = assignMatcher.group(2);
+                if (!variables.containsKey(key) && value.matches(".*\\d.*")) {
+                    variables.put(key, value);
+                }
+            }
+        }
+        return variables;
+    }
+
+    /**
+     * Replaces $varName and ${varName} in a Gradle version string using the provided variables map.
+     * Returns the original string unchanged if no substitution is possible.
+     */
+    private String resolveVersionVariable(String version, Map<String, String> variables) {
+        if (version == null || !version.contains("$") || variables.isEmpty()) return version;
+
+        // ${varName}
+        Matcher bracesMatcher = Pattern.compile("\\$\\{([A-Za-z_][A-Za-z0-9_]*)\\}").matcher(version);
+        StringBuffer sb = new StringBuffer();
+        while (bracesMatcher.find()) {
+            String varValue = variables.get(bracesMatcher.group(1));
+            bracesMatcher.appendReplacement(sb, varValue != null
+                    ? Matcher.quoteReplacement(varValue) : Matcher.quoteReplacement(bracesMatcher.group(0)));
+        }
+        bracesMatcher.appendTail(sb);
+        version = sb.toString();
+
+        // $varName (no braces)
+        Matcher dollarMatcher = Pattern.compile("\\$([A-Za-z_][A-Za-z0-9_]*)").matcher(version);
+        sb = new StringBuffer();
+        while (dollarMatcher.find()) {
+            String varValue = variables.get(dollarMatcher.group(1));
+            dollarMatcher.appendReplacement(sb, varValue != null
+                    ? Matcher.quoteReplacement(varValue) : Matcher.quoteReplacement(dollarMatcher.group(0)));
+        }
+        dollarMatcher.appendTail(sb);
+        return sb.toString();
     }
 
     private String findFirstNumeric(String content, List<String> keys) {
