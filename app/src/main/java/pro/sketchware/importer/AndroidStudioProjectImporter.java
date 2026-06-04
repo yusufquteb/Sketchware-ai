@@ -112,6 +112,7 @@ public class AndroidStudioProjectImporter {
     private static final long MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L;
     private static final int MAX_EXTRACTED_FILES = 20000;
     private static final long DEPENDENCY_RESOLVE_TIMEOUT_MS = 120_000L;
+    private static final long IMPORT_OVERALL_TIMEOUT_MS = 20 * 60 * 1000L;
     private static final Set<String> TEST_SOURCE_SET_NAMES = new HashSet<>(Arrays.asList(
             "test",
             "androidTest",
@@ -360,6 +361,10 @@ public class AndroidStudioProjectImporter {
         result.manualDependencyActions.addAll(dependencyReport.unresolved);
         result.unsupportedFeatures.addAll(gradle.warnings);
         result.warnings.addAll(dependencyReport.warnings);
+
+        if (new File(detectedProject.rootDirectory, ".gitmodules").isFile()) {
+            result.warnings.add("Git submodules detected (.gitmodules). Submodule contents are not included in the downloaded archive and will be absent from the imported project. Clone the repository with \"git clone --recursive\" and import from the local folder instead.");
+        }
 
         notifyProgress("Normalizing imported resources",
                 "Reconciling launcher icons, resource qualifiers, and raw manifest preservation for the imported project.",
@@ -990,11 +995,29 @@ public class AndroidStudioProjectImporter {
         BuiltInLibraries.maybeExtractAndroidJar();
         BuiltInLibraries.maybeExtractCoreLambdaStubsJar();
 
+        long resolveStartTime = System.currentTimeMillis();
         int dependencyIndex = 0;
         for (String dependency : dependencies) {
             dependencyIndex++;
             int progressStep = dependencyStepStart + dependencyIndex - 1;
             String stepLabel = "Dependency " + dependencyIndex + " of " + dependencies.size();
+
+            long elapsedMs = System.currentTimeMillis() - resolveStartTime;
+            if (elapsedMs > IMPORT_OVERALL_TIMEOUT_MS) {
+                int remaining = dependencies.size() - dependencyIndex + 1;
+                String msg = "Dependency resolution stopped after 20 minutes. "
+                        + remaining + " dependenc" + (remaining == 1 ? "y was" : "ies were")
+                        + " not resolved. Add them manually from Local Libraries.";
+                report.warnings.add(msg);
+                List<String> depList = new ArrayList<>(dependencies);
+                for (int i = dependencyIndex - 1; i < depList.size(); i++) {
+                    if (!existingDependencies.contains(depList.get(i))) {
+                        report.unresolved.add(depList.get(i));
+                    }
+                }
+                notifyProgress("Import timeout reached", msg, progressStep, totalProgressSteps, false, "Resolution stopped — time limit exceeded");
+                break;
+            }
 
             if (existingDependencies.contains(dependency)) {
                 notifyProgress("Skipping duplicate dependency", dependency, progressStep, totalProgressSteps, false, stepLabel + " • already attached to project");
