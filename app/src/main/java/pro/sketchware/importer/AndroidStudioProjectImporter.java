@@ -308,7 +308,7 @@ public class AndroidStudioProjectImporter {
 
         ProjectSettings settings = new ProjectSettings(scId);
         settings.setValue(ProjectSettings.SETTING_NEW_XML_COMMAND, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
-        if (gradle.viewBindingDetected || detectViewBindingInSources(detectedProject.sourceRoots)) {
+        if (gradle.viewBindingDetected) {
             settings.setValue(ProjectSettings.SETTING_ENABLE_VIEWBINDING, ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
         }
         settings.setValue(ProjectSettings.SETTING_MINIMUM_SDK_VERSION, String.valueOf(minSdk));
@@ -2225,6 +2225,7 @@ public class AndroidStudioProjectImporter {
             summary.applicationLabel = resolveManifestLabel(label, detectedProject.resDirectories);
             summary.applicationIconRef = normalizeResourceReference(getAndroidAttribute(applicationElement, "icon"));
             summary.roundIconRef = normalizeResourceReference(getAndroidAttribute(applicationElement, "roundIcon"));
+            Set<String> seenActivityFqns = new HashSet<>();
             NodeList childNodes = applicationElement.getChildNodes();
             for (int i = 0; i < childNodes.getLength(); i++) {
                 Node child = childNodes.item(i);
@@ -2233,7 +2234,12 @@ public class AndroidStudioProjectImporter {
                 }
                 Element childElement = (Element) child;
                 switch (childElement.getTagName()) {
-                    case "activity" -> summary.activities.add(parseManifestActivity(childElement, summary.packageName));
+                    case "activity" -> {
+                        ManifestActivity activity = parseManifestActivity(childElement, summary.packageName);
+                        if (seenActivityFqns.add(activity.fullyQualifiedName)) {
+                            summary.activities.add(activity);
+                        }
+                    }
                     case "service" -> addComponentName(summary.services, childElement, summary.packageName);
                     case "receiver" -> addComponentName(summary.receivers, childElement, summary.packageName);
                     case "provider" -> addComponentName(summary.providers, childElement, summary.packageName);

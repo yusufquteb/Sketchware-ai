@@ -2,6 +2,9 @@ package mod.hey.studios.project.backup;
 
 import android.app.Activity;
 import android.view.LayoutInflater;
+
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
@@ -160,7 +163,10 @@ public class BackupRestoreManager {
             }
         };
 
-        new FilePickerDialogFragment(options, callback).show(projectsFragment.getChildFragmentManager(), "file_picker");
+        FragmentManager fm = projectsFragment != null
+                ? projectsFragment.getChildFragmentManager()
+                : ((FragmentActivity) act).getSupportFragmentManager();
+        new FilePickerDialogFragment(options, callback).show(fm, "file_picker");
     }
 
     public void doRestore(String file, boolean restoreLocalLibs) {

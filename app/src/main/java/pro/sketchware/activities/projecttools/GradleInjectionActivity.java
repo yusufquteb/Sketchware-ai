@@ -147,7 +147,7 @@ public class GradleInjectionActivity extends BaseAppCompatActivity {
         hintButton.setOnClickListener(v -> showHint(v.getId()));
         panel.addView(hintButton);
 
-        panel.setTag(input);
+        scrollView.setTag(input);
         scrollView.addView(panel);
         root.addView(scrollView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
