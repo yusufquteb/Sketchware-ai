@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -91,7 +92,9 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
     @Nullable
     private Runnable pendingBatchUpdate;
 
-    private long lastStreamingUpdateMs = 0L;
+    // Tokens from BG thread are enqueued here; main thread drains at batch interval.
+    private final ConcurrentLinkedQueue<String> pendingTokens = new ConcurrentLinkedQueue<>();
+    private volatile long lastStreamingUpdateMs = 0L;
 
     // ─── Attached views ───────────────────────────────────────────────────────
 
@@ -309,6 +312,7 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
         if (!isAiResponding.get()) return;
         if (aiDelegate != null) aiDelegate.onCancelRequested();
         mainHandler.post(() -> {
+            pendingTokens.clear();
             isAiResponding.set(false);
             showTypingIndicator(false);
 
@@ -493,8 +497,8 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
 
             @Override
             public void onTokenReceived(@NonNull String token) {
-                if (streamingMessage != null) streamingMessage.appendText(token);
-
+                // BG-thread safe: only enqueue; main thread drains via scheduleBatchUpdate.
+                pendingTokens.offer(token);
                 long now = System.currentTimeMillis();
                 if (now - lastStreamingUpdateMs >= STREAMING_BATCH_INTERVAL_MS) {
                     lastStreamingUpdateMs = now;
@@ -506,6 +510,12 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
             public void onStreamingComplete(@NonNull String fullResponse) {
                 mainHandler.post(() -> {
                     cancelPendingBatchUpdate();
+
+                    // Drain any tokens that arrived after the last batch flush.
+                    String t;
+                    while ((t = pendingTokens.poll()) != null) {
+                        if (streamingMessage != null) streamingMessage.appendText(t);
+                    }
 
                     if (streamingMessage != null) {
                         streamingMessage.setText(fullResponse);
@@ -527,6 +537,7 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
             public void onError(@NonNull String errorMessage) {
                 mainHandler.post(() -> {
                     cancelPendingBatchUpdate();
+                    pendingTokens.clear();
 
                     if (streamingMessage != null) {
                         messages.remove(streamingMessage);
@@ -548,6 +559,11 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
         if (pendingBatchUpdate != null) mainHandler.removeCallbacks(pendingBatchUpdate);
         pendingBatchUpdate = () -> {
             pendingBatchUpdate = null;
+            // Drain token queue onto streamingMessage — both happen on main thread.
+            String t;
+            while ((t = pendingTokens.poll()) != null) {
+                if (streamingMessage != null) streamingMessage.appendText(t);
+            }
             if (streamingMessage != null && adapter != null) {
                 adapter.updateMessage(streamingMessage);
                 if (recyclerView != null && isAtBottom(recyclerView)) {

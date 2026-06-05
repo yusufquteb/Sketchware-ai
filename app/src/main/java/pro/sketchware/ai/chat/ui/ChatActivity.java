@@ -14,6 +14,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -37,6 +38,8 @@ import pro.sketchware.ai.chat.adapter.ChatMessageAdapter;
 import pro.sketchware.ai.chat.coordinator.AgentExecutorAiDelegate;
 import pro.sketchware.ai.chat.coordinator.ChatCoordinator;
 import pro.sketchware.ai.chat.model.ChatMessage;
+import pro.sketchware.ai.chat.state.ChatSessionState;
+import pro.sketchware.ai.chat.state.ChatViewModel;
 import pro.sketchware.ai.engine.AiBackgroundService;
 import pro.sketchware.ai.engine.TokenEstimator;
 import pro.sketchware.ai.file.FileAttachManager;
@@ -44,21 +47,23 @@ import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.storage.AiPreferences;
 import pro.sketchware.ai.storage.ConversationManager;
-import pro.sketchware.ai.storage.WorkspaceManager;
 import pro.sketchware.databinding.DialogModelSelectorBinding;
 
 /**
- * ChatActivity — Stage 3 FINAL (fully wired).
+ * ChatActivity — Stage 3 FINAL.
  *
  * <p>Architecture:
  * <pre>
  * ChatActivity (UI only)
- *   └── ChatCoordinator (message list + streaming state)
- *         └── AgentExecutorAiDelegate (AI calls + persistence)
- *               └── AgentExecutor (real AI engine)
+ *   └── ChatViewModel  (survives rotation — holds coordinator + delegate)
+ *         ├── ChatCoordinator  (message list + streaming state)
+ *         └── AgentExecutorAiDelegate  (AI calls + persistence)
+ *               └── AgentExecutor  (real AI engine)
  * </pre>
  *
- * <p>Zero AI logic here — all delegated through ChatCoordinator → AgentExecutorAiDelegate.
+ * Zero AI logic here — all delegated through ChatCoordinator → AgentExecutorAiDelegate.
+ * Rotation is handled transparently: ViewModel retains coordinator so in-flight
+ * streaming survives screen rotation.
  */
 public class ChatActivity extends AppCompatActivity
         implements ChatCoordinator.CoordinatorListener {
@@ -74,11 +79,21 @@ public class ChatActivity extends AppCompatActivity
     private static final int REQUEST_SPEECH_INPUT = 1001;
     private static final int REQUEST_FILE_PICK    = 1002;
 
-    // ─── Core components ───────────────────────────────────────────────────────
+    // ─── ViewModel (single source of truth) ───────────────────────────────────
 
-    @NonNull  private ChatCoordinator coordinator;
-    @NonNull  private ChatMessageAdapter adapter;
-    @NonNull  private AgentExecutorAiDelegate aiDelegate;
+    private ChatViewModel chatViewModel;
+
+    // ─── Coordinator + delegate (retrieved from ViewModel each creation) ───────
+
+    private ChatCoordinator coordinator;
+    private AgentExecutorAiDelegate aiDelegate;
+
+    // ─── UI adapter ───────────────────────────────────────────────────────────
+
+    private ChatMessageAdapter adapter;
+
+    // ─── File attach ──────────────────────────────────────────────────────────
+
     @Nullable private FileAttachManager fileAttachManager;
 
     // ─── Session data ──────────────────────────────────────────────────────────
@@ -89,7 +104,7 @@ public class ChatActivity extends AppCompatActivity
     @Nullable private ConversationManager conversationManager;
     @Nullable private AiPreferences preferences;
 
-    // ─── Model state ───────────────────────────────────────────────────────────
+    // ─── Model cache (mirrored from ViewModel state via observe) ──────────────
 
     @Nullable private AiProvider currentProvider;
     @Nullable private String currentModelId;
@@ -131,32 +146,34 @@ public class ChatActivity extends AppCompatActivity
             return;
         }
 
-        // File attach (must register before onStart)
+        // File attach must register before onStart.
         fileAttachManager = new FileAttachManager(this);
         fileAttachManager.registerLauncher(this);
+
+        // Determine initial model from conversation or global preferences.
+        loadInitialModelInfo();
+
+        // ── ViewModel ─────────────────────────────────────────────────────────
+        chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
+        chatViewModel.init(
+                conversationId, workspaceId,
+                getIntent().getStringExtra(EXTRA_PROJECT_ID),
+                getIntent().getStringExtra(EXTRA_PAGE_CONTEXT),
+                currentProvider, currentModelId);
+
+        coordinator = chatViewModel.getCoordinator();
+        aiDelegate  = chatViewModel.getAiDelegate();
+        if (coordinator == null || aiDelegate == null) { finish(); return; }
+
+        // Re-attach per-activity listeners (safe after rotation).
+        coordinator.setCoordinatorListener(this);
+        aiDelegate.setPulseListener(this::showPulseConfirmation);
+
+        // Wire file attach callback.
         fileAttachManager.setCallback(result -> coordinator.sendUserMessage(result.getChatText()));
 
-        // Build core components
-        coordinator = new ChatCoordinator(this);
-        adapter     = new ChatMessageAdapter(this);
-        coordinator.setCoordinatorListener(this);
-
-        // Build and wire AI delegate
-        aiDelegate = new AgentExecutorAiDelegate(this);
-        aiDelegate.setConversationId(conversationId);
-        aiDelegate.setWorkspaceId(workspaceId);
-        aiDelegate.setScopedProjectId(getIntent().getStringExtra(EXTRA_PROJECT_ID));
-        aiDelegate.setPageContext(getIntent().getStringExtra(EXTRA_PAGE_CONTEXT));
-        aiDelegate.setCoordinator(coordinator);
-        aiDelegate.setPulseListener(this::showPulseConfirmation);
-        coordinator.setAiDelegate(aiDelegate);
-
-        // Load model info and wire to delegate
-        loadModelInfo();
-        aiDelegate.setCurrentProvider(currentProvider);
-        aiDelegate.setCurrentModelId(currentModelId);
-
-        // Bind and setup views
+        // ── Views ─────────────────────────────────────────────────────────────
+        adapter = new ChatMessageAdapter(this);
         bindViews();
         setupToolbar();
         setupRecyclerView();
@@ -164,18 +181,19 @@ public class ChatActivity extends AppCompatActivity
         setupKeyboardInsets();
         setupTokenBadge();
 
-        // Attach coordinator (wires adapter + scroll-to-bottom FAB)
         coordinator.attach(adapter, recyclerView, typingIndicator,
                 emptyStateView, scrollToBottomFab);
 
-        // Override adapter listener so long-press shows MessageActionsBottomSheet
+        // Long-press shows MessageActionsBottomSheet.
         adapter.setListener(buildAdapterListener());
 
-        // Load existing conversation history
-        List<ChatMessage> history = aiDelegate.loadHistory(conversationId);
-        if (!history.isEmpty()) coordinator.loadMessages(history);
+        // Load history only on first creation (not after rotation).
+        if (coordinator.getMessageCount() == 0) {
+            List<ChatMessage> history = aiDelegate.loadHistory(conversationId);
+            if (!history.isEmpty()) coordinator.loadMessages(history);
+        }
 
-        // Restore draft
+        // Restore draft.
         if (preferences != null && inputEditText != null) {
             String draft = preferences.getDraft(conversationId);
             if (draft != null && !draft.isEmpty()) {
@@ -184,21 +202,46 @@ public class ChatActivity extends AppCompatActivity
             }
         }
 
-        // Back press handler
+        // Observe session state (send button, model display).
+        chatViewModel.getSessionState().observe(this, this::applySessionState);
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { showExitDialog(); }
         });
 
-        // Auto-send initial prompt if provided
         if (savedInstanceState == null) maybeSendInitialPrompt();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        coordinator.destroy();
-        aiDelegate.shutdown();
-        if (fileAttachManager != null) fileAttachManager.destroy();
+        // Clear Activity references held by coordinator/delegate so they don't
+        // leak the old Activity across rotation.
+        if (coordinator != null) {
+            coordinator.setCoordinatorListener(null);
+            coordinator.detach();
+        }
+        if (aiDelegate != null) {
+            aiDelegate.setPulseListener(null);
+        }
+        if (fileAttachManager != null) {
+            fileAttachManager.destroy();
+        }
+        // When the user truly leaves (back press), also stop the background service.
+        if (isFinishing()) {
+            stopAiService();
+        }
+        // coordinator.destroy() + aiDelegate.shutdown() happen in ViewModel.onCleared()
+        // (only when Activity is truly finished, not on rotation).
+    }
+
+    // ─── Session state observation ────────────────────────────────────────────
+
+    private void applySessionState(@NonNull ChatSessionState state) {
+        currentProvider = state.currentProvider;
+        currentModelId  = state.currentModelId;
+        if (btnSend != null) btnSend.setEnabled(!state.isAiRunning);
+        updateModelDisplay();
     }
 
     // ─── View binding ──────────────────────────────────────────────────────────
@@ -304,7 +347,7 @@ public class ChatActivity extends AppCompatActivity
         toolbar.addView(tokenBadge);
     }
 
-    // ─── Adapter listener (handles long-press) ────────────────────────────────
+    // ─── Adapter listener (long-press → MessageActionsBottomSheet) ────────────
 
     @NonNull
     private ChatMessageAdapter.ChatMessageListener buildAdapterListener() {
@@ -352,7 +395,6 @@ public class ChatActivity extends AppCompatActivity
 
         inputEditText.setText("");
 
-        // Update conversation title on first message
         if (conversation != null && conversationManager != null
                 && "New Chat".equals(conversation.getTitle())) {
             String title = text.length() > 50 ? text.substring(0, 50) + "…" : text;
@@ -365,9 +407,9 @@ public class ChatActivity extends AppCompatActivity
         startAiService();
     }
 
-    // ─── Model selector ───────────────────────────────────────────────────────
+    // ─── Model selection ──────────────────────────────────────────────────────
 
-    private void loadModelInfo() {
+    private void loadInitialModelInfo() {
         if (preferences == null) return;
         if (conversation != null) {
             String providerName = conversation.getProviderName();
@@ -419,18 +461,20 @@ public class ChatActivity extends AppCompatActivity
 
         ModelProviderPagerAdapter pager = new ModelProviderPagerAdapter(
                 available, preferences, currentModelId, model -> {
-                    currentProvider  = model.getProvider();
-                    currentModelId   = model.getId();
+                    AiProvider newProvider = model.getProvider();
+                    String     newModelId  = model.getId();
+
+                    // Update conversation metadata.
                     if (conversation != null && conversationManager != null) {
-                        conversation.setModelId(currentModelId);
-                        conversation.setProviderName(currentProvider.name());
+                        conversation.setModelId(newModelId);
+                        conversation.setProviderName(newProvider.name());
                         conversationManager.saveConversation(conversation);
                     }
-                    preferences.setSelectedModel(currentProvider, currentModelId);
-                    preferences.setSelectedProvider(currentProvider);
-                    aiDelegate.setCurrentProvider(currentProvider);
-                    aiDelegate.setCurrentModelId(currentModelId);
-                    updateModelDisplay();
+                    preferences.setSelectedModel(newProvider, newModelId);
+                    preferences.setSelectedProvider(newProvider);
+
+                    // Single call propagates to delegate + LiveData → Activity observes.
+                    chatViewModel.updateModel(newProvider, newModelId);
                     dialog.dismiss();
                 });
 
@@ -617,7 +661,7 @@ public class ChatActivity extends AppCompatActivity
     }
 
     private void showExitDialog() {
-        if (adapter.getItemCount() == 0) {
+        if (adapter == null || adapter.getItemCount() == 0) {
             finish();
             return;
         }
@@ -669,12 +713,12 @@ public class ChatActivity extends AppCompatActivity
 
     @Override
     public void onAiStarted() {
-        if (btnSend != null) btnSend.setEnabled(false);
+        chatViewModel.setAiRunning(true);
     }
 
     @Override
     public void onAiFinished() {
-        if (btnSend != null) btnSend.setEnabled(true);
+        chatViewModel.setAiRunning(false);
         stopAiService();
         if (conversation != null && conversationManager != null) {
             conversation.setUpdatedAt(System.currentTimeMillis());
@@ -685,7 +729,7 @@ public class ChatActivity extends AppCompatActivity
 
     @Override
     public void onAiError(@NonNull String errorMessage) {
-        if (btnSend != null) btnSend.setEnabled(true);
+        chatViewModel.setAiRunning(false);
         stopAiService();
     }
 
