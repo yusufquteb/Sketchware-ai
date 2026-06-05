@@ -29,7 +29,7 @@ import pro.sketchware.ai.models.AiProvider;
  */
 public class ModelStatusChecker {
 
-    public enum Status { ONLINE, OFFLINE, RATE_LIMITED, CHECKING }
+    public enum Status { ONLINE, OFFLINE, RATE_LIMITED, INVALID_KEY, CHECKING }
 
     /** Callback invoked on the main thread when the status is resolved. */
     public interface StatusCallback {
@@ -96,8 +96,11 @@ public class ModelStatusChecker {
                 Status status;
                 if (code == 429) {
                     status = Status.RATE_LIMITED;
+                } else if (code == 401 || code == 403) {
+                    // Auth failure — provider is reachable but key is wrong/missing.
+                    // Show INVALID_KEY so the UI can surface an actionable message.
+                    status = Status.INVALID_KEY;
                 } else if (code >= 200 && code < 500) {
-                    // 2xx = OK, 401/403 = reachable but wrong key — still "online" from network perspective
                     status = Status.ONLINE;
                 } else {
                     status = Status.OFFLINE;
@@ -122,7 +125,8 @@ public class ModelStatusChecker {
         }
         try (Response r = PROBE_CLIENT.newCall(builder.build()).execute()) {
             int code = r.code();
-            if (code == 429)            return Status.RATE_LIMITED;
+            if (code == 429)               return Status.RATE_LIMITED;
+            if (code == 401 || code == 403) return Status.INVALID_KEY;
             if (code >= 200 && code < 500) return Status.ONLINE;
             return Status.OFFLINE;
         } catch (IOException e) {

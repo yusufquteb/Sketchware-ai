@@ -11,24 +11,32 @@ import pro.sketchware.ai.models.ToolResult;
  */
 public interface AgentTool {
 
-    /**
-     * Returns the unique name of this tool, used as the function name in API calls.
-     */
+    /** Broad functional category for UI grouping and filtering. */
+    enum Category {
+        PROJECT,
+        FILES,
+        ACTIVITIES,
+        LAYOUT,
+        RESOURCES,
+        LIBRARIES,
+        BUILD,
+        BLOCKS,
+        SNAPSHOTS,
+        ANALYSIS,
+        EXPORT,
+        DEV_UTILS,
+    }
+
+    /** Returns the unique name of this tool, used as the function name in API calls. */
     String getName();
 
-    /**
-     * Returns a human-readable description of what this tool does.
-     * This description is sent to the AI model to help it decide when to use the tool.
-     */
+    /** Returns a human-readable description of what this tool does. */
     String getDescription();
 
     /**
      * Returns the JSON Schema describing the parameters this tool accepts.
-     * The schema follows the JSON Schema specification and is used by the AI model
-     * to generate valid tool call arguments.
      *
-     * @return a JsonObject representing the parameters schema with "type", "properties",
-     *         and "required" fields
+     * @return a JsonObject with "type", "properties", and "required" fields
      */
     JsonObject getParametersSchema();
 
@@ -37,11 +45,25 @@ public interface AgentTool {
      * LOW      → read-only, no side effects.
      * MEDIUM   → modifies project files or state.
      * CRITICAL → destructive, irreversible, or executes code.
-     *
-     * Default is LOW — override in tools that modify or delete data.
      */
     default RiskLevel getRiskLevel() {
         return RiskLevel.LOW;
+    }
+
+    /**
+     * Returns the functional category for this tool.
+     * Used for grouping in the UI tool browser and for RuntimeToolValidator scope checks.
+     */
+    default Category getCategory() {
+        return Category.DEV_UTILS;
+    }
+
+    /**
+     * Returns true when this tool requires an active project in the session scope.
+     * RuntimeToolValidator will reject calls to project-scoped tools when no project is open.
+     */
+    default boolean requiresProject() {
+        return false;
     }
 
     /**

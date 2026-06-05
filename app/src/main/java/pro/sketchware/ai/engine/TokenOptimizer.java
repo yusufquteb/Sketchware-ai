@@ -433,6 +433,13 @@ public final class TokenOptimizer {
             int maxCtx = ProviderCapabilities.of(provider).maxContextTokens;
             dynamicBudget = TokenEstimator.budgetForContextWindow(
                     maxCtx, /* min= */ 20, /* max= */ TOKEN_BUDGET_MESSAGES);
+
+            // If still above 85% of context after budgeting, apply a second trim pass.
+            // Uses the provider-specific chars/token ratio for an accurate measurement.
+            if (TokenEstimator.isApproachingLimit(h, maxCtx, provider)) {
+                int tighter = Math.max(20, dynamicBudget - 5);
+                h = applyBudget(h, tighter);
+            }
         }
         h = applyBudget(h, dynamicBudget);
         return h;
