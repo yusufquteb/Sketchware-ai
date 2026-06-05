@@ -1,6 +1,7 @@
 package pro.sketchware.ai.activities;
 
 import android.content.Intent;
+import pro.sketchware.ai.chat.ui.ChatActivity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;

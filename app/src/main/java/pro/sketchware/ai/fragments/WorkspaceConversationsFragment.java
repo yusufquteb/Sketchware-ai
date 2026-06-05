@@ -17,7 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import pro.sketchware.R;
-import pro.sketchware.ai.activities.ChatActivity;
+import pro.sketchware.ai.chat.ui.ChatActivity;
 import pro.sketchware.ai.adapters.ConversationsAdapter;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.storage.ConversationManager;
