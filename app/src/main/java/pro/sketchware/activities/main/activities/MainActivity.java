@@ -521,7 +521,7 @@ public class MainActivity extends BasePermissionAppCompatActivity {
                 .setItems(options, (dialog, which) -> {
                     switch (which) {
                         case 0:
-                            startActivity(new Intent(this, pro.sketchware.ai.activities.ChatActivity.class));
+                            startActivity(new Intent(this, pro.sketchware.ai.activities.WorkspaceActivity.class));
                             break;
                         case 1:
                             showOfflineModelStore();

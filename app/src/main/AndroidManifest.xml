@@ -369,6 +369,12 @@
             android:theme="@style/Theme.SketchwarePro" />
 
         <activity
+            android:name="pro.sketchware.ai.chat.ui.ChatActivity"
+            android:configChanges="orientation|screenSize"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SketchwarePro" />
+
+        <activity
             android:name="pro.sketchware.ai.activities.AiSettingsActivity"
             android:configChanges="orientation|screenSize"
             android:windowSoftInputMode="adjustResize"

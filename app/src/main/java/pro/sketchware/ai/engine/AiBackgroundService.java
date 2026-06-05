@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import pro.sketchware.R;
-import pro.sketchware.ai.activities.ChatActivity;
+import pro.sketchware.ai.chat.ui.ChatActivity;
 
 public class AiBackgroundService extends Service {
     private static final String CHANNEL_ID = "AiAssistantChannel";

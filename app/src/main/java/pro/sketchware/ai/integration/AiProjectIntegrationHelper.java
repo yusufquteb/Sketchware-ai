@@ -9,7 +9,7 @@ import androidx.annotation.Nullable;
 
 
 import a.a.a.lC;
-import pro.sketchware.ai.activities.ChatActivity;
+import pro.sketchware.ai.chat.ui.ChatActivity;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.models.Workspace;
 import pro.sketchware.ai.storage.ConversationManager;

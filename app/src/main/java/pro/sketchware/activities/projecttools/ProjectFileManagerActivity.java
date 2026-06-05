@@ -57,7 +57,7 @@ import java.util.concurrent.Executors;
 
 import mod.hey.studios.code.SrcCodeEditor;
 import pro.sketchware.R;
-import pro.sketchware.ai.activities.ChatActivity;
+import pro.sketchware.ai.chat.ui.ChatActivity;
 import pro.sketchware.ai.models.AiProvider;
 import pro.sketchware.ai.models.Conversation;
 import pro.sketchware.ai.models.Workspace;
