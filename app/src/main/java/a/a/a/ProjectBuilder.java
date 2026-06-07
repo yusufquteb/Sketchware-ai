@@ -401,7 +401,7 @@ public class ProjectBuilder {
     public boolean isParallelEcjEnabled() {
         return build_settings.getValue(
                 BuildSettings.SETTING_PARALLEL_ECJ,
-                ProjectSettings.SETTING_GENERIC_VALUE_FALSE
+                ProjectSettings.SETTING_GENERIC_VALUE_TRUE
         ).equals(ProjectSettings.SETTING_GENERIC_VALUE_TRUE);
     }
 
@@ -855,8 +855,16 @@ public class ProjectBuilder {
                 FileUtil.makeDir(yq.compiledKotlinClassesPath);
                 LogUtil.d(TAG, "Reusing Kotlin classes directory that was already prepared by Kotlin compilation");
             }
-            LogUtil.d(TAG, "Running full Java compilation for " + fullCompileSources.size() + " source roots/files");
-            result = runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
+            List<List<String>> fullCompileGroups = compileGraph.partitionIndependentSourceGroups(allJavaSourceFiles);
+            boolean canRunFullInParallel = isParallelEcjEnabled() && fullCompileGroups.size() > 1;
+            if (canRunFullInParallel) {
+                LogUtil.d(TAG, "Running safe parallel full Java compilation with " + fullCompileGroups.size()
+                        + " groups for " + allJavaSourceFiles.size() + " source file(s)");
+                result = runParallelEcjCompile(fullCompileGroups, javaClassesDirectory);
+            } else {
+                LogUtil.d(TAG, "Running full Java compilation for " + fullCompileSources.size() + " source roots/files");
+                result = runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
+            }
             successfullyCompiledJavaSources = new ArrayList<>(allJavaSourceFiles);
         }
 
@@ -1026,7 +1034,7 @@ public class ProjectBuilder {
         }
 
         try {
-            if (!latch.await(1800, TimeUnit.SECONDS)) {
+            if (!latch.await(3600, TimeUnit.SECONDS)) {
                 failed.set(true);
                 bestError.compareAndSet("", "Timed out while waiting for parallel Java compilation");
             }
@@ -1095,7 +1103,7 @@ public class ProjectBuilder {
         });
 
         try {
-            latch.await(1800, TimeUnit.SECONDS);
+            latch.await(3600, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new zy("Java compilation interrupted");
