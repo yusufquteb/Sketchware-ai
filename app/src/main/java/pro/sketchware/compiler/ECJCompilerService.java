@@ -52,8 +52,8 @@ public class ECJCompilerService extends Service {
         }
     }
 
-    /** Compilation timeout in milliseconds — 30 minutes to support very large source trees. */
-    private static final long COMPILE_TIMEOUT_MS = 30 * 60 * 1000L;
+    /** Compilation timeout in milliseconds — 60 minutes to support very large source trees. */
+    private static final long COMPILE_TIMEOUT_MS = 60 * 60 * 1000L;
 
     private static void compile(String[] userArgs, Messenger replyTo) {
         sendProgress(replyTo, "Starting isolated Java compiler…");
@@ -137,7 +137,7 @@ public class ECJCompilerService extends Service {
                 compileThread.interrupt(); // best-effort; ECJ may not honour interruption
                 sendError(replyTo,
                         "Compilation timed out after " + (COMPILE_TIMEOUT_MS / 60_000) + " minutes.\n"
-                        + "Tip: enable Parallel ECJ in Build Settings, or reduce the number of source files per compilation unit.",
+                        + "Tip: make sure Parallel ECJ is enabled in Build Settings, or reduce the number of large images in your project.",
                         outWriter.toString());
             }
         }
