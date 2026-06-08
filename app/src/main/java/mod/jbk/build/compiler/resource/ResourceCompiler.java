@@ -459,6 +459,7 @@ public class ResourceCompiler {
             ArrayList<String> commands = new ArrayList<>();
             commands.add(aapt2.getAbsolutePath());
             commands.add("compile");
+            commands.add("--no-crunch"); // skip PNG re-encoding for faster debug builds
             commands.add("--dir");
             commands.add(buildHelper.yq.resDirectoryPath);
             commands.add("-o");
@@ -609,6 +610,7 @@ public class ResourceCompiler {
                 ArrayList<String> commands = new ArrayList<>();
                 commands.add(aapt2.getAbsolutePath());
                 commands.add("compile");
+                commands.add("--no-crunch"); // skip PNG re-encoding for faster debug builds
                 commands.add("--dir");
                 commands.add(buildHelper.fpu.getPathResource(buildHelper.yq.sc_id));
                 commands.add("-o");
