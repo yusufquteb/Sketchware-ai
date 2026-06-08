@@ -149,12 +149,13 @@ public class IncrementalCompileCache {
             if (path == null || path.isEmpty()) {
                 continue;
             }
-            collect(new File(path), current);
+            collect(new File(path), current, cacheState.fingerprints);
         }
         return current;
     }
 
-    private void collect(File file, Map<String, SourceFingerprint> current) {
+    private void collect(File file, Map<String, SourceFingerprint> current,
+                         Map<String, SourceFingerprint> previous) {
         if (!file.exists()) {
             return;
         }
@@ -167,10 +168,11 @@ public class IncrementalCompileCache {
             Collections.addAll(sortedChildren, children);
             sortedChildren.sort((left, right) -> left.getAbsolutePath().compareTo(right.getAbsolutePath()));
             for (File child : sortedChildren) {
-                collect(child, current);
+                collect(child, current, previous);
             }
         } else if (isSourceFile(file)) {
-            current.put(file.getAbsolutePath(), SourceFingerprint.create(file));
+            String path = file.getAbsolutePath();
+            current.put(path, SourceFingerprint.createOrReuse(file, previous.get(path)));
         }
     }
 
@@ -218,8 +220,13 @@ public class IncrementalCompileCache {
             this.sha256 = sha256 == null ? "" : sha256;
         }
 
-        static SourceFingerprint create(File file) {
-            return new SourceFingerprint(file.lastModified(), file.length(), sha256(file));
+        static SourceFingerprint createOrReuse(File file, SourceFingerprint old) {
+            long lastModified = file.lastModified();
+            long size = file.length();
+            if (old != null && old.lastModified == lastModified && old.size == size) {
+                return old;
+            }
+            return new SourceFingerprint(lastModified, size, sha256(file));
         }
 
         static SourceFingerprint legacy(long lastModified) {
