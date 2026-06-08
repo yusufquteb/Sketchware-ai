@@ -1,8 +1,15 @@
 package pro.sketchware.compiler;
 
+import android.util.Log;
+
 import pro.sketchware.utility.FileUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,6 +24,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class JavaCompileGraph {
+
+    private static final String TAG = "JavaCompileGraph";
+    private static final int CACHE_VERSION = 1;
 
     private static final Pattern PACKAGE_PATTERN = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_][\\w.]*)");
     private static final Pattern IMPORT_PATTERN = Pattern.compile("(?m)^\\s*import\\s+(static\\s+)?([A-Za-z_][\\w.]*(?:\\.\\*)?)\\s*;");
@@ -44,6 +54,123 @@ public class JavaCompileGraph {
                 for (String fqcn : node.declaredFqcns) {
                     declaredTypeToSource.putIfAbsent(fqcn, sourceFile);
                 }
+            }
+        }
+        buildEdges();
+    }
+
+    private JavaCompileGraph(Map<String, Node> cachedNodes) {
+        nodes.putAll(cachedNodes);
+        rebuildDerivedMaps();
+    }
+
+    /**
+     * Loads a previously saved graph and applies incremental changes, or builds from scratch
+     * if the cache is missing, stale, or the source file set has changed significantly.
+     *
+     * @param cacheFile         where the serialized graph is stored
+     * @param currentSources    the full set of source files for this build
+     * @param changedOrAdded    files that are new or have been modified since the last build
+     * @param removed           files that no longer exist
+     */
+    public static JavaCompileGraph loadOrBuild(
+            File cacheFile,
+            Collection<String> currentSources,
+            List<String> changedOrAdded,
+            List<String> removed) {
+
+        JavaCompileGraph cached = tryLoad(cacheFile, currentSources, removed);
+        if (cached != null) {
+            if (!changedOrAdded.isEmpty() || !removed.isEmpty()) {
+                cached.applyChanges(changedOrAdded, removed);
+            }
+            return cached;
+        }
+
+        JavaCompileGraph fresh = new JavaCompileGraph(currentSources);
+        fresh.save(cacheFile);
+        return fresh;
+    }
+
+    /** Persists the current graph nodes to disk for reuse in the next build. */
+    public void save(File cacheFile) {
+        if (cacheFile == null) {
+            return;
+        }
+        try {
+            File parent = cacheFile.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(cacheFile))) {
+                out.writeInt(CACHE_VERSION);
+                out.writeObject(new LinkedHashMap<>(nodes));
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to save graph cache", e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static JavaCompileGraph tryLoad(
+            File cacheFile,
+            Collection<String> currentSources,
+            List<String> removed) {
+        if (cacheFile == null || !cacheFile.exists()) {
+            return null;
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(cacheFile))) {
+            int version = in.readInt();
+            if (version != CACHE_VERSION) {
+                return null;
+            }
+            Map<String, Node> cachedNodes = (Map<String, Node>) in.readObject();
+            if (cachedNodes == null) {
+                return null;
+            }
+
+            // Invalidate if the source file sets differ too much (e.g. a full clean build).
+            // Allow for the expected removals; anything beyond that means the project changed
+            // substantially and a fresh parse is safer.
+            Set<String> currentSet = new LinkedHashSet<>(currentSources);
+            Set<String> cachedSet = cachedNodes.keySet();
+            long unexpectedDiff = cachedSet.stream()
+                    .filter(p -> !currentSet.contains(p) && (removed == null || !removed.contains(p)))
+                    .count();
+            if (unexpectedDiff > 0) {
+                Log.d(TAG, "Graph cache invalid: " + unexpectedDiff + " unexpected stale path(s); rebuilding");
+                return null;
+            }
+
+            return new JavaCompileGraph(cachedNodes);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to load graph cache; will rebuild", e);
+            return null;
+        }
+    }
+
+    private void applyChanges(List<String> changedOrAdded, List<String> removed) {
+        for (String path : removed) {
+            nodes.remove(path);
+        }
+        for (String path : changedOrAdded) {
+            Node node = parse(path);
+            if (node != null) {
+                nodes.put(path, node);
+            } else {
+                nodes.remove(path);
+            }
+        }
+        rebuildDerivedMaps();
+    }
+
+    private void rebuildDerivedMaps() {
+        declaredTypeToSource.clear();
+        dependencies.clear();
+        dependents.clear();
+        for (Map.Entry<String, Node> entry : nodes.entrySet()) {
+            for (String fqcn : entry.getValue().declaredFqcns) {
+                declaredTypeToSource.putIfAbsent(fqcn, entry.getKey());
             }
         }
         buildEdges();
@@ -265,7 +392,9 @@ public class JavaCompileGraph {
         }
     }
 
-    private static final class Node {
+    private static final class Node implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private final String packageName;
         private final Set<String> declaredFqcns;
         private final Set<String> importedFqcns;

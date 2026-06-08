@@ -66,7 +66,8 @@ public class ECJCompilerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        compilationPool = Executors.newCachedThreadPool();
+        int cores = Runtime.getRuntime().availableProcessors();
+        compilationPool = Executors.newFixedThreadPool(Math.max(2, cores - 1));
         dispatcherThread = new HandlerThread("ecj-dispatcher");
         dispatcherThread.start();
         serviceMessenger = new Messenger(new CompilerHandler(dispatcherThread.getLooper()));

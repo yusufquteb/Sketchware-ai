@@ -10,6 +10,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.os.StrictMode;
 import android.system.Os;
 import android.text.TextUtils;
@@ -121,6 +122,9 @@ public class ProjectBuilder {
      */
     private long timestampResourceCompilationStarted;
 
+    private final pro.sketchware.compiler.BuildProfiler buildProfiler =
+            new pro.sketchware.compiler.BuildProfiler();
+
     public ProjectBuilder(Context context, yq yqVar) {
         /* Detect some bad behaviour of the app */
         StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
@@ -199,6 +203,7 @@ public class ProjectBuilder {
      * @throws Exception Thrown when anything goes wrong while compiling resources
      */
     public void compileResources() throws Exception {
+        buildProfiler.start("Resources");
         timestampResourceCompilationStarted = System.currentTimeMillis();
         // If the project has NOT enabled Material3 Expressive, normalise any
         // Widget.Material3Expressive.* style references before AAPT2 sees them.
@@ -216,6 +221,7 @@ public class ProjectBuilder {
                 buildAppBundle,
                 progressReceiver);
         compiler.compile();
+        buildProfiler.stop("Resources");
         LogUtil.d(TAG, "Compiling resources took " + (System.currentTimeMillis() - timestampResourceCompilationStarted) + " ms");
     }
 
@@ -420,24 +426,29 @@ public class ProjectBuilder {
         if (proguard.isShrinkingEnabled() && proguard.isR8Enabled()) return;
 
         if (isR8DexerEnabled()) {
+            buildProfiler.start("Dex");
             long savedTimeMillis = System.currentTimeMillis();
             try {
                 runR8Dexer();
+                buildProfiler.stop("Dex");
                 LogUtil.d(TAG, "R8 (dexer mode) took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
             } catch (Exception e) {
                 LogUtil.e(TAG, "R8 (dexer mode) failed to process .class files", e);
                 throw e;
             }
         } else if (isD8Enabled()) {
+            buildProfiler.start("Dex");
             long savedTimeMillis = System.currentTimeMillis();
             try {
                 DexCompiler.compileDexFiles(this);
+                buildProfiler.stop("Dex");
                 LogUtil.d(TAG, "D8 took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
             } catch (Exception e) {
                 LogUtil.e(TAG, "D8 failed to process .class files", e);
                 throw e;
             }
         } else {
+            buildProfiler.start("Dex");
             long savedTimeMillis = System.currentTimeMillis();
             List<String> args = Arrays.asList(
                     "--debug",
@@ -457,6 +468,7 @@ public class ProjectBuilder {
                 parseMethod.invoke(arguments, (Object) args.toArray(new String[0]));
 
                 Main.run(arguments);
+                buildProfiler.stop("Dex");
                 LogUtil.d(TAG, "Dx took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
             } catch (Exception e) {
                 LogUtil.e(TAG, "Dx failed to process .class files", e);
@@ -729,6 +741,7 @@ public class ProjectBuilder {
      * Run Eclipse Compiler to compile Java files.
      */
     public void compileJavaCode() throws zy, IOException {
+        buildProfiler.start("ECJ");
         long savedTimeMillis = System.currentTimeMillis();
 
         String pathJava = fpu.getPathJava(yq.sc_id);
@@ -803,7 +816,13 @@ public class ProjectBuilder {
             return;
         }
 
-        JavaCompileGraph compileGraph = new JavaCompileGraph(allJavaSourceFiles);
+        File graphCacheFile = new File(
+                Environment.getExternalStorageDirectory(),
+                ".sketchware/data/" + yq.sc_id + "/.java_compile_graph");
+        JavaCompileGraph compileGraph = changeSet.isEnvironmentChanged()
+                ? new JavaCompileGraph(allJavaSourceFiles)
+                : JavaCompileGraph.loadOrBuild(
+                        graphCacheFile, allJavaSourceFiles, changedJavaSources, removedJavaSources);
         List<String> impactedJavaSources = compileGraph.collectImpactedSources(changedJavaSources);
         if (impactedJavaSources.isEmpty()) {
             impactedJavaSources = new ArrayList<>(changedJavaSources);
@@ -863,8 +882,10 @@ public class ProjectBuilder {
         if (result.success) {
             LogUtil.d(TAG, "System.err of Eclipse compiler: " + result.errors);
             compileCache.save(changeSet);
+            compileGraph.save(graphCacheFile);
             javaOutputTracker.refreshOutputsForSources(successfullyCompiledJavaSources, javaClassesDirectory);
             rebuildMergedCompiledClassesDirectory();
+            buildProfiler.stop("ECJ");
             LogUtil.d(TAG, "Compiling Java files took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
         } else {
             LogUtil.e(TAG, "Failed to compile Java files");
@@ -1546,6 +1567,7 @@ public class ProjectBuilder {
     }
 
     public void runR8() throws IOException {
+        buildProfiler.start("R8");
         long savedTimeMillis = System.currentTimeMillis();
         long inputJarSize = new File(yq.compiledClassesPath + ".jar").exists()
                 ? new File(yq.compiledClassesPath + ".jar").length()
@@ -1583,6 +1605,7 @@ public class ProjectBuilder {
         for (String dexPath : FileUtil.listFiles(yq.binDirectoryPath + File.separator + "dex", "dex")) {
             outputDexSize += new File(dexPath).length();
         }
+        buildProfiler.stop("R8");
         LogUtil.d(TAG, "R8 took " + (System.currentTimeMillis() - savedTimeMillis) + " ms using profile " + proguard.getR8Profile().getDisplayName());
         LogUtil.d(TAG, "R8 output stats: input JAR=" + inputJarSize + " B, output DEX=" + outputDexSize + " B");
     }
@@ -1679,6 +1702,7 @@ public class ProjectBuilder {
     }
 
     public void runZipalign(String inPath, String outPath) throws By {
+        buildProfiler.start("Packaging");
         LogUtil.d(TAG, "About to zipalign " + inPath + " to " + outPath);
         long savedTimeMillis = System.currentTimeMillis();
 
@@ -1691,7 +1715,9 @@ public class ProjectBuilder {
             throw new By("Failed to zipalign due to the given zip being invalid: " + Log.getStackTraceString(e));
         }
 
+        buildProfiler.stop("Packaging");
         LogUtil.d(TAG, "zipalign took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
+        buildProfiler.log("Project " + yq.sc_id);
     }
 
     public void setBuildAppBundle(boolean buildAppBundle) {
