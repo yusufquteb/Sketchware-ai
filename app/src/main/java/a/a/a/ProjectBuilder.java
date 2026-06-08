@@ -855,16 +855,7 @@ public class ProjectBuilder {
                 FileUtil.makeDir(yq.compiledKotlinClassesPath);
                 LogUtil.d(TAG, "Reusing Kotlin classes directory that was already prepared by Kotlin compilation");
             }
-            List<List<String>> fullCompileGroups = compileGraph.partitionIndependentSourceGroups(allJavaSourceFiles);
-            boolean canRunFullInParallel = isParallelEcjEnabled() && fullCompileGroups.size() > 1;
-            if (canRunFullInParallel) {
-                LogUtil.d(TAG, "Running safe parallel full Java compilation with " + fullCompileGroups.size()
-                        + " groups for " + allJavaSourceFiles.size() + " source file(s)");
-                result = runParallelEcjCompile(fullCompileGroups, javaClassesDirectory);
-            } else {
-                LogUtil.d(TAG, "Running full Java compilation for " + fullCompileSources.size() + " source roots/files");
-                result = runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
-            }
+            result = runFullCompilation(allJavaSourceFiles, fullCompileSources, javaClassesDirectory);
             successfullyCompiledJavaSources = new ArrayList<>(allJavaSourceFiles);
         }
 
@@ -879,6 +870,67 @@ public class ProjectBuilder {
             LogUtil.e(TAG, "Failed to compile Java files");
             throw new zy(result.getBestErrorMessage());
         }
+    }
+
+    /**
+     * Full compilation strategy: pre-compile R.java first so it becomes available on the
+     * classpath, then compile the remaining files in parallel using an independent-component
+     * graph.  Without this split, R.java is a hub that every Activity imports, which forces
+     * all source files into a single dependency component and makes parallel ECJ useless.
+     */
+    private EcjCompileResult runFullCompilation(
+            List<String> allJavaSourceFiles,
+            List<String> fullCompileSources,
+            File javaClassesDirectory) throws zy {
+
+        if (!isParallelEcjEnabled() || allJavaSourceFiles.isEmpty()) {
+            LogUtil.d(TAG, "Running sequential full Java compilation for "
+                    + fullCompileSources.size() + " source roots/files");
+            return runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
+        }
+
+        // Separate R.java files (resource-ID hubs) from the rest of the source files.
+        List<String> rJavaFiles = new ArrayList<>();
+        List<String> otherJavaFiles = new ArrayList<>();
+        for (String f : allJavaSourceFiles) {
+            if (f != null && (f.endsWith("/R.java") || f.endsWith(File.separator + "R.java"))) {
+                rJavaFiles.add(f);
+            } else {
+                otherJavaFiles.add(f);
+            }
+        }
+
+        // Phase 1: compile R.java alone (takes only seconds).
+        if (!rJavaFiles.isEmpty()) {
+            LogUtil.d(TAG, "Phase 1: compiling " + rJavaFiles.size() + " R.java file(s) first");
+            EcjCompileResult rResult = runEcjCompile(
+                    buildEcjArguments(rJavaFiles, yq.compiledJavaClassesPath));
+            if (!rResult.success) {
+                LogUtil.w(TAG, "R.java pre-compilation failed; falling back to full sequential compilation");
+                return runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
+            }
+        }
+
+        // Phase 2: build a fresh graph without R.java and partition into independent groups.
+        // R.class is now on the classpath (compiledJavaClassesPath), so each Activity can
+        // resolve 'R' without importing from the source tree.
+        if (otherJavaFiles.isEmpty()) {
+            LogUtil.d(TAG, "No non-R.java sources remain after phase 1; compilation complete");
+            return new EcjCompileResult(true, "", "", "");
+        }
+
+        JavaCompileGraph nonRGraph = new JavaCompileGraph(otherJavaFiles);
+        List<List<String>> groups = nonRGraph.partitionIndependentSourceGroups(otherJavaFiles);
+        if (groups.size() > 1) {
+            LogUtil.d(TAG, "Phase 2: parallel full Java compilation — "
+                    + groups.size() + " independent group(s) for "
+                    + otherJavaFiles.size() + " source file(s)");
+            return runParallelEcjCompile(groups, javaClassesDirectory);
+        }
+
+        LogUtil.d(TAG, "Phase 2: sources form a single dependency component ("
+                + otherJavaFiles.size() + " files); running sequential full compilation");
+        return runEcjCompile(buildEcjArguments(fullCompileSources, yq.compiledJavaClassesPath));
     }
 
     private ArrayList<String> buildEcjArguments(List<String> sourceInputs, String outputDirectory) {
