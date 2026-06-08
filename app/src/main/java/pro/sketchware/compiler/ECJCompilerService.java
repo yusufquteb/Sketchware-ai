@@ -4,7 +4,9 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
@@ -16,6 +18,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ECJCompilerService extends Service {
 
@@ -32,12 +36,63 @@ public class ECJCompilerService extends Service {
     public static final String KEY_ERRORS = "errors";
     public static final String KEY_PROGRESS = "progress";
 
+    /**
+     * Compilation timeout in milliseconds — 60 minutes to support very large source trees.
+     */
+    private static final long COMPILE_TIMEOUT_MS = 60 * 60 * 1000L;
+
+    /**
+     * Thread pool that runs ECJ compilations concurrently.
+     *
+     * Previously, CompilerHandler ran on the main looper and called
+     * compileThread.join() inside handleMessage(), which blocked the looper for the
+     * entire duration of every compilation.  Any second request queued up and was not
+     * dispatched until the first finished — so "parallel ECJ" was effectively serial.
+     *
+     * Using a pool lets handleMessage() return immediately after submitting the work,
+     * so the looper stays unblocked and all requests are dispatched without delay.
+     * Each submitted task blocks only its own pool thread (not the looper), and
+     * multiple compilations run at the same time on separate threads.
+     */
+    private ExecutorService compilationPool;
+
+    /**
+     * Dedicated thread for the IPC message dispatcher.  Using the main looper would
+     * expose the process to ANR if a task ever blocked (it shouldn't, but let's be safe).
+     */
+    private HandlerThread dispatcherThread;
+    private Messenger serviceMessenger;
+
     @Override
-    public IBinder onBind(Intent intent) {
-        return new Messenger(new CompilerHandler()).getBinder();
+    public void onCreate() {
+        super.onCreate();
+        compilationPool = Executors.newCachedThreadPool();
+        dispatcherThread = new HandlerThread("ecj-dispatcher");
+        dispatcherThread.start();
+        serviceMessenger = new Messenger(new CompilerHandler(dispatcherThread.getLooper()));
     }
 
-    private static class CompilerHandler extends Handler {
+    @Override
+    public IBinder onBind(Intent intent) {
+        return serviceMessenger.getBinder();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (compilationPool != null) {
+            compilationPool.shutdownNow();
+        }
+        if (dispatcherThread != null) {
+            dispatcherThread.quitSafely();
+        }
+    }
+
+    private class CompilerHandler extends Handler {
+        CompilerHandler(Looper looper) {
+            super(looper);
+        }
+
         @Override
         public void handleMessage(Message msg) {
             if (msg.what != MSG_COMPILE || msg.replyTo == null) {
@@ -48,12 +103,12 @@ public class ECJCompilerService extends Service {
                 sendError(msg.replyTo, "No compiler args provided", "");
                 return;
             }
-            compile(args, msg.replyTo);
+            final Messenger replyTo = msg.replyTo;
+            final String[] finalArgs = args;
+            // Submit to the pool and return immediately — the looper is never blocked.
+            compilationPool.submit(() -> compile(finalArgs, replyTo));
         }
     }
-
-    /** Compilation timeout in milliseconds — 60 minutes to support very large source trees. */
-    private static final long COMPILE_TIMEOUT_MS = 60 * 60 * 1000L;
 
     private static void compile(String[] userArgs, Messenger replyTo) {
         sendProgress(replyTo, "Starting isolated Java compiler…");
@@ -72,10 +127,6 @@ public class ECJCompilerService extends Service {
         StringWriter outWriter = new StringWriter();
         StringWriter errWriter = new StringWriter();
 
-        // Run ECJ on a dedicated thread so we can enforce a hard timeout.
-        // Without a timeout the service can hang indefinitely on very large
-        // source trees, causing an ANR or a silent "timeout for isolated Java
-        // compilation" error on the client side.
         final String[] finalArgs = args.toArray(new String[0]);
         final boolean[] done = {false};
 
@@ -134,7 +185,7 @@ public class ECJCompilerService extends Service {
         synchronized (done) {
             if (!done[0]) {
                 done[0] = true;
-                compileThread.interrupt(); // best-effort; ECJ may not honour interruption
+                compileThread.interrupt();
                 sendError(replyTo,
                         "Compilation timed out after " + (COMPILE_TIMEOUT_MS / 60_000) + " minutes.\n"
                         + "Tip: make sure Parallel ECJ is enabled in Build Settings, or reduce the number of large images in your project.",
