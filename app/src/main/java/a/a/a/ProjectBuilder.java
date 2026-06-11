@@ -1352,7 +1352,29 @@ public class ProjectBuilder {
         LogUtil.d(TAG, "Will merge these " + dexes.size() + " DEX files to classes.dex: " + dexes);
 
         if (settings.getMinSdkVersion() < 21 || !yq.N.isDebugBuild) {
+            // Build a fingerprint of all input DEX files so we can skip the expensive
+            // merge when nothing has changed (libraries and project DEX are identical).
+            StringBuilder dexFpBuilder = new StringBuilder();
+            for (File dex : dexes) {
+                dexFpBuilder.append(dex.getAbsolutePath())
+                        .append('|').append(dex.exists() ? dex.length() : -1L)
+                        .append('|').append(dex.exists() ? dex.lastModified() : 0L)
+                        .append('\n');
+            }
+            String dexMergeFingerprint = dexFpBuilder.toString();
+            File dexMergeMarker = new File(yq.binDirectoryPath, ".dex_merge_marker");
+            File classesDex = new File(yq.binDirectoryPath, "classes.dex");
+
+            if (classesDex.exists() && FileUtil.isExistFile(dexMergeMarker.getAbsolutePath())) {
+                String savedFingerprint = FileUtil.readFile(dexMergeMarker.getAbsolutePath());
+                if (dexMergeFingerprint.equals(savedFingerprint)) {
+                    LogUtil.d(TAG, "Skipping DEX library merge — inputs unchanged");
+                    return;
+                }
+            }
+
             dexLibraries(new File(yq.binDirectoryPath), dexes);
+            FileUtil.writeFile(dexMergeMarker.getAbsolutePath(), dexMergeFingerprint);
             LogUtil.d(TAG, "Merging DEX files took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
         } else {
             dexesToAddButNotMerge = dexes;

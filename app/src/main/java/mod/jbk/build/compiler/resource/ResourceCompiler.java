@@ -7,7 +7,10 @@ import android.content.pm.PackageManager;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import a.a.a.Jp;
 import a.a.a.ProjectBuilder;
@@ -281,6 +284,12 @@ public class ResourceCompiler {
 
         @Override
         public void compile() throws zy, MissingFileException {
+            String fingerprint = computeResourceFingerprint();
+            if (isResourceCacheValid(fingerprint)) {
+                LogUtil.d(TAG, "Skipping resource compilation — no resource inputs changed");
+                return;
+            }
+
             String outputPath = buildHelper.yq.binDirectoryPath + File.separator + "res";
             emptyOrCreateDirectory(outputPath);
 
@@ -304,6 +313,105 @@ public class ResourceCompiler {
             savedTimeMillis = System.currentTimeMillis();
             link();
             LogUtil.d(TAG + ":c", "Linking resources took " + (System.currentTimeMillis() - savedTimeMillis) + " ms");
+
+            saveResourceCache(fingerprint);
+        }
+
+        // ── Resource cache helpers ────────────────────────────────────────────────
+
+        /**
+         * Computes a stable SHA-256 fingerprint of every input that affects AAPT2
+         * compilation and linking: project resource files, manifest, assets, local
+         * library resource directories, and all project settings that influence the
+         * link step (minSdk, targetSdk, versionCode/Name, package, library list, etc.).
+         */
+        private String computeResourceFingerprint() {
+            StringBuilder fileFp = new StringBuilder();
+            appendNodeFingerprint(new File(buildHelper.yq.resDirectoryPath), fileFp);
+            appendNodeFingerprint(new File(buildHelper.yq.androidManifestPath), fileFp);
+            appendNodeFingerprint(new File(buildHelper.fpu.getPathResource(buildHelper.yq.sc_id)), fileFp);
+            appendNodeFingerprint(new File(buildHelper.yq.assetsPath), fileFp);
+            appendNodeFingerprint(new File(buildHelper.fpu.getPathAssets(buildHelper.yq.sc_id)), fileFp);
+            for (String localLibRes : buildHelper.mll.getResLocalLibrary()) {
+                appendNodeFingerprint(new File(localLibRes), fileFp);
+            }
+
+            StringBuilder envFp = new StringBuilder();
+            envFp.append("minSdk=").append(buildHelper.settings.getMinSdkVersion()).append('\n');
+            envFp.append("targetSdk=").append(buildHelper.settings.getValue(
+                    ProjectSettings.SETTING_TARGET_SDK_VERSION,
+                    String.valueOf(VAR_DEFAULT_TARGET_SDK_VERSION))).append('\n');
+            envFp.append("versionCode=").append(buildHelper.yq.versionCode).append('\n');
+            envFp.append("versionName=").append(buildHelper.yq.versionName).append('\n');
+            envFp.append("packageName=").append(buildHelper.yq.packageName).append('\n');
+            envFp.append("appBundle=").append(buildAppBundle).append('\n');
+            envFp.append("androidJar=").append(
+                    buildHelper.build_settings.getValue(BuildSettings.SETTING_ANDROID_JAR_PATH, "")).append('\n');
+            envFp.append("extraPackages=").append(buildHelper.getLibraryPackageNames()).append('\n');
+            for (Jp lib : buildHelper.builtInLibraryManager.getLibraries()) {
+                envFp.append("lib=").append(lib.getName()).append('\n');
+            }
+            try {
+                Context ctx = SketchApplication.getContext();
+                envFp.append("appUpdateTime=").append(
+                        ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0).lastUpdateTime).append('\n');
+            } catch (PackageManager.NameNotFoundException ignored) {}
+
+            return sha256(envFp.toString() + "---\n" + fileFp.toString());
+        }
+
+        private static void appendNodeFingerprint(File file, StringBuilder sb) {
+            if (!file.exists()) {
+                sb.append(file.getAbsolutePath()).append("|missing\n");
+                return;
+            }
+            if (file.isDirectory()) {
+                File[] children = file.listFiles();
+                if (children != null) {
+                    Arrays.sort(children, (a, b) -> a.getAbsolutePath().compareTo(b.getAbsolutePath()));
+                    for (File child : children) {
+                        appendNodeFingerprint(child, sb);
+                    }
+                }
+            } else {
+                sb.append(file.getAbsolutePath())
+                  .append('|').append(file.length())
+                  .append('|').append(file.lastModified())
+                  .append('\n');
+            }
+        }
+
+        private boolean isResourceCacheValid(String fingerprint) {
+            File cacheFile = new File(buildHelper.yq.binDirectoryPath, ".res_cache");
+            File resourcesApk = new File(buildHelper.yq.resourcesApkPath);
+            File rJavaDir = new File(buildHelper.yq.rJavaDirectoryPath);
+
+            if (!resourcesApk.exists() || resourcesApk.length() == 0) return false;
+            String[] rJavaFiles = rJavaDir.list();
+            if (rJavaFiles == null || rJavaFiles.length == 0) return false;
+            if (!cacheFile.exists()) return false;
+
+            String saved = FileUtil.readFile(cacheFile.getAbsolutePath());
+            return fingerprint.equals(saved);
+        }
+
+        private void saveResourceCache(String fingerprint) {
+            File cacheFile = new File(buildHelper.yq.binDirectoryPath, ".res_cache");
+            FileUtil.writeFile(cacheFile.getAbsolutePath(), fingerprint);
+        }
+
+        private static String sha256(String input) {
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] bytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+                StringBuilder hex = new StringBuilder(bytes.length * 2);
+                for (byte b : bytes) {
+                    hex.append(String.format("%02x", b));
+                }
+                return hex.toString();
+            } catch (Exception e) {
+                return input;
+            }
         }
 
         /**
