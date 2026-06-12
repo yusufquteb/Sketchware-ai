@@ -56,6 +56,7 @@ public class qA extends Fragment {
 
     public void openFragment(Fragment fragment) {
         getParentFragmentManager().beginTransaction()
+                .setReorderingAllowed(true)
                 .replace(R.id.settings_fragment_container, fragment)
                 .addToBackStack(null)
                 .commit();

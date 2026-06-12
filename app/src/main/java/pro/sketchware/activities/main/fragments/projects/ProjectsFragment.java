@@ -17,6 +17,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityOptionsCompat;
 import androidx.appcompat.widget.SearchView;
 import androidx.core.view.MenuProvider;
 import androidx.core.view.WindowInsetsCompat;
@@ -86,11 +87,23 @@ public class ProjectsFragment extends DA {
     }
 
     public void toDesignActivity(String sc_id) {
+        toDesignActivity(sc_id, null);
+    }
+
+    public void toDesignActivity(String sc_id, @Nullable View sharedElement) {
         Intent intent = new Intent(requireContext(), DesignActivity.class);
         ProjectTracker.setScId(sc_id);
         intent.putExtra("sc_id", sc_id);
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        requireActivity().startActivity(intent);
+        if (sharedElement != null) {
+            String transitionName = "project_card_" + sc_id;
+            intent.putExtra("card_transition_name", transitionName);
+            ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+                    requireActivity(), sharedElement, transitionName);
+            requireActivity().startActivity(intent, options.toBundle());
+        } else {
+            requireActivity().startActivity(intent);
+        }
     }
 
     @Override

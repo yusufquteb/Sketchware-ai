@@ -91,6 +91,7 @@ public class ManageXMLCommandActivity extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         ManageXmlCommandBinding binding = ManageXmlCommandBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

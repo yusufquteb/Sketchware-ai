@@ -138,6 +138,20 @@
     <style name="ThemeOverlay.SketchwarePro.Chip.ProjectPreview" parent="">
         <item name="chipStyle">@style/Widget.SketchwarePro.Chip.ProjectPreview</item>
     </style>
+    <!-- Material Expressive activity-level window transition animation.
+         Uses emphasized-decelerate (enter) and emphasized-accelerate (exit)
+         curves with a subtle scale to match the M3 Forward/Backward motion. -->
+    <style name="Animation.SketchwarePro.Activity" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/m3_activity_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/m3_activity_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/m3_activity_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/m3_activity_close_exit</item>
+    </style>
+
+    <style name="Widget.SketchwarePro.Button" parent="Widget.Material3.Button">
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
+
     <!-- Theme used by AsdDialog to fix keyboard visibility for find/replace -->
     <style name="AsdEditorDialogTheme" parent="Theme.SketchwarePro">
         <item name="android:windowIsFloating">false</item>

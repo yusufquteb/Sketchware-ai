@@ -72,6 +72,7 @@ public class BlocksManagerDetailsActivity extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_blocks_manager_details);
 

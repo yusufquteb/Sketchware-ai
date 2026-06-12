@@ -51,7 +51,7 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(R.anim.ani_fade_in, R.anim.ani_fade_out);
+        overridePendingTransition(R.anim.m3_activity_close_enter, R.anim.m3_activity_close_exit);
     }
 
     private ArrayList<String> getScreenNames() {
@@ -232,7 +232,7 @@ public class ViewSelectorActivity extends BaseAppCompatActivity {
             }
         });
         binding.container.setOnClickListener(v -> finish());
-        overridePendingTransition(R.anim.ani_fade_in, R.anim.ani_fade_out);
+        overridePendingTransition(R.anim.m3_activity_open_enter, R.anim.m3_activity_open_exit);
 
         UI.addSystemWindowInsetToPadding(binding.container, true, true, true, false);
         UI.addSystemWindowInsetToMargin(binding.createNewView, false, false, false, true);

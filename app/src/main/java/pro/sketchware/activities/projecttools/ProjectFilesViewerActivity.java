@@ -9,8 +9,9 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
+import com.besome.sketch.lib.base.BaseAppCompatActivity;
 
 import com.google.android.material.tabs.TabLayout;
 
@@ -20,7 +21,7 @@ import pro.sketchware.R;
 import pro.sketchware.util.SketchwareFileDecryptor;
 import pro.sketchware.util.SketchwareFileEncryptor;
 
-public class ProjectFilesViewerActivity extends AppCompatActivity {
+public class ProjectFilesViewerActivity extends BaseAppCompatActivity {
 
     public static final String EXTRA_SC_ID = "sc_id";
     public static final String EXTRA_PROJECT_NAME = "project_name";
@@ -32,7 +33,8 @@ public class ProjectFilesViewerActivity extends AppCompatActivity {
     private CodeEditor[] editors;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_project_files_viewer);
 

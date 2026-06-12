@@ -15,7 +15,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -31,7 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class TerminalActivity extends AppCompatActivity {
+import com.besome.sketch.lib.base.BaseAppCompatActivity;
+
+public class TerminalActivity extends BaseAppCompatActivity {
 
     private static final String[] ALLOWED_CMDS = {
         "ls","ll","find","grep","cat","head","tail","wc","echo",
@@ -77,7 +78,8 @@ public class TerminalActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         scId = getIntent().getStringExtra("sc_id");
         if (scId != null) workDir = "/storage/emulated/0/.sketchware/data/" + scId;
@@ -406,7 +408,7 @@ public class TerminalActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
         exec.shutdownNow();
     }

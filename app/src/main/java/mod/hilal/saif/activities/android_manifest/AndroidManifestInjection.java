@@ -49,6 +49,7 @@ public class AndroidManifestInjection extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         binding = AndroidManifestInjectionBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

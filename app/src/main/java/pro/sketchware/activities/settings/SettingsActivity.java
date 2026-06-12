@@ -39,6 +39,7 @@ public class SettingsActivity extends BaseAppCompatActivity {
 
     private void openFragment(Fragment fragment) {
         getSupportFragmentManager().beginTransaction()
+                .setReorderingAllowed(true)
                 .replace(binding.settingsFragmentContainer.getId(), fragment)
                 .commit();
     }

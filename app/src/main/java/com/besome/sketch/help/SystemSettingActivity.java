@@ -26,6 +26,8 @@ public class SystemSettingActivity extends BaseAppCompatActivity {
         binding.topAppBar.setTitle(R.string.main_drawer_title_system_settings);
         binding.topAppBar.setNavigationOnClickListener(Helper.getBackPressedClickListener(this));
         getSupportFragmentManager().beginTransaction()
+                .setCustomAnimations(R.anim.m3_activity_open_enter, 0, 0, R.anim.m3_activity_close_exit)
+                .setReorderingAllowed(true)
                 .replace(binding.fragmentContainer.getId(), new PreferenceFragment())
                 .commit();
 

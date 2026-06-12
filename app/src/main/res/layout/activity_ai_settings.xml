@@ -515,9 +515,8 @@
                             android:text="Tests every model (ping) and every registered tool (schema check). Results saved as a Markdown report."
                             android:textAppearance="?attr/textAppearanceBodySmall" />
 
-                        <ProgressBar
+                        <com.google.android.material.progressindicator.LinearProgressIndicator
                             android:id="@+id/pb_diagnostic_progress"
-                            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"

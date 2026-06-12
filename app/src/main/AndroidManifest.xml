@@ -21,6 +21,7 @@
 
     <application
         android:name=".SketchApplication"
+        android:enableOnBackInvokedCallback="true"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"

@@ -169,8 +169,8 @@ dependencies {
     }
     android26Implementation "com.android.tools:r8:8.11.18"
     android33Implementation "com.android.tools:r8:8.13.17"
-    android26Implementation "org.eclipse.jdt:ecj:3.26.0"
-    android33Implementation "org.eclipse.jdt:ecj:3.34.0"
+    android26Implementation "org.eclipse.jdt:ecj:3.34.0"
+    android33Implementation "org.eclipse.jdt:ecj:3.45.0"
     android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
         exclude group: "com.google.guava", module: "guava"
     }

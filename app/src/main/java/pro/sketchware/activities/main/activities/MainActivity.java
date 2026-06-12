@@ -330,8 +330,17 @@ public class MainActivity extends BasePermissionAppCompatActivity {
         FragmentManager fm = getSupportFragmentManager();
         FragmentTransaction transaction = fm.beginTransaction();
 
+        // SharedAxisX backward: entering fragment slides in from the left,
+        // exiting fragment slides out to the right. Skip on first load
+        // (activeFragment == null) so there is no flicker on cold start.
+        transaction.setReorderingAllowed(true);
+        if (activeFragment != null) {
+            transaction.setCustomAnimations(
+                    R.anim.m3_tab_enter_left,
+                    R.anim.m3_tab_exit_right);
+            transaction.hide(activeFragment);
+        }
         binding.createNewProject.show();
-        if (activeFragment != null) transaction.hide(activeFragment);
         // Use isAdded() instead of findFragmentByTag() so that a fragment
         // added via a still-pending commit is NOT added a second time.
         if (!projectsFragment.isAdded()) {
@@ -358,8 +367,16 @@ public class MainActivity extends BasePermissionAppCompatActivity {
         FragmentManager fm = getSupportFragmentManager();
         FragmentTransaction transaction = fm.beginTransaction();
 
+        // SharedAxisX forward: entering fragment slides in from the right,
+        // exiting fragment slides out to the left.
+        transaction.setReorderingAllowed(true);
+        if (activeFragment != null) {
+            transaction.setCustomAnimations(
+                    R.anim.m3_tab_enter_right,
+                    R.anim.m3_tab_exit_left);
+            transaction.hide(activeFragment);
+        }
         binding.createNewProject.hide();
-        if (activeFragment != null) transaction.hide(activeFragment);
         // Use isAdded() instead of findFragmentByTag() — see navigateToProjectsFragment().
         if (!agentFragment.isAdded()) {
             transaction.add(binding.container.getId(), agentFragment, AGENT_FRAGMENT_TAG);
