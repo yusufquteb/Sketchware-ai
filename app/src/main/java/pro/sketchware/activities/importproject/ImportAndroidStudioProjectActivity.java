@@ -54,6 +54,7 @@ public class ImportAndroidStudioProjectActivity extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_import_android_studio_project);
 

@@ -133,6 +133,7 @@ public class BlocksManager extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle _savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(_savedInstanceState);
         binding = ActivityBlocksManagerBinding.inflate(getLayoutInflater());
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);

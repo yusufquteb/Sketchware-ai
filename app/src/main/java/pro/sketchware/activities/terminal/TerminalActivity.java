@@ -78,6 +78,7 @@ public class TerminalActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         scId = getIntent().getStringExtra("sc_id");
         if (scId != null) workDir = "/storage/emulated/0/.sketchware/data/" + scId;

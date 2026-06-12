@@ -333,6 +333,7 @@ public class MainActivity extends BasePermissionAppCompatActivity {
         // SharedAxisX backward: entering fragment slides in from the left,
         // exiting fragment slides out to the right. Skip on first load
         // (activeFragment == null) so there is no flicker on cold start.
+        transaction.setReorderingAllowed(true);
         if (activeFragment != null) {
             transaction.setCustomAnimations(
                     R.anim.m3_tab_enter_left,
@@ -368,6 +369,7 @@ public class MainActivity extends BasePermissionAppCompatActivity {
 
         // SharedAxisX forward: entering fragment slides in from the right,
         // exiting fragment slides out to the left.
+        transaction.setReorderingAllowed(true);
         if (activeFragment != null) {
             transaction.setCustomAnimations(
                     R.anim.m3_tab_enter_right,

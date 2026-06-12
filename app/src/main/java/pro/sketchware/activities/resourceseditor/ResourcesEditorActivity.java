@@ -87,6 +87,7 @@ public class ResourcesEditorActivity extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
 
         if (savedInstanceState != null) {

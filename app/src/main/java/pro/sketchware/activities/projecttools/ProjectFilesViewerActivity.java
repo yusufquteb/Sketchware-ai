@@ -33,6 +33,7 @@ public class ProjectFilesViewerActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_project_files_viewer);
 

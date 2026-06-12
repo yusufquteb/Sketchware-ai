@@ -160,6 +160,7 @@ public class ExcludeBuiltInLibrariesActivity extends BaseAppCompatActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         if (!isStoragePermissionGranted()) {
             finish();

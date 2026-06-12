@@ -94,6 +94,7 @@ public class ManageProguardActivity extends BaseAppCompatActivity
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         binding = ManageProguardBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
