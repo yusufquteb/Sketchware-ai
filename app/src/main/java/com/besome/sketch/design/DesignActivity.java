@@ -65,8 +65,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.transition.platform.MaterialContainerTransform;
-import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback;
 import com.topjohnwu.superuser.Shell;
 
 import org.spongycastle.jce.provider.BouncyCastleProvider;
@@ -565,28 +563,7 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Set up MaterialContainerTransform when launched via shared element from project card.
-        String cardTransitionName = getIntent().getStringExtra("card_transition_name");
-        if (cardTransitionName != null) {
-            setEnterSharedElementCallback(new MaterialContainerTransformSharedElementCallback());
-            getWindow().setSharedElementsUseOverlay(false);
-        }
         enableEdgeToEdgeNoContrast();
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.design);
-        if (cardTransitionName != null) {
-            CoordinatorLayout coordinatorLayout = findViewById(R.id.layout_coordinator);
-            coordinatorLayout.setTransitionName(cardTransitionName);
-            MaterialContainerTransform enterTransform = new MaterialContainerTransform();
-            enterTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
-            enterTransform.setDuration(400L);
-            getWindow().setSharedElementEnterTransition(enterTransform);
-            MaterialContainerTransform returnTransform = new MaterialContainerTransform();
-            returnTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
-            returnTransform.setDuration(300L);
-            getWindow().setSharedElementReturnTransition(returnTransform);
-        }
-        if (!isStoragePermissionGranted()) {
             finish();
         }
 
