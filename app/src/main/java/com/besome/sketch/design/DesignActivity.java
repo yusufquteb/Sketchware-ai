@@ -564,6 +564,9 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
     @Override
     public void onCreate(Bundle savedInstanceState) {
         enableEdgeToEdgeNoContrast();
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.design);
+        if (!isStoragePermissionGranted()) {
             finish();
         }
 
