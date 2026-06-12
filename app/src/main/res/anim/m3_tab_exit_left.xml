@@ -5,7 +5,7 @@
         android:fromXDelta="0"
         android:toXDelta="-25%p"
         android:duration="300"
-        android:interpolator="@interpolator/fast_out_extra_slow_in" />
+        android:interpolator="@android:interpolator/fast_out_slow_in" />
     <alpha
         android:fromAlpha="1.0"
         android:toAlpha="0.0"
