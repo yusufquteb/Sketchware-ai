@@ -189,10 +189,11 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
         holder.binding.tvPublished.setVisibility(View.VISIBLE);
         holder.binding.tvPublished.setText(scId);
         holder.itemView.setTag("custom");
-        holder.binding.imgIconView.setTransitionName("project_card_" + scId);
+        holder.binding.imgIconView.setTransitionName(null);
 
         holder.binding.getRoot().setOnClickListener(v -> {
             if (!mB.a()) {
+                holder.binding.imgIconView.setTransitionName("project_card_" + scId);
                 projectsFragment.toDesignActivity(scId, holder.binding.imgIconView);
             }
         });
