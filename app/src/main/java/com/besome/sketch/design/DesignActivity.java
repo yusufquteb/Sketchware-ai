@@ -578,12 +578,12 @@ public class DesignActivity extends BaseAppCompatActivity implements View.OnClic
             CoordinatorLayout coordinatorLayout = findViewById(R.id.layout_coordinator);
             coordinatorLayout.setTransitionName(cardTransitionName);
             MaterialContainerTransform enterTransform = new MaterialContainerTransform();
-            enterTransform.setDrawingViewId(R.id.drawer_layout);
+            enterTransform.setDrawingViewId(android.R.id.content);
             enterTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
             enterTransform.setDuration(400L);
             getWindow().setSharedElementEnterTransition(enterTransform);
             MaterialContainerTransform returnTransform = new MaterialContainerTransform();
-            returnTransform.setDrawingViewId(R.id.drawer_layout);
+            returnTransform.setDrawingViewId(android.R.id.content);
             returnTransform.setFadeMode(MaterialContainerTransform.FADE_MODE_THROUGH);
             returnTransform.setDuration(300L);
             getWindow().setSharedElementReturnTransition(returnTransform);
