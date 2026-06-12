@@ -152,19 +152,6 @@
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 
-    <style name="Widget.SketchwarePro.FloatingActionButton" parent="Widget.Material3.FloatingActionButton">
-        <item name="fabSize">auto</item>
-        <item name="backgroundTint">?attr/colorPrimaryContainer</item>
-        <item name="tint">?attr/colorOnPrimaryContainer</item>
-    </style>
-
-    <style name="Widget.SketchwarePro.ExtendedFloatingActionButton" parent="Widget.Material3.ExtendedFloatingActionButton">
-        <item name="backgroundTint">?attr/colorSecondaryContainer</item>
-        <item name="iconTint">?attr/colorOnSecondaryContainer</item>
-        <item name="android:textColor">?attr/colorOnSecondaryContainer</item>
-        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
-    </style>
-
     <!-- Theme used by AsdDialog to fix keyboard visibility for find/replace -->
     <style name="AsdEditorDialogTheme" parent="Theme.SketchwarePro">
         <item name="android:windowIsFloating">false</item>
