@@ -138,6 +138,39 @@
     <style name="ThemeOverlay.SketchwarePro.Chip.ProjectPreview" parent="">
         <item name="chipStyle">@style/Widget.SketchwarePro.Chip.ProjectPreview</item>
     </style>
+    <!-- Material Expressive activity-level window transition animation.
+         Uses emphasized-decelerate (enter) and emphasized-accelerate (exit)
+         curves with a subtle scale to match the M3 Forward/Backward motion. -->
+    <style name="Animation.SketchwarePro.Activity" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/m3_activity_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/m3_activity_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/m3_activity_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/m3_activity_close_exit</item>
+    </style>
+
+    <!-- Expressive primary button: full-pill shape (Corner.Full) instead of the
+         default Corner.Full already used by M3, but with spring motion enabled.
+         We inherit from Widget.Material3Expressive.Button which in M1.14.0
+         carries the spring-based state-list animator. -->
+    <style name="Widget.SketchwarePro.Button" parent="Widget.Material3Expressive.Button">
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
+
+    <!-- Expressive FAB: medium size with primary-container fill and spring motion. -->
+    <style name="Widget.SketchwarePro.FloatingActionButton" parent="Widget.Material3Expressive.FloatingActionButton">
+        <item name="fabSize">auto</item>
+        <item name="backgroundTint">?attr/colorPrimaryContainer</item>
+        <item name="tint">?attr/colorOnPrimaryContainer</item>
+    </style>
+
+    <!-- Expressive Extended FAB: full-pill, spring motion, secondary-container fill. -->
+    <style name="Widget.SketchwarePro.ExtendedFloatingActionButton" parent="Widget.Material3Expressive.ExtendedFloatingActionButton">
+        <item name="backgroundTint">?attr/colorSecondaryContainer</item>
+        <item name="iconTint">?attr/colorOnSecondaryContainer</item>
+        <item name="android:textColor">?attr/colorOnSecondaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
+
     <!-- Theme used by AsdDialog to fix keyboard visibility for find/replace -->
     <style name="AsdEditorDialogTheme" parent="Theme.SketchwarePro">
         <item name="android:windowIsFloating">false</item>

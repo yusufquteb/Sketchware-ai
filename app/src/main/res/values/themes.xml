@@ -1,6 +1,13 @@
 <resources>
     <style name="Base.Theme.SketchwarePro" parent="Scheme.SketchwarePro.DayNight" />
     <style name="Theme.SketchwarePro" parent="Platform.Theme.SketchwarePro">
+        <!-- Material Expressive motion -->
+        <item name="android:windowActivityTransitions">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.SketchwarePro.Activity</item>
+        <!-- Expressive component defaults -->
+        <item name="materialButtonStyle">@style/Widget.SketchwarePro.Button</item>
+        <item name="floatingActionButtonStyle">@style/Widget.SketchwarePro.FloatingActionButton</item>
+        <item name="extendedFloatingActionButtonStyle">@style/Widget.SketchwarePro.ExtendedFloatingActionButton</item>
         <item name="bottomNavigationStyle">@style/Widget.SketchwarePro.BottomNavigationView</item>
         <item name="chipStyle">@style/Widget.SketchwarePro.Chip</item>
         <item name="collapsingToolbarLayoutStyle">?attr/collapsingToolbarLayoutLargeStyle</item>

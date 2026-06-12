@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fragment entering from the right (navigating forward in tabs). SharedAxisX pattern. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <translate
+        android:fromXDelta="25%p"
+        android:toXDelta="0"
+        android:duration="300"
+        android:interpolator="@interpolator/fast_out_extra_slow_in" />
+    <alpha
+        android:fromAlpha="0.0"
+        android:toAlpha="1.0"
+        android:duration="150"
+        android:interpolator="@android:interpolator/linear_out_slow_in" />
+</set>
