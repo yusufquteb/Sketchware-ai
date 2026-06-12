@@ -173,6 +173,8 @@ public class ConfigActivity extends BaseAppCompatActivity {
         var fragment = new PreferenceFragment();
         fragment.setSnackbarView(binding.getRoot());
         getSupportFragmentManager().beginTransaction()
+                .setCustomAnimations(R.anim.m3_activity_open_enter, 0, 0, R.anim.m3_activity_close_exit)
+                .setReorderingAllowed(true)
                 .replace(binding.fragmentContainer.getId(), fragment)
                 .commit();
 

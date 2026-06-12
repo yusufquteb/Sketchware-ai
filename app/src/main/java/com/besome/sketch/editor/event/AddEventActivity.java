@@ -67,7 +67,7 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(R.anim.ani_fade_in, R.anim.ani_fade_out);
+        overridePendingTransition(R.anim.m3_activity_close_enter, R.anim.m3_activity_close_exit);
     }
 
     private void l() {
@@ -319,7 +319,7 @@ public class AddEventActivity extends BaseAppCompatActivity implements View.OnCl
         binding.emptyMessage.setVisibility(View.GONE);
         eventsToAdd = new ArrayList<>();
         binding.eventList.bringToFront();
-        overridePendingTransition(R.anim.ani_fade_in, R.anim.ani_fade_out);
+        overridePendingTransition(R.anim.m3_activity_open_enter, R.anim.m3_activity_open_exit);
     }
 
     @Override
