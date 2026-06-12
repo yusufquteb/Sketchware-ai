@@ -31,7 +31,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class TerminalActivity extends AppCompatActivity {
+import com.besome.sketch.lib.base.BaseAppCompatActivity;
+
+public class TerminalActivity extends BaseAppCompatActivity {
 
     private static final String[] ALLOWED_CMDS = {
         "ls","ll","find","grep","cat","head","tail","wc","echo",
