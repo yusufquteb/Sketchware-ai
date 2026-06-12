@@ -33,7 +33,7 @@ public class ProjectFilesViewerActivity extends BaseAppCompatActivity {
     private CodeEditor[] editors;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         enableEdgeToEdgeNoContrast();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_project_files_viewer);
