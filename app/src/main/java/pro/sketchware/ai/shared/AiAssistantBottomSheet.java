@@ -1,6 +1,7 @@
 package pro.sketchware.ai.shared;
 
 import android.animation.ValueAnimator;
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,6 +13,8 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.FrameLayout;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -59,7 +62,6 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
     // ── Constants ─────────────────────────────────────────────────────────────
     private static final int  SIDEBAR_COLLAPSED_DP = 48;
     private static final int  SIDEBAR_EXPANDED_DP  = 220;
-    private static final int  REQUEST_VOICE        = 0x7E1C;
     private static final long PULSE_INTERVAL_MS    = 10_000L;
 
     // ── Factory ──────────────────────────────────────────────────────────────
@@ -86,6 +88,8 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
     private AgentExecutor agentExecutor;
     private boolean       isAgentRunning = false;
 
+    @Nullable private ActivityResultLauncher<Intent> speechLauncher;
+
     // Pulse
     private final Handler  pulseHandler  = new Handler(Looper.getMainLooper());
     private       Runnable pulseRunnable;
@@ -98,6 +102,19 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
         super.onCreate(savedInstanceState);
         setStyle(STYLE_NORMAL,
             com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog);
+        speechLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK
+                            && result.getData() != null && binding != null) {
+                        java.util.List<String> results = result.getData()
+                                .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                        if (results != null && !results.isEmpty()) {
+                            String spoken = results.get(0);
+                            binding.aiSheetInput.setText(spoken);
+                            binding.aiSheetInput.setSelection(spoken.length());
+                        }
+                    }
+                });
         if (getContext() != null) {
             preferences         = AiPreferences.getInstance(getContext());
             conversationManager = new ConversationManager(getContext());
@@ -390,6 +407,7 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
 
     // ── Mic: RecognizerIntent with device locale (auto language) ──────────────
     private void launchMic() {
+        if (speechLauncher == null) return;
         try {
             Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -400,22 +418,9 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment {
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langTag);
             intent.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false);
             intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your message…");
-            startActivityForResult(intent, REQUEST_VOICE);
+            speechLauncher.launch(intent);
         } catch (Exception e) {
             SketchwareUtil.toast("Voice input not available");
-        }
-    }
-
-    @Override
-    public void onActivityResult(int req, int res, @Nullable Intent data) {
-        super.onActivityResult(req, res, data);
-        if (req == REQUEST_VOICE && res == android.app.Activity.RESULT_OK && data != null) {
-            List<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (results != null && !results.isEmpty() && binding != null) {
-                String spoken = results.get(0);
-                binding.aiSheetInput.setText(spoken);
-                binding.aiSheetInput.setSelection(spoken.length());
-            }
         }
     }
 

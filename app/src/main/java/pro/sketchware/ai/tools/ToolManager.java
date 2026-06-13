@@ -1,6 +1,7 @@
 package pro.sketchware.ai.tools;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -111,7 +112,7 @@ public class ToolManager {
             Log.w(TAG, "Replacing existing tool: " + name);
         }
         registry.put(name, tool);
-        Log.d(TAG, "Registered tool: " + name + " — " + tool.getDescription());
+        AiLog.d(TAG, "Registered tool: " + name + " — " + tool.getDescription());
     }
 
     /**
@@ -215,7 +216,7 @@ public class ToolManager {
             );
         }
 
-        Log.d(TAG, "Executing tool: " + toolName + " | input=" + summarize(jsonInput));
+        AiLog.d(TAG, "Executing tool: " + toolName + " | input=" + summarize(jsonInput));
 
         // Wrap in a timeout-enforced inner future
         final Tool finalTool = tool;
@@ -233,7 +234,7 @@ public class ToolManager {
 
         try {
             Tool.ToolResult result = future.get(TOOL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            Log.d(TAG, "Tool '" + toolName + "' completed: success=" + result.success);
+            AiLog.d(TAG, "Tool '" + toolName + "' completed: success=" + result.success);
             return result;
         } catch (java.util.concurrent.TimeoutException e) {
             future.cancel(true);
@@ -263,7 +264,7 @@ public class ToolManager {
      */
     public void shutdown() {
         toolExecutor.shutdownNow();
-        Log.d(TAG, "ToolManager executor shut down.");
+        AiLog.d(TAG, "ToolManager executor shut down.");
     }
 
     // ─── Callback interface ───────────────────────────────────────────────────

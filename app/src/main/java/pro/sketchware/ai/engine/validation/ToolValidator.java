@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine.validation;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import com.google.gson.JsonObject;
 
@@ -88,7 +89,7 @@ public final class ToolValidator {
         boolean needsSnapshot = risk.requiresSnapshot();
         boolean needsApproval = risk.requiresApproval(approvalMode);
 
-        Log.d(TAG, "Tool '" + toolName + "' → risk=" + risk
+        AiLog.d(TAG, "Tool '" + toolName + "' → risk=" + risk
                 + " snapshot=" + needsSnapshot + " approval=" + needsApproval);
 
         return ToolValidationResult.ok(risk, needsApproval, needsSnapshot);

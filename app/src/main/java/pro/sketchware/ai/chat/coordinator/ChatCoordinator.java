@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
@@ -279,7 +280,7 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
         // 2. Stage 2: Check offline handler FIRST
         if (offlineMessageHandler != null
                 && offlineMessageHandler.handleOfflineMessage(userMessage)) {
-            Log.d(TAG, "Message handled offline — skipping AI.");
+            AiLog.d(TAG, "Message handled offline — skipping AI.");
             return;
         }
 
@@ -429,7 +430,7 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
 
     @Override
     public void onToggleExpand(@NonNull ChatMessage message, boolean isExpanded) {
-        Log.d(TAG, "Message expanded=" + isExpanded + " id=" + message.getId());
+        AiLog.d(TAG, "Message expanded=" + isExpanded + " id=" + message.getId());
     }
 
     // ─── Internal helpers ─────────────────────────────────────────────────────

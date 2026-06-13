@@ -5,6 +5,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -197,14 +198,14 @@ public final class ModelManager {
             if (provider == null) { Log.w(TAG, "Skipping unknown provider: " + am.provider); continue; }
 
             String apiKey = prefs.getApiKey(provider);
-            if ((apiKey == null || apiKey.isEmpty()) && !isNoKeyProvider(provider)) { Log.d(TAG, "Skipping " + provider + " — no API key"); continue; }
-            if (!prefs.isProviderEnabled(provider)) { Log.d(TAG, "Skipping " + provider + " — disabled"); continue; }
+            if ((apiKey == null || apiKey.isEmpty()) && !isNoKeyProvider(provider)) { AiLog.d(TAG, "Skipping " + provider + " — no API key"); continue; }
+            if (!prefs.isProviderEnabled(provider)) { AiLog.d(TAG, "Skipping " + provider + " — disabled"); continue; }
             if (apiKey == null) apiKey = "";
 
             // Circuit breaker: skip providers that are in cooldown after repeated failures
             CircuitBreaker cb = CircuitBreaker.getInstance();
             if (!cb.isAllowed(provider.name())) {
-                Log.d(TAG, "Skipping " + provider + " — circuit open");
+                AiLog.d(TAG, "Skipping " + provider + " — circuit open");
                 continue;
             }
 
@@ -221,7 +222,7 @@ public final class ModelManager {
             }
 
             if (pro.sketchware.BuildConfig.DEBUG && i > 0) {
-                Log.d("PulseEngine", "[Pulse] Switching → " + provider.getDisplayName()
+                AiLog.d("PulseEngine", "[Pulse] Switching → " + provider.getDisplayName()
                         + "/" + am.modelId + " (attempt " + attemptCount + ")");
             }
 
@@ -238,7 +239,7 @@ public final class ModelManager {
                 if (retry > 0) {
                     // Exponential backoff: 2s, 4s
                     long backoffMs = 2000L << (retry - 1);
-                    Log.d(TAG, "Retry " + retry + " for " + provider + "/" + am.modelId + " after " + backoffMs + "ms");
+                    AiLog.d(TAG, "Retry " + retry + " for " + provider + "/" + am.modelId + " after " + backoffMs + "ms");
                     try { Thread.sleep(backoffMs); } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         if (!alreadyResolved[0]) { alreadyResolved[0] = true; callback.onAllFailed("Interrupted"); }
@@ -260,7 +261,7 @@ public final class ModelManager {
                     @Override public void onError(String error)            { errorHolder[0] = error; synchronized (activeLock) { activeLock.notifyAll(); } }
                 };
 
-                Log.d(TAG, "Trying " + provider + " / " + am.modelId + (retry > 0 ? " (retry " + retry + ")" : ""));
+                AiLog.d(TAG, "Trying " + provider + " / " + am.modelId + (retry > 0 ? " (retry " + retry + ")" : ""));
                 if (tools != null && !tools.isEmpty()) {
                     client.sendChatRequest(messages, am.modelId, systemPrompt, tools, handler);
                 } else {
@@ -310,7 +311,7 @@ public final class ModelManager {
                 if (!alreadyResolved[0]) {
                     alreadyResolved[0] = true;
                     if (pro.sketchware.BuildConfig.DEBUG) {
-                        Log.d("PulseEngine", "[Pulse] Success: " + provider.getDisplayName()
+                        AiLog.d("PulseEngine", "[Pulse] Success: " + provider.getDisplayName()
                                 + " after " + attemptCount + " attempt(s) ("
                                 + (System.currentTimeMillis() - startMs) + "ms)");
                     }
@@ -323,7 +324,7 @@ public final class ModelManager {
                     AiError.fromRawError(lastError, provider.getDisplayName()));
             CircuitBreaker.getInstance().recordFailure(provider.name());
             if (pro.sketchware.BuildConfig.DEBUG) {
-                Log.d("PulseEngine", "[Pulse] " + provider.getDisplayName() + "/" + am.modelId
+                AiLog.d("PulseEngine", "[Pulse] " + provider.getDisplayName() + "/" + am.modelId
                         + " failed: " + lastError + " → switching");
             }
             Log.w(TAG, provider + "/" + am.modelId + " failed: " + lastError);

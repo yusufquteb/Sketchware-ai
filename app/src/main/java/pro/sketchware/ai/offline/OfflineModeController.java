@@ -3,6 +3,7 @@ package pro.sketchware.ai.offline;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -86,7 +87,7 @@ public class OfflineModeController {
     public void activateOfflineMode() {
         if (isOfflineModeActive) return;
         isOfflineModeActive = true;
-        Log.d(TAG, "Offline mode ACTIVATED.");
+        AiLog.d(TAG, "Offline mode ACTIVATED.");
 
         // Post a system message to notify the user
         mainHandler.post(() ->
@@ -104,7 +105,7 @@ public class OfflineModeController {
     public void deactivateOfflineMode() {
         if (!isOfflineModeActive) return;
         isOfflineModeActive = false;
-        Log.d(TAG, "Offline mode DEACTIVATED.");
+        AiLog.d(TAG, "Offline mode DEACTIVATED.");
 
         mainHandler.post(() ->
             coordinator.addSystemMessage("✅ **Online Mode Restored** — AI is now available.")
@@ -133,7 +134,7 @@ public class OfflineModeController {
             @NonNull String toolName,
             @Nullable String jsonInput
     ) {
-        Log.d(TAG, "executeToolDirectly: " + toolName);
+        AiLog.d(TAG, "executeToolDirectly: " + toolName);
 
         // Show "executing" status in chat
         mainHandler.post(() ->
@@ -144,7 +145,7 @@ public class OfflineModeController {
 
         // Execute on ToolManager's background thread pool
         toolManager.executeTool(toolName, jsonInput, (name, result) -> {
-            Log.d(TAG, "Tool '" + name + "' completed: success=" + result.success);
+            AiLog.d(TAG, "Tool '" + name + "' completed: success=" + result.success);
 
             // Route result back to UI via ChatCoordinator on main thread
             mainHandler.post(() -> {
@@ -172,7 +173,7 @@ public class OfflineModeController {
             @Nullable String jsonInput,
             @NonNull ToolManager.ToolExecutionCallback callback
     ) {
-        Log.d(TAG, "executeToolWithCallback: " + toolName);
+        AiLog.d(TAG, "executeToolWithCallback: " + toolName);
         toolManager.executeTool(toolName, jsonInput, callback);
     }
 

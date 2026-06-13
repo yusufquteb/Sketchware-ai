@@ -1,6 +1,7 @@
 package pro.sketchware.ai.core;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 
@@ -69,10 +70,10 @@ public final class CircuitBreaker {
         long elapsed = System.currentTimeMillis() - openedAt;
         if (elapsed >= COOLDOWN_MS) {
             // Half-open: allow one probe through to check if provider recovered
-            Log.d(TAG, "[" + providerKey + "] Circuit half-open after " + (elapsed / 1000) + "s cooldown");
+            AiLog.d(TAG, "[" + providerKey + "] Circuit half-open after " + (elapsed / 1000) + "s cooldown");
             return true;
         }
-        Log.d(TAG, "[" + providerKey + "] Circuit OPEN — skipping (cooldown "
+        AiLog.d(TAG, "[" + providerKey + "] Circuit OPEN — skipping (cooldown "
                 + ((COOLDOWN_MS - elapsed) / 1000) + "s remaining)");
         return false;
     }
@@ -86,7 +87,7 @@ public final class CircuitBreaker {
         int prev = state.consecutiveFailures.getAndSet(0);
         state.openedAt.set(0L);
         if (prev > 0) {
-            Log.d(TAG, "[" + providerKey + "] Circuit closed after recovery (was " + prev + " failures)");
+            AiLog.d(TAG, "[" + providerKey + "] Circuit closed after recovery (was " + prev + " failures)");
         }
     }
 
@@ -128,13 +129,13 @@ public final class CircuitBreaker {
         ProviderState state = getOrCreate(providerKey);
         state.consecutiveFailures.set(0);
         state.openedAt.set(0L);
-        Log.d(TAG, "[" + providerKey + "] Circuit manually reset");
+        AiLog.d(TAG, "[" + providerKey + "] Circuit manually reset");
     }
 
     /** Resets all circuits (e.g. on app startup). */
     public void resetAll() {
         states.clear();
-        Log.d(TAG, "All circuits reset");
+        AiLog.d(TAG, "All circuits reset");
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

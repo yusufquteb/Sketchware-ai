@@ -1,6 +1,7 @@
 package pro.sketchware.ai.orchestrator;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -149,7 +150,7 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
             @NonNull ChatCoordinator.AiResponseCallback callback
     ) {
         cancelRequested = false;
-        Log.d(TAG, "onUserMessageReady: " + userMessage.getId());
+        AiLog.d(TAG, "onUserMessageReady: " + userMessage.getId());
 
         // Signal the UI that the AI is working
         callback.onStreamingStarted();
@@ -172,7 +173,7 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
         }
 
         if (cancelRequested) {
-            Log.d(TAG, "Request cancelled after AI response.");
+            AiLog.d(TAG, "Request cancelled after AI response.");
             return;
         }
 
@@ -189,7 +190,7 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
     public void onCancelRequested() {
         cancelRequested = true;
         modelProvider.cancel();
-        Log.d(TAG, "Cancel requested.");
+        AiLog.d(TAG, "Cancel requested.");
     }
 
     // ─── AI Response Processing ───────────────────────────────────────────────
@@ -208,7 +209,7 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
             @NonNull ChatCoordinator.AiResponseCallback callback,
             @Nullable String originalUserText
     ) {
-        Log.d(TAG, "Processing AI response: " + summarize(rawResponse));
+        AiLog.d(TAG, "Processing AI response: " + summarize(rawResponse));
 
         // ── 1. Parse AI JSON ───────────────────────────────────────────────
         OrchestratorResponse parsed = parseAiResponse(rawResponse);
@@ -275,7 +276,7 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
             return;
         }
 
-        Log.d(TAG, "Executing tool: " + toolName + " | input=" + summarize(toolInput));
+        AiLog.d(TAG, "Executing tool: " + toolName + " | input=" + summarize(toolInput));
 
         // ── Execute tool ───────────────────────────────────────────────────
         Tool.ToolResult toolResult = toolManager.executeToolSync(toolName, toolInput);

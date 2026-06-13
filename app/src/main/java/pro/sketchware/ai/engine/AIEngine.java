@@ -5,6 +5,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -160,8 +161,8 @@ public final class AIEngine {
                 String summary = result.changesApplied > 0
                         ? "RTL: " + result.changesApplied + " change(s) applied"
                         : "Layout is already RTL compatible";
-                Log.d(TAG, summary);
-                for (String entry : result.changeLog) Log.d(TAG, "  • " + entry);
+                AiLog.d(TAG, summary);
+                for (String entry : result.changeLog) AiLog.d(TAG, "  • " + entry);
 
                 mainHandler.post(() ->
                         callback.onSuccess(vr.xml, false, vr.wasAutoFixed));
@@ -183,7 +184,7 @@ public final class AIEngine {
             XMLValidator.ValidationResult quick =
                     XMLValidator.validate(brokenXml, true /* autoFix */);
             if (quick.valid) {
-                Log.d(TAG, "Auto-fix resolved all issues without AI");
+                AiLog.d(TAG, "Auto-fix resolved all issues without AI");
                 mainHandler.post(() -> callback.onSuccess(quick.xml, false, true));
                 return;
             }
@@ -219,7 +220,7 @@ public final class AIEngine {
     /** Cancels any in-flight AI request. */
     public void cancel() {
         cancelled.set(true);
-        Log.d(TAG, "AIEngine cancelled");
+        AiLog.d(TAG, "AIEngine cancelled");
     }
 
     /** Resets cancelled state. Must be called before starting a new request. */
@@ -257,7 +258,7 @@ public final class AIEngine {
         String cached = cache.get(tool, prompt, firstModelId);
         if (cached != null) {
             notifyProgress(callback, "Loaded from cache…");
-            Log.d(TAG, "[" + tool + "] Cache hit");
+            AiLog.d(TAG, "[" + tool + "] Cache hit");
             XMLValidator.ValidationResult vr = XMLValidator.validate(cached, true);
             mainHandler.post(() -> callback.onSuccess(vr.xml, true, vr.wasAutoFixed));
             return;
@@ -299,7 +300,7 @@ public final class AIEngine {
             @Override
             public void onSuccess(String modelId, AiProvider provider) {
                 succeeded[0] = true;
-                Log.d(TAG, "[" + tool + "] Success via " + provider + "/" + modelId);
+                AiLog.d(TAG, "[" + tool + "] Success via " + provider + "/" + modelId);
             }
             @Override
             public void onAllFailed(String lastError) {
@@ -339,7 +340,7 @@ public final class AIEngine {
 
         // ── Step 7: Cache + deliver ───────────────────────────────────────────
         cache.put(tool, prompt, firstModelId, vr.xml);
-        Log.d(TAG, "[" + tool + "] Done — issues=" + vr.issues.size()
+        AiLog.d(TAG, "[" + tool + "] Done — issues=" + vr.issues.size()
                 + " autoFixed=" + vr.wasAutoFixed + " size=" + vr.xml.length());
         mainHandler.post(() -> callback.onSuccess(vr.xml, false, vr.wasAutoFixed));
     }

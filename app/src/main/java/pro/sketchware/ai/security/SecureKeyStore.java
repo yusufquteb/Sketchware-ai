@@ -7,6 +7,7 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -183,7 +184,7 @@ public final class SecureKeyStore {
                         .build();
                 keyGen.init(spec);
                 keyGen.generateKey();
-                Log.d(TAG, "AES-256-GCM key generated in Android Keystore");
+                AiLog.d(TAG, "AES-256-GCM key generated in Android Keystore");
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize Keystore key", e);

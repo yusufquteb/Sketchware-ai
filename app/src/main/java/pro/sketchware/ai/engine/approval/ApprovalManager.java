@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine.approval;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import com.google.gson.JsonObject;
 
@@ -72,7 +73,7 @@ public final class ApprovalManager {
         if (approvalMode == ApprovalMode.AUTONOMOUS
                 && validation.riskLevel == RiskLevel.MEDIUM
                 && isTrustedSession()) {
-            Log.d(TAG, "Auto-approved (autonomous trusted session): " + tool.getName());
+            AiLog.d(TAG, "Auto-approved (autonomous trusted session): " + tool.getName());
             return Decision.APPROVED;
         }
 

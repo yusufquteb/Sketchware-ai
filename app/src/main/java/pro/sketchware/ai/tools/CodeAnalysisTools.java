@@ -146,7 +146,7 @@ public final class CodeAnalysisTools {
                 if (t.contains("AsyncTask"))
                     suggestions.add("L" + lineNum + ": AsyncTask is deprecated. Use ExecutorService + Handler.");
                 if (t.contains("System.out.println"))
-                    suggestions.add("L" + lineNum + ": Replace System.out.println with Log.d(TAG, ...).");
+                    suggestions.add("L" + lineNum + ": Replace System.out.println with AiLog.d(TAG, ...).");
             }
 
             if (issues.isEmpty() && suggestions.isEmpty()) {
@@ -212,7 +212,7 @@ public final class CodeAnalysisTools {
             if (code.contains("e.printStackTrace()"))
                 findings.add("BAD PRACTICE: Replace e.printStackTrace() with Log.e(TAG, message, e).");
             if (code.contains("System.out.println"))
-                findings.add("BAD PRACTICE: Replace System.out.println with Log.d(TAG, ...).");
+                findings.add("BAD PRACTICE: Replace System.out.println with AiLog.d(TAG, ...).");
             if (code.contains("getApplicationContext()") && code.contains("AlertDialog"))
                 findings.add("CRASH RISK: Do not use getApplicationContext() for dialogs. Use Activity context.");
             if (!code.contains("TAG") && code.contains("Log."))

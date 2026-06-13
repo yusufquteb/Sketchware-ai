@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -282,7 +283,7 @@ public final class XMLValidator {
             }
         } catch (Exception e) {
             issues.add("XML parse error: " + e.getMessage());
-            Log.d(TAG, "Parse error", e);
+            AiLog.d(TAG, "Parse error", e);
         }
         return issues;
     }

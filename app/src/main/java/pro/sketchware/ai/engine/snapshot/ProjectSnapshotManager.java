@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine.snapshot;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -147,7 +148,7 @@ public final class ProjectSnapshotManager {
         // Delete oldest entries beyond the limit
         for (int i = 0; i < sorted.size() - MAX_SNAPSHOTS; i++) {
             deleteDirectory(sorted.get(i));
-            Log.d(TAG, "Pruned old snapshot: " + sorted.get(i).getName());
+            AiLog.d(TAG, "Pruned old snapshot: " + sorted.get(i).getName());
         }
     }
 

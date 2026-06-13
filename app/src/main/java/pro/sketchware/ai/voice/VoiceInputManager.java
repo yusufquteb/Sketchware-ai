@@ -11,6 +11,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.core.content.ContextCompat;
 
@@ -195,7 +196,7 @@ public final class VoiceInputManager {
             @Override
             public void onReadyForSpeech(Bundle params) {
                 listening = true;
-                Log.d(TAG, "Listening [" + language.getBcp47() + "]…");
+                AiLog.d(TAG, "Listening [" + language.getBcp47() + "]…");
                 if (callback != null) callback.onListening();
             }
 
@@ -215,7 +216,7 @@ public final class VoiceInputManager {
                 ArrayList<String> matches = results.getStringArrayList(
                         SpeechRecognizer.RESULTS_RECOGNITION);
                 String text = (matches != null && !matches.isEmpty()) ? matches.get(0) : "";
-                Log.d(TAG, "Final: " + text);
+                AiLog.d(TAG, "Final: " + text);
                 if (callback != null) {
                     if (!text.isEmpty()) callback.onFinalResult(text);
                     callback.onStopped();

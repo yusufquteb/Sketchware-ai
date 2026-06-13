@@ -2,6 +2,7 @@ package pro.sketchware.ai.engine.pipeline;
 
 import android.content.Context;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import java.util.List;
 import java.util.UUID;
@@ -69,7 +70,7 @@ public final class PipelineStateManager {
         db.updateStep(step);
         db.updatePipelineStatus(pipeline.pipelineId, PipelineStatus.RUNNING,
                 step.stepIndex, null);
-        Log.d(TAG, "Step " + step.stepIndex + " [" + step.toolName + "] started");
+        AiLog.d(TAG, "Step " + step.stepIndex + " [" + step.toolName + "] started");
     }
 
     public void stepSucceeded(Pipeline pipeline, PipelineStep step, String output) {
@@ -77,7 +78,7 @@ public final class PipelineStateManager {
         step.output     = output;
         step.finishedAt = System.currentTimeMillis();
         db.updateStep(step);
-        Log.d(TAG, "Step " + step.stepIndex + " succeeded in " + step.getDurationMs() + "ms");
+        AiLog.d(TAG, "Step " + step.stepIndex + " succeeded in " + step.getDurationMs() + "ms");
     }
 
     public void stepFailed(Pipeline pipeline, PipelineStep step, String error) {
@@ -93,7 +94,7 @@ public final class PipelineStateManager {
         step.output     = reason;
         step.finishedAt = System.currentTimeMillis();
         db.updateStep(step);
-        Log.d(TAG, "Step " + step.stepIndex + " skipped: " + reason);
+        AiLog.d(TAG, "Step " + step.stepIndex + " skipped: " + reason);
     }
 
     public void recordSnapshot(PipelineStep step, String snapshotId) {

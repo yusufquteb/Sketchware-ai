@@ -2,6 +2,7 @@ package pro.sketchware.ai;
 
 import android.content.Context;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -102,13 +103,13 @@ public final class AiPlatformInitializer {
             @NonNull ChatCoordinator coordinator,
             @Nullable AIOrchestrator.AiModelProvider modelProvider
     ) {
-        Log.d(TAG, "Initializing AI Platform Stage 2…");
+        AiLog.d(TAG, "Initializing AI Platform Stage 2…");
 
         // ── 1. Get/configure ToolManager ───────────────────────────────────
         ToolManager toolManager = ToolManager.getInstance();
         registerStandardTools(context, toolManager);
 
-        Log.d(TAG, "Tools registered: " + toolManager.getToolCount());
+        AiLog.d(TAG, "Tools registered: " + toolManager.getToolCount());
 
         // ── 2. Create AIOrchestrator ───────────────────────────────────────
         // If no model provider is given, use a no-op provider that triggers offline mode
@@ -119,7 +120,7 @@ public final class AiPlatformInitializer {
 
         // ── 3. Wire orchestrator to coordinator ────────────────────────────
         coordinator.setAiDelegate(orchestrator);
-        Log.d(TAG, "AIOrchestrator wired to ChatCoordinator.");
+        AiLog.d(TAG, "AIOrchestrator wired to ChatCoordinator.");
 
         // ── 4. Create OfflineModeController ────────────────────────────────
         OfflineModeController offlineController =
@@ -127,15 +128,15 @@ public final class AiPlatformInitializer {
 
         // Wire offline handler to coordinator
         coordinator.setOfflineMessageHandler(offlineController::handleOfflineMessage);
-        Log.d(TAG, "OfflineModeController wired to ChatCoordinator.");
+        AiLog.d(TAG, "OfflineModeController wired to ChatCoordinator.");
 
         // ── 5. If no model provider, auto-activate offline mode ────────────
         if (modelProvider == null) {
-            Log.d(TAG, "No AI model provider — activating offline mode.");
+            AiLog.d(TAG, "No AI model provider — activating offline mode.");
             offlineController.activateOfflineMode();
         }
 
-        Log.d(TAG, "Stage 2 initialization complete.");
+        AiLog.d(TAG, "Stage 2 initialization complete.");
         return new Result(toolManager, orchestrator, offlineController);
     }
 

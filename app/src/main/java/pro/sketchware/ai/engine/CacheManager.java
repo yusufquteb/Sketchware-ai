@@ -1,6 +1,7 @@
 package pro.sketchware.ai.engine;
 
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 import android.util.LruCache;
 
 import java.security.MessageDigest;
@@ -86,11 +87,11 @@ public final class CacheManager {
         if (entry.isExpired()) {
             cache.remove(key);
             misses++;
-            Log.d(TAG, "Cache expired for key " + key.substring(0, 8) + "…");
+            AiLog.d(TAG, "Cache expired for key " + key.substring(0, 8) + "…");
             return null;
         }
         hits++;
-        Log.d(TAG, "Cache HIT [" + hits + "/" + (hits + misses) + "]: " + tool);
+        AiLog.d(TAG, "Cache HIT [" + hits + "/" + (hits + misses) + "]: " + tool);
         return entry.xml;
     }
 
@@ -105,12 +106,12 @@ public final class CacheManager {
     public void put(String tool, String prompt, String modelId, String xml) {
         if (xml == null || xml.isEmpty()) return;
         if (xml.length() > MAX_SIZE_BYTES) {
-            Log.d(TAG, "Skipping cache for large response (" + xml.length() + " bytes)");
+            AiLog.d(TAG, "Skipping cache for large response (" + xml.length() + " bytes)");
             return;
         }
         String key = makeKey(tool, prompt, modelId);
         cache.put(key, new Entry(xml));
-        Log.d(TAG, "Cached " + tool + " response (" + xml.length() + " bytes)");
+        AiLog.d(TAG, "Cached " + tool + " response (" + xml.length() + " bytes)");
     }
 
     /**
@@ -127,7 +128,7 @@ public final class CacheManager {
         cache.evictAll();
         hits   = 0;
         misses = 0;
-        Log.d(TAG, "Cache cleared");
+        AiLog.d(TAG, "Cache cleared");
     }
 
     /**

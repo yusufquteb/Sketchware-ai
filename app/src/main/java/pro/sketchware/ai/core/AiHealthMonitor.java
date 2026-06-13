@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import pro.sketchware.ai.utils.AiLog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -105,7 +106,7 @@ public final class AiHealthMonitor {
         m.successRequests.incrementAndGet();
         m.totalLatencyMs.addAndGet(latency);
         m.lastSuccessMs.set(System.currentTimeMillis());
-        Log.d(TAG, "[" + provider.name() + "] success latency=" + latency + "ms"
+        AiLog.d(TAG, "[" + provider.name() + "] success latency=" + latency + "ms"
                 + " rate=" + m.successRatePercent() + "%");
         notifyListener();
     }
@@ -115,7 +116,7 @@ public final class AiHealthMonitor {
         ProviderMetrics m = metricsFor(provider);
         m.failedRequests.incrementAndGet();
         m.lastFailureMs.set(System.currentTimeMillis());
-        Log.d(TAG, "[" + provider.name() + "] failure"
+        AiLog.d(TAG, "[" + provider.name() + "] failure"
                 + (error != null ? " category=" + error.category : "")
                 + " rate=" + m.successRatePercent() + "%");
         notifyListener();
@@ -172,7 +173,7 @@ public final class AiHealthMonitor {
     public void reset() {
         metrics.clear();
         CircuitBreaker.getInstance().resetAll();
-        Log.d(TAG, "All health metrics reset");
+        AiLog.d(TAG, "All health metrics reset");
     }
 
     // ── Listener ──────────────────────────────────────────────────────────────
