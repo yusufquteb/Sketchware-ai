@@ -82,9 +82,7 @@ public final class SecureKeyStore {
         try {
             SecretKey secretKey = getSecretKey();
             if (secretKey == null) {
-                // Keystore unavailable — store plaintext as fallback with warning
-                Log.w(TAG, "Keystore unavailable — storing key without encryption");
-                prefs.edit().putString(PREF_PREFIX + key, "plain:" + value).apply();
+                Log.e(TAG, "Keystore unavailable — key not stored");
                 return;
             }
 
@@ -103,8 +101,6 @@ public final class SecureKeyStore {
             prefs.edit().putString(PREF_PREFIX + key, encoded).apply();
         } catch (Exception e) {
             Log.e(TAG, "Encrypt error for key=" + key, e);
-            // Fallback: store plaintext to avoid data loss
-            prefs.edit().putString(PREF_PREFIX + key, "plain:" + value).apply();
         }
     }
 
@@ -115,11 +111,7 @@ public final class SecureKeyStore {
     public String get(@NonNull String key) {
         String stored = prefs.getString(PREF_PREFIX + key, null);
         if (stored == null) return null;
-
-        // Plain fallback (Keystore unavailable)
-        if (stored.startsWith("plain:")) {
-            return stored.substring(6);
-        }
+        if (stored.startsWith("plain:")) return null; // plaintext storage no longer supported
 
         try {
             SecretKey secretKey = getSecretKey();

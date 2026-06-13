@@ -128,8 +128,8 @@ public class Fw extends qA {
     }
 
     public void d() {
-        sc_id = getActivity().getIntent().getStringExtra("sc_id");
-        isAppCompatUsed = getActivity().getIntent().getStringExtra("compatUseYn");
+        sc_id = requireActivity().getIntent().getStringExtra("sc_id");
+        isAppCompatUsed = requireActivity().getIntent().getStringExtra("compatUseYn");
         ArrayList<ProjectFileBean> projectFiles = jC.b(sc_id).b();
         if (projectFiles != null) {
             boolean isMainActivityFile = false;

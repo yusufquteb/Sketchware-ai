@@ -301,8 +301,10 @@ public class SrcCodeEditor extends BaseAppCompatActivity {
             }
         }
 
-        if (!fromAndroidManifest)
-            beforeContent = FileUtil.readFile(getIntent().getStringExtra("content"));
+        if (!fromAndroidManifest) {
+            String contentPath = getIntent().getStringExtra("content");
+            if (contentPath != null) beforeContent = FileUtil.readFile(contentPath);
+        }
         binding.editor.setText(beforeContent);
 
         if (title.endsWith(".java")) {
@@ -358,7 +360,10 @@ public class SrcCodeEditor extends BaseAppCompatActivity {
                 arrayList.add(map);
                 FileUtil.writeFile(filePath, getGson().toJson(arrayList));
             }
-        } else FileUtil.writeFile(getIntent().getStringExtra("content"), beforeContent);
+        } else {
+            String contentPath = getIntent().getStringExtra("content");
+            if (contentPath != null) FileUtil.writeFile(contentPath, beforeContent);
+        }
 
         SketchwareUtil.toast("Saved");
     }

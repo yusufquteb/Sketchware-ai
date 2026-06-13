@@ -2,8 +2,11 @@
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="." />
+        <!-- Keystore-encrypted API keys: hardware-bound, useless on another device -->
+        <exclude domain="sharedpref" path="ai_secure_store.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="ai_secure_store.xml" />
     </device-transfer>
 </data-extraction-rules>
