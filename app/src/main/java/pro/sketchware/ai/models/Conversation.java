@@ -131,7 +131,7 @@ public class Conversation {
             return null;
         }
         try {
-            return fromJsonObject(new JsonParser().parse(json).getAsJsonObject());
+            return fromJsonObject(JsonParser.parseString(json).getAsJsonObject());
         } catch (Exception ignored) {
             return null;
         }

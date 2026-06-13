@@ -46,6 +46,12 @@ public class ConversationManager {
         return messageLocks.computeIfAbsent(conversationId, k -> new Object());
     }
 
+    private static void validateId(@NonNull String id) {
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) {
+            throw new IllegalArgumentException("Invalid ID contains path separators: " + id);
+        }
+    }
+
     public void saveConversation(@NonNull Conversation conversation) {
         File workspaceDir = new File(conversationsBaseDir, conversation.getWorkspaceId());
         if (!workspaceDir.exists()) {
@@ -57,6 +63,8 @@ public class ConversationManager {
 
     @Nullable
     public Conversation getConversation(@NonNull String id, @NonNull String workspaceId) {
+        validateId(id);
+        validateId(workspaceId);
         File file = new File(conversationsBaseDir, workspaceId + "/" + id + ".json");
         if (!file.exists()) {
             return null;
@@ -66,6 +74,7 @@ public class ConversationManager {
 
     @NonNull
     public List<Conversation> getConversationsForWorkspace(@NonNull String workspaceId) {
+        validateId(workspaceId);
         List<Conversation> conversations = new ArrayList<>();
         File workspaceDir = new File(conversationsBaseDir, workspaceId);
         if (!workspaceDir.exists() || !workspaceDir.isDirectory()) {
@@ -86,6 +95,8 @@ public class ConversationManager {
     }
 
     public void deleteConversation(@NonNull String id, @NonNull String workspaceId) {
+        validateId(id);
+        validateId(workspaceId);
         File file = new File(conversationsBaseDir, workspaceId + "/" + id + ".json");
         if (file.exists()) {
             file.delete();
@@ -94,6 +105,7 @@ public class ConversationManager {
     }
 
     public void deleteAllConversationsForWorkspace(@NonNull String workspaceId) {
+        validateId(workspaceId);
         File workspaceDir = new File(conversationsBaseDir, workspaceId);
         if (workspaceDir.exists() && workspaceDir.isDirectory()) {
             File[] files = workspaceDir.listFiles();
@@ -112,6 +124,7 @@ public class ConversationManager {
     }
 
     public void saveMessage(@NonNull String conversationId, @NonNull ChatMessage message) {
+        validateId(conversationId);
         synchronized (lockFor(conversationId)) {
             List<ChatMessage> messages = getMessages(conversationId);
             messages.add(message);
@@ -121,6 +134,7 @@ public class ConversationManager {
 
     @NonNull
     public List<ChatMessage> getMessages(@NonNull String conversationId) {
+        validateId(conversationId);
         File messagesDir = new File(messagesBaseDir, conversationId);
         File file = new File(messagesDir, "messages.json");
         if (!file.exists()) {
@@ -132,7 +146,7 @@ public class ConversationManager {
         }
         ArrayList<ChatMessage> messages = new ArrayList<>();
         try {
-            JsonArray array = new JsonParser().parse(content).getAsJsonArray();
+            JsonArray array = JsonParser.parseString(content).getAsJsonArray();
             for (JsonElement element : array) {
                 if (element.isJsonObject()) {
                     ChatMessage message = ChatMessage.fromJson(element.getAsJsonObject());
@@ -178,6 +192,7 @@ public class ConversationManager {
     }
 
     public void deleteMessages(@NonNull String conversationId) {
+        validateId(conversationId);
         File messagesDir = new File(messagesBaseDir, conversationId);
         if (messagesDir.exists() && messagesDir.isDirectory()) {
             File[] files = messagesDir.listFiles();

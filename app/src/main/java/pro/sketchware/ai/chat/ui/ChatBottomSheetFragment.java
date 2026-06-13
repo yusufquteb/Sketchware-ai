@@ -1,6 +1,10 @@
 package pro.sketchware.ai.chat.ui;
 
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -8,10 +12,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.List;
+import java.util.Locale;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -68,6 +78,8 @@ public class ChatBottomSheetFragment extends BottomSheetDialogFragment
     @Nullable private ChatMessageAdapter adapter;
     @Nullable private FileAttachManager fileAttachManager;
 
+    @Nullable private ActivityResultLauncher<Intent> speechLauncher;
+
     // ─── Views ────────────────────────────────────────────────────────────────
 
     @Nullable private RecyclerView recyclerView;
@@ -80,6 +92,14 @@ public class ChatBottomSheetFragment extends BottomSheetDialogFragment
     @Nullable private View btnAttach;
 
     // ─── BottomSheetDialogFragment ────────────────────────────────────────────
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        speechLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                this::onSpeechResult);
+    }
 
     @NonNull
     @Override
@@ -182,11 +202,7 @@ public class ChatBottomSheetFragment extends BottomSheetDialogFragment
         }
 
         if (btnMic != null) {
-            btnMic.setOnClickListener(v -> {
-                if (coordinator != null) {
-                    coordinator.addSystemMessage("🎙️ Voice input coming soon.");
-                }
-            });
+            btnMic.setOnClickListener(v -> startSpeechInput());
         }
 
         if (btnAttach != null) {
@@ -225,6 +241,31 @@ public class ChatBottomSheetFragment extends BottomSheetDialogFragment
         if (text.isEmpty()) return;
         inputEditText.setText("");
         coordinator.sendUserMessage(text);
+    }
+
+    private void startSpeechInput() {
+        if (speechLauncher == null) return;
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your message…");
+        try {
+            speechLauncher.launch(intent);
+        } catch (ActivityNotFoundException ignored) {}
+    }
+
+    private void onSpeechResult(@NonNull ActivityResult result) {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) return;
+        List<String> results =
+                result.getData().getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+        if (results == null || results.isEmpty() || inputEditText == null) return;
+        String spoken  = results.get(0);
+        String current = inputEditText.getText() != null
+                ? inputEditText.getText().toString() : "";
+        inputEditText.setText(current.isEmpty() ? spoken : current + " " + spoken);
+        inputEditText.setSelection(inputEditText.getText() != null
+                ? inputEditText.getText().length() : 0);
     }
 
     private void expandBottomSheet() {

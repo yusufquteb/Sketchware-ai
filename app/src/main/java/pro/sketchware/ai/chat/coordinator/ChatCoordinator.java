@@ -11,7 +11,6 @@ import android.util.Log;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.WorkerThread;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -303,7 +302,8 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
                 aiDelegate.onUserMessageReady(userMessage, historyCopy,
                         buildAiResponseCallback());
             } else {
-                runStage1EchoResponse(trimmed);
+                buildAiResponseCallback().onError(
+                        "AI is not configured. Please add an API key in AI Settings.");
             }
         });
     }
@@ -579,38 +579,6 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
             mainHandler.removeCallbacks(pendingBatchUpdate);
             pendingBatchUpdate = null;
         }
-    }
-
-    // ─── Stage 1 echo placeholder ─────────────────────────────────────────────
-
-    @WorkerThread
-    private void runStage1EchoResponse(@NonNull String userText) {
-        AiResponseCallback callback = buildAiResponseCallback();
-        callback.onStreamingStarted();
-
-        try { Thread.sleep(600); } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); return;
-        }
-
-        String response =
-                "**[Stage 2 Foundation — AIOrchestrator not yet connected]**\n\n"
-                + "ChatCoordinator received:\n> " + userText + "\n\n"
-                + "Connect `AIOrchestrator` via `setAiDelegate()` to enable real AI responses.\n\n"
-                + "✅ Stage 2 architecture ready:\n"
-                + "- AIOrchestrator ← ToolManager ← Tool implementations\n"
-                + "- OfflineModeController functional\n"
-                + "- addToolResultMessage() / addSystemMessage() available\n"
-                + "- DiffUtil adapter running";
-
-        for (int i = 0; i < response.length(); i++) {
-            if (Thread.currentThread().isInterrupted()) return;
-            callback.onTokenReceived(String.valueOf(response.charAt(i)));
-            try { Thread.sleep(6); } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); return;
-            }
-        }
-
-        callback.onStreamingComplete(response);
     }
 
     // ─── Getters ──────────────────────────────────────────────────────────────
