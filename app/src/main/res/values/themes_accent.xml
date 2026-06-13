@@ -2,178 +2,256 @@
 <!--
     res/values/themes_accent.xml  ──  LIGHT variants
     ══════════════════════════════════════════════════════════════════
-    4 Material 3 ThemeOverlay styles — light mode.
+    6 Material 3 ThemeOverlay styles — light mode.
     Android picks this file automatically in day / light mode.
-    Mirror names exist in res/values-night/themes_accent.xml (dark variants).
+    Mirror names exist in res/values-night/themes_accent.xml.
 
-    Pack 1: Modern Blue Light  / Deep Blue IDE Dark   (default)
-    Pack 2: Indigo Creator     / Indigo Night
-    Pack 3: Emerald Studio     / Emerald Matrix
-    Pack 4: Warm Orange        / Slate Professional
+    PRESET_DEFAULT (0) → no overlay — base app theme used as-is.
+
+    Seed → tonal palette per Material Theme Builder 2025 spec.
+    Backgrounds: #F8FAFC (near-white cool) or #FAFAFA (pure neutral).
     ══════════════════════════════════════════════════════════════════
 -->
 <resources>
 
     <!-- ════════════════════════════════════════════════════════
-         1.  Modern Blue  — professional, developer-focused
-             Seed: #2563EB — Sketchware Pro brand identity.
-             Default production theme for all new users.
+         1.  ModernBlue  — professional, deep-blue
+             Seed: #1565C0 (blue / HSL 216°)
          ════════════════════════════════════════════════════════ -->
     <style name="ThemeOverlay.Accent.ModernBlue" parent="">
         <!-- Primary -->
-        <item name="colorPrimary">#2563EB</item>
+        <item name="colorPrimary">#1B5E9E</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#DBEAFE</item>
-        <item name="colorOnPrimaryContainer">#1E3A8A</item>
-        <item name="colorPrimaryInverse">#93C5FD</item>
+        <item name="colorPrimaryContainer">#D3E4FF</item>
+        <item name="colorOnPrimaryContainer">#001B3E</item>
+        <item name="colorPrimaryInverse">#9EC8FF</item>
         <!-- Secondary -->
-        <item name="colorSecondary">#3B72D8</item>
+        <item name="colorSecondary">#525F70</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSecondaryContainer">#EFF6FF</item>
-        <item name="colorOnSecondaryContainer">#1E3A8A</item>
+        <item name="colorSecondaryContainer">#D6E3F7</item>
+        <item name="colorOnSecondaryContainer">#0F1D2A</item>
         <!-- Tertiary -->
-        <item name="colorTertiary">#6D28D9</item>
+        <item name="colorTertiary">#6B5778</item>
         <item name="colorOnTertiary">#FFFFFF</item>
-        <item name="colorTertiaryContainer">#EDE9FE</item>
-        <item name="colorOnTertiaryContainer">#2E1065</item>
+        <item name="colorTertiaryContainer">#F3DAFF</item>
+        <item name="colorOnTertiaryContainer">#261431</item>
         <!-- Background + Surface -->
         <item name="android:colorBackground">#F8FAFC</item>
-        <item name="colorOnBackground">#0F172A</item>
+        <item name="colorOnBackground">#191C1E</item>
         <item name="colorSurface">#F8FAFC</item>
-        <item name="colorSurfaceBright">#FFFFFF</item>
-        <item name="colorSurfaceDim">#D0DCEF</item>
-        <item name="colorSurfaceVariant">#E2E8F0</item>
-        <item name="colorOnSurfaceVariant">#475569</item>
-        <item name="colorSurfaceContainer">#EDF3FC</item>
-        <item name="colorSurfaceContainerLow">#F3F7FD</item>
-        <item name="colorSurfaceContainerHigh">#E6EEF9</item>
-        <item name="colorSurfaceContainerHighest">#DCE6F4</item>
+        <item name="colorSurfaceBright">#F8FAFC</item>
+        <item name="colorSurfaceDim">#D0D5DC</item>
+        <item name="colorSurfaceVariant">#DDE3EA</item>
+        <item name="colorOnSurfaceVariant">#41484D</item>
+        <item name="colorSurfaceContainer">#EEF0F6</item>
+        <item name="colorSurfaceContainerLow">#F2F4F8</item>
+        <item name="colorSurfaceContainerHigh">#E8EAEF</item>
+        <item name="colorSurfaceContainerHighest">#E2E5EA</item>
         <item name="colorSurfaceContainerLowest">#FFFFFF</item>
-        <item name="colorOnSurface">#0F172A</item>
+        <item name="colorOnSurface">#191C1E</item>
         <!-- Outline -->
-        <item name="colorOutline">#94A3B8</item>
-        <item name="colorOutlineVariant">#E2E8F0</item>
+        <item name="colorOutline">#72787E</item>
+        <item name="colorOutlineVariant">#C1C7CE</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════
-         2.  Indigo Creator  — creative and modern
-             Seed: #6366F1 (indigo) + #8B5CF6 (violet)
+         2.  AITeal  — AI / tech, cool cyan-teal
+             Seed: #00696A (teal / HSL 181°)
          ════════════════════════════════════════════════════════ -->
-    <style name="ThemeOverlay.Accent.IndigoCreator" parent="">
+    <style name="ThemeOverlay.Accent.AITeal" parent="">
         <!-- Primary -->
-        <item name="colorPrimary">#4F46E5</item>
+        <item name="colorPrimary">#006A60</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#E0E7FF</item>
-        <item name="colorOnPrimaryContainer">#1E1B4B</item>
-        <item name="colorPrimaryInverse">#A5B4FC</item>
+        <item name="colorPrimaryContainer">#9DF3E3</item>
+        <item name="colorOnPrimaryContainer">#00201C</item>
+        <item name="colorPrimaryInverse">#80D5CB</item>
         <!-- Secondary -->
-        <item name="colorSecondary">#7C3AED</item>
+        <item name="colorSecondary">#4A6362</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSecondaryContainer">#EDE9FE</item>
-        <item name="colorOnSecondaryContainer">#2E1065</item>
+        <item name="colorSecondaryContainer">#CCECEB</item>
+        <item name="colorOnSecondaryContainer">#051E1E</item>
         <!-- Tertiary -->
-        <item name="colorTertiary">#0D9488</item>
+        <item name="colorTertiary">#455E7A</item>
         <item name="colorOnTertiary">#FFFFFF</item>
-        <item name="colorTertiaryContainer">#CCFBF1</item>
-        <item name="colorOnTertiaryContainer">#042F2E</item>
+        <item name="colorTertiaryContainer">#CAE5FF</item>
+        <item name="colorOnTertiaryContainer">#001D30</item>
         <!-- Background + Surface -->
         <item name="android:colorBackground">#F8FAFC</item>
-        <item name="colorOnBackground">#111827</item>
+        <item name="colorOnBackground">#191C1B</item>
         <item name="colorSurface">#F8FAFC</item>
-        <item name="colorSurfaceBright">#FFFFFF</item>
-        <item name="colorSurfaceDim">#D3D0EE</item>
-        <item name="colorSurfaceVariant">#E5E7EB</item>
-        <item name="colorOnSurfaceVariant">#6B7280</item>
+        <item name="colorSurfaceBright">#F8FAFC</item>
+        <item name="colorSurfaceDim">#CDD7D6</item>
+        <item name="colorSurfaceVariant">#D8E5E4</item>
+        <item name="colorOnSurfaceVariant">#3E4948</item>
+        <item name="colorSurfaceContainer">#E9F2F1</item>
+        <item name="colorSurfaceContainerLow">#EFF6F5</item>
+        <item name="colorSurfaceContainerHigh">#E3EDEC</item>
+        <item name="colorSurfaceContainerHighest">#DCE8E7</item>
+        <item name="colorSurfaceContainerLowest">#FFFFFF</item>
+        <item name="colorOnSurface">#191C1B</item>
+        <!-- Outline -->
+        <item name="colorOutline">#6F7978</item>
+        <item name="colorOutlineVariant">#BCC8C8</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         3.  NeutralClean  — minimal, soft blue-gray
+             Seed: #546E7A (blue-gray / HSL 199°, low sat)
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.NeutralClean" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#4F5660</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#D2D9E4</item>
+        <item name="colorOnPrimaryContainer">#111820</item>
+        <item name="colorPrimaryInverse">#B5BCCA</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#575E6B</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#DBE2F0</item>
+        <item name="colorOnSecondaryContainer">#14192B</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#6B5C72</item>
+        <item name="colorOnTertiary">#FFFFFF</item>
+        <item name="colorTertiaryContainer">#F3E0FB</item>
+        <item name="colorOnTertiaryContainer">#25192D</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#FAFAFA</item>
+        <item name="colorOnBackground">#1A1C1E</item>
+        <item name="colorSurface">#FAFAFA</item>
+        <item name="colorSurfaceBright">#FAFAFA</item>
+        <item name="colorSurfaceDim">#D0D3DA</item>
+        <item name="colorSurfaceVariant">#E1E3E9</item>
+        <item name="colorOnSurfaceVariant">#44474E</item>
+        <item name="colorSurfaceContainer">#EDEEF4</item>
+        <item name="colorSurfaceContainerLow">#F3F4F9</item>
+        <item name="colorSurfaceContainerHigh">#E7E9EE</item>
+        <item name="colorSurfaceContainerHighest">#E1E3EA</item>
+        <item name="colorSurfaceContainerLowest">#FFFFFF</item>
+        <item name="colorOnSurface">#1A1C1E</item>
+        <!-- Outline -->
+        <item name="colorOutline">#74777F</item>
+        <item name="colorOutlineVariant">#C4C6CD</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         4.  IndigoSoft  — calm, premium indigo  (DEFAULT)
+             Seed: #3F51B5 (indigo / HSL 231°)
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.IndigoSoft" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#3F48B0</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#DEE0FF</item>
+        <item name="colorOnPrimaryContainer">#000C65</item>
+        <item name="colorPrimaryInverse">#BEC2FF</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#5A5C72</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSecondaryContainer">#DFE0FA</item>
+        <item name="colorOnSecondaryContainer">#17182C</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#76536D</item>
+        <item name="colorOnTertiary">#FFFFFF</item>
+        <item name="colorTertiaryContainer">#FFD8F3</item>
+        <item name="colorOnTertiaryContainer">#2D1127</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#F8FAFC</item>
+        <item name="colorOnBackground">#1B1B21</item>
+        <item name="colorSurface">#F8FAFC</item>
+        <item name="colorSurfaceBright">#F8FAFC</item>
+        <item name="colorSurfaceDim">#D0D0E8</item>
+        <item name="colorSurfaceVariant">#E3E1EC</item>
+        <item name="colorOnSurfaceVariant">#47474F</item>
         <item name="colorSurfaceContainer">#EEEDF8</item>
-        <item name="colorSurfaceContainerLow">#F3F3FD</item>
-        <item name="colorSurfaceContainerHigh">#E8E7F5</item>
-        <item name="colorSurfaceContainerHighest">#E0DFEF</item>
+        <item name="colorSurfaceContainerLow">#F3F2FC</item>
+        <item name="colorSurfaceContainerHigh">#E8E7F3</item>
+        <item name="colorSurfaceContainerHighest">#E2E1EE</item>
         <item name="colorSurfaceContainerLowest">#FFFFFF</item>
-        <item name="colorOnSurface">#111827</item>
+        <item name="colorOnSurface">#1B1B21</item>
         <!-- Outline -->
-        <item name="colorOutline">#9CA3AF</item>
-        <item name="colorOutlineVariant">#E5E7EB</item>
+        <item name="colorOutline">#777680</item>
+        <item name="colorOutlineVariant">#C7C5D0</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════
-         3.  Emerald Studio  — fresh and productive
-             Seed: #059669 (emerald) + #14B8A6 (teal)
+         5.  EmeraldSoft  — natural, fresh emerald green
+             Seed: #1B5E20 (emerald / HSL 124°)
          ════════════════════════════════════════════════════════ -->
-    <style name="ThemeOverlay.Accent.EmeraldStudio" parent="">
+    <style name="ThemeOverlay.Accent.EmeraldSoft" parent="">
         <!-- Primary -->
-        <item name="colorPrimary">#059669</item>
+        <item name="colorPrimary">#1A6B47</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#D1FAE5</item>
-        <item name="colorOnPrimaryContainer">#064E3B</item>
-        <item name="colorPrimaryInverse">#6EE7B7</item>
+        <item name="colorPrimaryContainer">#A7F2C6</item>
+        <item name="colorOnPrimaryContainer">#002114</item>
+        <item name="colorPrimaryInverse">#8BD5AB</item>
         <!-- Secondary -->
-        <item name="colorSecondary">#0D9488</item>
+        <item name="colorSecondary">#4D6355</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSecondaryContainer">#CCFBF1</item>
-        <item name="colorOnSecondaryContainer">#042F2E</item>
+        <item name="colorSecondaryContainer">#CFE9D8</item>
+        <item name="colorOnSecondaryContainer">#0A1F16</item>
         <!-- Tertiary -->
-        <item name="colorTertiary">#2563EB</item>
+        <item name="colorTertiary">#3A656F</item>
         <item name="colorOnTertiary">#FFFFFF</item>
-        <item name="colorTertiaryContainer">#DBEAFE</item>
-        <item name="colorOnTertiaryContainer">#1E3A8A</item>
+        <item name="colorTertiaryContainer">#BEEAF5</item>
+        <item name="colorOnTertiaryContainer">#001F26</item>
         <!-- Background + Surface -->
         <item name="android:colorBackground">#F8FAFC</item>
-        <item name="colorOnBackground">#0F172A</item>
+        <item name="colorOnBackground">#191C1A</item>
         <item name="colorSurface">#F8FAFC</item>
-        <item name="colorSurfaceBright">#FFFFFF</item>
-        <item name="colorSurfaceDim">#C8E6DA</item>
-        <item name="colorSurfaceVariant">#D1EEDF</item>
-        <item name="colorOnSurfaceVariant">#64748B</item>
-        <item name="colorSurfaceContainer">#E6F4EE</item>
-        <item name="colorSurfaceContainerLow">#EDF8F2</item>
-        <item name="colorSurfaceContainerHigh">#DFEEE8</item>
-        <item name="colorSurfaceContainerHighest">#D7E8E1</item>
+        <item name="colorSurfaceBright">#F8FAFC</item>
+        <item name="colorSurfaceDim">#CCE0D4</item>
+        <item name="colorSurfaceVariant">#D6E8DC</item>
+        <item name="colorOnSurfaceVariant">#3D4840</item>
+        <item name="colorSurfaceContainer">#E7F2EC</item>
+        <item name="colorSurfaceContainerLow">#EDF7F1</item>
+        <item name="colorSurfaceContainerHigh">#E1EDE7</item>
+        <item name="colorSurfaceContainerHighest">#DBE9E1</item>
         <item name="colorSurfaceContainerLowest">#FFFFFF</item>
-        <item name="colorOnSurface">#0F172A</item>
+        <item name="colorOnSurface">#191C1A</item>
         <!-- Outline -->
-        <item name="colorOutline">#94A3B8</item>
-        <item name="colorOutlineVariant">#D1EEDF</item>
+        <item name="colorOutline">#6E7972</item>
+        <item name="colorOutlineVariant">#BAC9BF</item>
     </style>
 
     <!-- ════════════════════════════════════════════════════════
-         4.  Warm Orange  — energetic and friendly
-             Seed: #F97316 (orange-500) — note: primary at
-             #D97706 (amber-600) for AA contrast on white.
+         6.  CoffeeWarm  — warm, premium caramel-brown
+             Seed: #795548 (brown / HSL 25°)
          ════════════════════════════════════════════════════════ -->
-    <style name="ThemeOverlay.Accent.WarmOrange" parent="">
+    <style name="ThemeOverlay.Accent.CoffeeWarm" parent="">
         <!-- Primary -->
-        <item name="colorPrimary">#C2610C</item>
+        <item name="colorPrimary">#7B5A38</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#FFEDD5</item>
-        <item name="colorOnPrimaryContainer">#431800</item>
-        <item name="colorPrimaryInverse">#FDBA74</item>
+        <item name="colorPrimaryContainer">#FFDCBA</item>
+        <item name="colorOnPrimaryContainer">#2C1600</item>
+        <item name="colorPrimaryInverse">#EFBA88</item>
         <!-- Secondary -->
-        <item name="colorSecondary">#D97706</item>
+        <item name="colorSecondary">#6E5943</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSecondaryContainer">#FEF3C7</item>
-        <item name="colorOnSecondaryContainer">#451A03</item>
+        <item name="colorSecondaryContainer">#F9DEC3</item>
+        <item name="colorOnSecondaryContainer">#271807</item>
         <!-- Tertiary -->
-        <item name="colorTertiary">#15803D</item>
+        <item name="colorTertiary">#53633A</item>
         <item name="colorOnTertiary">#FFFFFF</item>
-        <item name="colorTertiaryContainer">#DCFCE7</item>
-        <item name="colorOnTertiaryContainer">#14532D</item>
+        <item name="colorTertiaryContainer">#D5EABA</item>
+        <item name="colorOnTertiaryContainer">#141E01</item>
         <!-- Background + Surface -->
-        <item name="android:colorBackground">#FFFDF8</item>
-        <item name="colorOnBackground">#1F2937</item>
-        <item name="colorSurface">#FFFDF8</item>
-        <item name="colorSurfaceBright">#FFFFFF</item>
-        <item name="colorSurfaceDim">#EAD9C8</item>
-        <item name="colorSurfaceVariant">#F5E8D7</item>
-        <item name="colorOnSurfaceVariant">#6B7280</item>
-        <item name="colorSurfaceContainer">#FBF0E3</item>
-        <item name="colorSurfaceContainerLow">#FDF5EC</item>
-        <item name="colorSurfaceContainerHigh">#F6EBDC</item>
-        <item name="colorSurfaceContainerHighest">#F0E3D2</item>
+        <item name="android:colorBackground">#F8FAFC</item>
+        <item name="colorOnBackground">#1E1B18</item>
+        <item name="colorSurface">#F8FAFC</item>
+        <item name="colorSurfaceBright">#F8FAFC</item>
+        <item name="colorSurfaceDim">#DCD1C4</item>
+        <item name="colorSurfaceVariant">#F0E0D0</item>
+        <item name="colorOnSurfaceVariant">#4E4439</item>
+        <item name="colorSurfaceContainer">#F4E8DC</item>
+        <item name="colorSurfaceContainerLow">#F8EEEA</item>
+        <item name="colorSurfaceContainerHigh">#EFE1D5</item>
+        <item name="colorSurfaceContainerHighest">#E8DACC</item>
         <item name="colorSurfaceContainerLowest">#FFFFFF</item>
-        <item name="colorOnSurface">#1F2937</item>
+        <item name="colorOnSurface">#1E1B18</item>
         <!-- Outline -->
-        <item name="colorOutline">#9CA3AF</item>
-        <item name="colorOutlineVariant">#F5E8D7</item>
+        <item name="colorOutline">#807168</item>
+        <item name="colorOutlineVariant">#D2C4B7</item>
     </style>
 
 </resources>
