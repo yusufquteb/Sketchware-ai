@@ -414,31 +414,64 @@ public class AIOrchestrator implements ChatCoordinator.AiDelegate {
 
     /**
      * Builds a conversation context string from the message history.
-     * Only USER and AI messages are included — SYSTEM/TOOL messages are filtered.
-     * Limited to the last 20 messages to avoid token overflow.
+     *
+     * <p>Windowing strategy: keep the last {@code MAX_CONTEXT_TURNS} USER+AI turns.
+     * TOOL results and SYSTEM notifications are included unconditionally within
+     * that window — they carry critical execution feedback the AI needs to reason
+     * correctly about follow-up steps.
+     *
+     * <p>Format injected into the AI prompt:
+     * <pre>
+     * Previous conversation:
+     * User: ...
+     * Assistant: ...
+     * Tool result (read_file): ...
+     * System: ...
+     * </pre>
      */
+    private static final int MAX_CONTEXT_TURNS = 20;
+
     @NonNull
     private String buildConversationContext(@NonNull List<ChatMessage> history) {
         if (history.isEmpty()) return "";
 
-        StringBuilder sb = new StringBuilder("Previous conversation:\n");
-        int start = Math.max(0, history.size() - 20);
+        // Find the start index so we keep at most MAX_CONTEXT_TURNS user/AI turns.
+        int turns = 0;
+        int start = history.size();
+        for (int i = history.size() - 1; i >= 0; i--) {
+            ChatMessage.MessageType t = history.get(i).getType();
+            if (t == ChatMessage.MessageType.USER || t == ChatMessage.MessageType.AI
+                    || t == ChatMessage.MessageType.INTERNAL_ASSISTANT) {
+                turns++;
+                if (turns >= MAX_CONTEXT_TURNS) {
+                    start = i;
+                    break;
+                }
+            }
+        }
+        if (start == history.size()) start = 0;
 
+        StringBuilder sb = new StringBuilder("Previous conversation:\n");
         for (int i = start; i < history.size(); i++) {
             ChatMessage msg = history.get(i);
+            if (!msg.hasText()) continue;
             switch (msg.getType()) {
                 case USER:
-                    if (msg.hasText()) {
-                        sb.append("User: ").append(msg.getText()).append('\n');
-                    }
+                    sb.append("User: ").append(msg.getText()).append('\n');
                     break;
                 case AI:
                 case INTERNAL_ASSISTANT:
-                    if (msg.hasText()) {
-                        sb.append("Assistant: ").append(msg.getText()).append('\n');
-                    }
+                    sb.append("Assistant: ").append(msg.getText()).append('\n');
                     break;
-                default:
+                case TOOL:
+                    // Tool results are essential context — the AI must see what operations returned.
+                    String label = msg.getToolName() != null
+                            ? "Tool result (" + msg.getToolName() + ")"
+                            : "Tool result";
+                    sb.append(label).append(": ").append(msg.getText()).append('\n');
+                    break;
+                case SYSTEM:
+                    sb.append("System: ").append(msg.getText()).append('\n');
                     break;
             }
         }
