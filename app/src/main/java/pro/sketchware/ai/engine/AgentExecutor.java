@@ -673,7 +673,7 @@ public class AgentExecutor {
         if (userSystemPrompt != null && !userSystemPrompt.isEmpty()) {
             sb.append(userSystemPrompt.trim());
         } else {
-            sb.append(AiPreferences.DEFAULT_SYSTEM_PROMPT.trim());
+            sb.append(AiPreferences.getDefaultSystemPrompt(context).trim());
         }
         sb.append("\n\nYou are an AI assistant for Sketchware Pro. Use the available tools to help.\n");
         sb.append("TOOLS: generate_layout, add_view_xml, describe_layout, build_project, ");
@@ -712,7 +712,7 @@ public class AgentExecutor {
         if (userSystemPrompt != null && !userSystemPrompt.isEmpty()) {
             sb.append(userSystemPrompt.trim());
         } else {
-            sb.append(AiPreferences.DEFAULT_SYSTEM_PROMPT.trim());
+            sb.append(AiPreferences.getDefaultSystemPrompt(context).trim());
         }
 
         // ── Active tool catalog (dynamic) ──────────────────────────────────

@@ -399,6 +399,76 @@ public final class ChatMessage {
         return true;
     }
 
+    // ─── Engine ↔ UI bridge ───────────────────────────────────────────────────
+
+    /**
+     * Converts this UI-layer message to the engine-layer model used by
+     * {@link pro.sketchware.ai.engine.AgentExecutor} and
+     * {@link pro.sketchware.ai.engine.ConversationManager}.
+     *
+     * <p>Mapping:
+     * <ul>
+     *   <li>USER      → role "user"</li>
+     *   <li>AI / INTERNAL_ASSISTANT → role "assistant"</li>
+     *   <li>TOOL      → role "tool" (preserves toolCallId / toolName)</li>
+     *   <li>SYSTEM    → role "system"</li>
+     * </ul>
+     */
+    @NonNull
+    public pro.sketchware.ai.models.ChatMessage toEngineMessage() {
+        switch (type) {
+            case TOOL:
+                return pro.sketchware.ai.models.ChatMessage.toolResultMessage(
+                        toolCallId != null ? toolCallId : id,
+                        toolName,
+                        text != null ? text : "");
+            case SYSTEM:
+                return pro.sketchware.ai.models.ChatMessage.systemMessage(
+                        text != null ? text : "");
+            case AI:
+            case INTERNAL_ASSISTANT:
+                return pro.sketchware.ai.models.ChatMessage.assistantMessage(
+                        text, null);
+            default: // USER
+                return pro.sketchware.ai.models.ChatMessage.userMessage(
+                        conversationId, text != null ? text : "");
+        }
+    }
+
+    /**
+     * Converts an engine-layer message back to a UI-layer message for display.
+     *
+     * <p>Mapping:
+     * <ul>
+     *   <li>role "user"      → USER</li>
+     *   <li>role "assistant" → AI</li>
+     *   <li>role "tool"      → TOOL</li>
+     *   <li>role "system"    → SYSTEM</li>
+     * </ul>
+     */
+    @NonNull
+    public static ChatMessage fromEngineMessage(
+            @NonNull pro.sketchware.ai.models.ChatMessage engine) {
+        String role = engine.getRole();
+        MessageType type;
+        switch (role != null ? role : "user") {
+            case "assistant": type = MessageType.AI;     break;
+            case "tool":      type = MessageType.TOOL;   break;
+            case "system":    type = MessageType.SYSTEM; break;
+            default:          type = MessageType.USER;   break;
+        }
+        return new ChatMessage(
+                engine.getId(),
+                engine.getContent(),
+                type,
+                engine.getTimestamp(),
+                MessageStatus.SENT,
+                engine.getConversationId(),
+                engine.getToolName(),
+                engine.getToolCallId()
+        );
+    }
+
     @NonNull
     @Override
     public String toString() {

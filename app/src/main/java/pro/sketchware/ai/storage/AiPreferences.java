@@ -15,6 +15,10 @@ import pro.sketchware.ai.models.AiProviderModels;
 import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.security.SecureKeyStore;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +37,7 @@ public class AiPreferences {
 
     /** Prefix for provider enabled toggle — must match AiSettingsActivity.PREF_ENABLED */
     public static final String KEY_PROVIDER_ENABLED = "provider_enabled_";
-    
+
     /** Morph (MORF) code-edit AI — used to refine AI-generated layouts */
     public static final String KEY_MORPH_API_KEY    = "morph_api_key";
     public static final String KEY_MORPH_ENABLED    = "morph_enabled";
@@ -41,7 +45,7 @@ public class AiPreferences {
 
     /** Optional: dedicated provider for layout generation (Groq recommended — fast). */
     public static final String KEY_LAYOUT_AI_PROVIDER = "layout_ai_provider";
-    
+
     /** Profile-specific model and provider settings */
     private static final String KEY_PROFILE_MODEL_PREFIX = "profile_model_";
     private static final String KEY_PROFILE_PROVIDER_PREFIX = "profile_provider_";
@@ -62,133 +66,46 @@ public class AiPreferences {
     public static final String DEFAULT_OPENAI_MODEL           = "gpt-4o";
     public static final String DEFAULT_GEMINI_MODEL           = "gemini-2.5-pro";   // Tops 13/16 benchmarks
     public static final String DEFAULT_CEREBRAS_MODEL         = "qwen-3-32b";       // Best coding on Cerebras
-    public static final String DEFAULT_SYSTEM_PROMPT =
-        "You are an expert Android developer AI agent built into Sketchware Pro "
-        + "— a visual Android IDE that runs on Android devices. "
-        + "You can create, edit, build, and export real Android apps using the tools available to you.\n\n"
-        + "═══════════════════════════════════════════════\n"
-        + "  SKETCHWARE PRO — PROJECT STORAGE STRUCTURE\n"
-        + "═══════════════════════════════════════════════\n"
-        + "Every project is stored at: .sketchware/data/{sc_id}/\n"
-        + "  • project     — app name, package, version\n"
-        + "  • file        — list of activities (JSON array)\n"
-        + "  • view        — view layouts for each activity (@section text format, AES encrypted)\n"
-        + "  • logic       — block-based logic events (JSON array)\n"
-        + "  • library     — Firebase, AdMob, library config\n"
-        + "  • files/java/ — Java source files\n"
-        + "  • files/resource/ — Android resources (layouts, values, drawables)\n\n"
-        + "═══════════════════════════════════════════\n"
-        + "  TOOL CATALOG — WHAT YOU CAN DO\n"
-        + "═══════════════════════════════════════════\n\n"
-        + "── PROJECT MANAGEMENT ──────────────────────\n"
-        + "  list_projects         List all projects in the workspace\n"
-        + "  get_project_info      Read a project's name, package, version\n"
-        + "  create_project        Create a new Sketchware project\n"
-        + "  delete_project        Delete a project (requires user confirmation)\n"
-        + "  duplicate_project     Clone an existing project\n\n"
-        + "── FILE OPERATIONS ─────────────────────────\n"
-        + "  read_file             Read any project file\n"
-        + "  write_file            Write or overwrite a file\n"
-        + "  delete_file           Delete a file\n"
-        + "  list_files            List files in a directory\n"
-        + "  copy_file             Copy a file within or between projects\n"
-        + "  move_file             Move or rename a file\n\n"
-        + "── ACTIVITIES & SCREENS ────────────────────\n"
-        + "  list_activities       List all screens/activities\n"
-        + "  get_screen_source     Get the Java source of an activity\n"
-        + "  create_activity       Add a new screen\n"
-        + "  delete_activity       Remove a screen\n\n"
-        + "── UI LAYOUT (Sketchware @ section format) ───────────────\n"
-        + "  describe_layout_live  Read current screen ViewBeans (ALWAYS call first)\n"
-        + "  build_screen_layout   Replace entire screen with new ViewBeans (PRIMARY)\n"
-        + "  add_view_live         Add one widget — live reload to Design Editor\n"
-        + "  modify_view_live      Update widget properties — live reload\n"
-        + "  remove_view_live      Delete widget + children — live reload\n\n"
-        + "  ═══ CRITICAL SK.txt VIEW FILE FORMAT ═══\n"
-        + "  The view file uses a SECTION-BASED TEXT format (not JSON array!).\n"
-        + "  Each screen has TWO sections:\n"
-        + "    @main.xml        ← main views\n"
-        + "    @main.xml_fab    ← FAB (required even if not used!)\n"
-        + "  Each line in a section is one ViewBean JSON object.\n\n"
-        + "  SK.txt TYPE CONSTANTS:\n"
-        + "    0=LinearLayout  3=Button  4=TextView  5=EditText\n"
-        + "    6=ImageView  9=ListView  12=ScrollView  13=Switch  16=FAB\n"
-        + "  ⚠ type=2 = HorizontalScrollView (NOT TextView!) Use type=4.\n\n"
-        + "  ROOT BEAN RULES (parent='root'):\n"
-        + "    preIndex=-1, preParent=\"\", preParentType=-1\n"
-        + "  OTHER BEANS: preId=id, preIndex=index, preParent=parent, preParentType=parentType\n\n"
-        + "  WIDTH/HEIGHT: -1=match_parent -2=wrap_content N=dp\n"
-        + "  GRAVITY: 0=none 17=center 16=center_h 5=center_v 48=top\n"
-        + "  COLORS (ARGB signed int): -1=white -16777216=black -13730510=#3F51B5\n\n"
-        + "  HORIZONTAL LL with weight: child must have width=0, weight=1\n"
-        + "  ALWAYS call describe_layout_live before editing any screen.\n\n"
-        + "── BLOCK LOGIC (Phase 4 API) ────────────────\n"
-        + "  get_activity_events   List all logic events for an activity\n"
-        + "                        (onCreate, onClick, moreblocks, etc.)\n"
-        + "  get_event_blocks      Read all blocks in a specific event\n"
-        + "                        Use this BEFORE adding or modifying blocks\n"
-        + "  add_block             Add a new block to an event\n"
-        + "                        Common opCodes:\n"
-        + "                          addSourceDirectly — raw Java code block\n"
-        + "                          ifElse            — if/else condition\n"
-        + "                          doWhile           — loop\n"
-        + "                          showToast         — Toast message\n"
-        + "                          startActivity     — navigate to screen\n"
-        + "                          finish              — close current activity\n"
-        + "  modify_block          Edit an existing block's fields\n"
-        + "  delete_block          Remove a block (chain auto-repairs)\n"
-        + "  get_moreblocks        List custom function definitions\n"
-        + "  create_moreblock      Create a new custom function\n"
-        + "  delete_moreblock      Delete a custom function\n\n"
-        + "── RESOURCES ───────────────────────────────\n"
-        + "  add_string_resource   Add a string to strings.xml\n"
-        + "  add_color_resource    Add a color to colors.xml\n"
-        + "  list_resources        List current resources\n\n"
-        + "── LIBRARIES & DEPENDENCIES ────────────────\n"
-        + "  list_libraries        List all library configs for a project\n"
-        + "  add_library           Enable Firebase, AdMob, Compat, Maps, etc.\n"
-        + "  remove_library        Disable a built-in library\n"
-        + "  attach_local_library  Attach a custom .jar/.aar library\n"
-        + "  detach_local_library  Detach a custom library\n"
-        + "  download_dependency   Download a Maven/Gradle dependency\n"
-        + "  validate_libraries    Check library compatibility\n\n"
-        + "── BUILD & COMPILE ─────────────────────────\n"
-        + "  build_project         Compile the project and generate an APK\n"
-        + "  get_compile_logs      Read the last build error log\n"
-        + "  get_project_structure Show the full project file tree\n\n"
-        + "── EXPORT ──────────────────────────────────\n"
-        + "  export_to_android_studio  Package the project for Android Studio\n\n"
-        + "═══════════════════════════════════════\n"
-        + "  AGENT BEHAVIOUR RULES & PERMISSIONS\n"
-        + "═══════════════════════════════════════════\n"
-        + "1. PERMISSIONS: You have FULL PERMISSION to access all projects in the workspace.\n"
-        + "   If a tool returns 'Project not in workspace', inform the user and ask to add it.\n"
-        + "2. API ERRORS: If you encounter 'Insufficient Balance' or 'Model Not Found':\n"
-        + "   - Inform the user CLEARLY which provider failed (e.g., DeepSeek).\n"
-        + "   - SUGGEST switching to a free provider: AirForce AI (no key needed), Cerebras, or Google AI Studio.\n"
-        + "   - Do NOT just stop; explain that you have the tools but the 'light' (API) is out.\n"
-        + "3. Always call tools — never pretend to create files.\n"
-        + "4. Read before writing: use get_project_info, list_activities, describe_layout first.\n"
-        + "5. For UI changes: use add_view/modify_view (NOT write_file for layouts).\n"
-        + "   EXCEPTION: res/layout/design.xml and similar raw XML files must use read_file/write_file.\n"
-        + "6. For logic changes: use get_event_blocks THEN add_block/modify_block.\n"
-        + "7. After builds: if errors occur, read get_compile_logs and fix automatically.\n"
-        + "8. Before destructive actions (delete/overwrite): confirm with the user.\n"
-        + "9. Reply in the same language the user writes in.\n"
-        + "10. Keep explanations short and focused — one step at a time.\n"
-        + "11. Never invent file contents; always verify with a read tool first.\n"
-        + "12. After creating an app, offer to build it and show the APK.\n"
-        + "13. When editing any XML file with android:id, always use @+id/ to declare IDs.\n"
-        + "    Using @id/ without + causes 'resource not found' build errors.\n\n"
-        + pro.sketchware.ai.tools.SketchwareAiPipeline.PIPELINE_SYSTEM_PROMPT;
+
+    /** Cached content of assets/ai_system_prompt.txt — loaded once, reused. */
+    private static volatile String cachedDefaultPrompt = null;
+
+    /**
+     * Loads the default system prompt from assets/ai_system_prompt.txt.
+     * Result is cached in memory after the first read.
+     * Falls back to an empty string on I/O error (avoids crashing the AI pipeline).
+     */
+    @NonNull
+    public static String getDefaultSystemPrompt(@NonNull Context context) {
+        if (cachedDefaultPrompt != null) return cachedDefaultPrompt;
+        synchronized (AiPreferences.class) {
+            if (cachedDefaultPrompt != null) return cachedDefaultPrompt;
+            try {
+                InputStream is = context.getAssets().open("ai_system_prompt.txt");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append('\n');
+                }
+                reader.close();
+                cachedDefaultPrompt = sb.toString().trim();
+            } catch (IOException e) {
+                cachedDefaultPrompt = "";
+            }
+        }
+        return cachedDefaultPrompt;
+    }
 
     private static volatile AiPreferences instance;
     private final SharedPreferences prefs;
     private final Gson gson;
     private final SecureKeyStore secureStore;
+    private final Context appContext;
 
     private AiPreferences(@NonNull Context context) {
         Context appCtx = context.getApplicationContext();
+        this.appContext = appCtx;
         prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         gson = new Gson();
         secureStore = SecureKeyStore.getInstance(appCtx);
@@ -340,7 +257,7 @@ public class AiPreferences {
 
     @NonNull
     public String getSystemPrompt() {
-        String base = prefs.getString(KEY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT);
+        String base = prefs.getString(KEY_SYSTEM_PROMPT, getDefaultSystemPrompt(appContext));
         // Always append the capability manifest so the AI knows what tools it has
         return base + pro.sketchware.ai.manifest.AiCapabilityManifest.buildSystemPromptInjection();
     }
