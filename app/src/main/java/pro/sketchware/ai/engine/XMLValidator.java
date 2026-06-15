@@ -20,20 +20,20 @@ import java.util.regex.Pattern;
  *
  * <p>Validation detects:
  * <ul>
- *   <li>Malformed/unclosed tags</li>
- *   <li>Missing required attributes (layout_width, layout_height)</li>
- *   <li>Duplicate android:id values</li>
- *   <li>Unknown/deprecated attribute names</li>
- *   <li>Invalid attribute values</li>
- *   <li>Empty layout (no root element)</li>
+ * <li>Malformed/unclosed tags</li>
+ * <li>Missing required attributes (layout_width, layout_height)</li>
+ * <li>Duplicate android:id values</li>
+ * <li>Unknown/deprecated attribute names</li>
+ * <li>Invalid attribute values</li>
+ * <li>Empty layout (no root element)</li>
  * </ul>
  *
  * <p>Auto-fix handles:
  * <ul>
- *   <li>Extracting valid XML from a mixed-text AI response</li>
- *   <li>Adding missing layout_width/layout_height = "match_parent"/"wrap_content"</li>
- *   <li>Removing obviously invalid attribute values</li>
- *   <li>Trimming surrounding AI commentary text</li>
+ * <li>Extracting valid XML from a mixed-text AI response</li>
+ * <li>Adding missing layout_width/layout_height = "match_parent"/"wrap_content"</li>
+ * <li>Removing obviously invalid attribute values</li>
+ * <li>Trimming surrounding AI commentary text</li>
  * </ul>
  */
 public final class XMLValidator {
@@ -283,7 +283,8 @@ public final class XMLValidator {
             }
         } catch (Exception e) {
             issues.add("XML parse error: " + e.getMessage());
-            AiLog.d(TAG, "Parse error", e);
+            // FIXED: Concatenated the exception message to respect the two-parameter signature
+            AiLog.d(TAG, "Parse error: " + e.getMessage());
         }
         return issues;
     }
