@@ -334,8 +334,8 @@ tasks.register('createMockGoogleServices') {
 preBuild.dependsOn createMockGoogleServices
 
 // ── Desugared-library config for user-project dexing (readAllBytes() fix) ──
-// WHY THIS EXISTS: app/src/main/java/mod/jbk/build/compiler/dex/DexCompiler.java
-// dexes a *user's* Sketchware-ai project via a bare D8Command.builder() call with
+// WHY THIS EXISTS: app/src/main/java/mod/pranav/dependency/resolver/DependencyResolver.kt's
+// compileJar() dexes a *user's* resolved dependency jars via a bare D8Command.builder() call with
 // no desugared-library configuration attached. This app's own Gradle build has
 // coreLibraryDesugaring enabled (see compileOptions above), which correctly
 // desugars calls like InputStream.readAllBytes() in THIS APP's own code — but
@@ -349,14 +349,19 @@ preBuild.dependsOn createMockGoogleServices
 // FIX: resolve the same com.android.tools:desugar_jdk_libs_configuration artifact
 // AGP itself uses for this app's own build, extract its JSON spec, and stage it
 // as a raw asset (app/src/main/assets/desugar_jdk_libs_configuration.json) so
-// DexCompiler.java can read it at runtime and pass it to
+// DependencyResolver.kt can read it at runtime (via the app Context's AssetManager,
+// see its loadDesugaredLibraryConfigJson()) and pass it to
 // D8Command.builder().addDesugaredLibraryConfiguration(String) — a public method
 // confirmed present on BaseCompilerCommand.Builder (which D8Command.Builder
 // extends) in the r8 versions this project depends on (8.11.18 / 8.13.17). This
 // takes the String overload specifically so no direct reference to the
-// com.android.tools.r8.StringResource type is needed at all — StringResource not
-// being part of the resolvable public API surface was the reason an earlier
-// attempt at this fix failed to compile (see DexCompiler.java's own history notes).
+// com.android.tools.r8.StringResource type is needed at all.
+//
+// NOTE: this asset-staging Gradle task was added in an earlier session, but the actual
+// D8Command.Builder call site was never updated to load and pass it — the fix was staged but not
+// wired up, which is why the API 29 readAllBytes() crash still reproduced. Fixed this session by
+// adding loadDesugaredLibraryConfigJson() and the addDesugaredLibraryConfiguration(...) call in
+// DependencyResolver.kt's compileJar().
 //
 // The JSON is resolved from Maven at build time (not hand-copied into this repo)
 // so it always matches the exact desugar_jdk_libs version this app depends on,
