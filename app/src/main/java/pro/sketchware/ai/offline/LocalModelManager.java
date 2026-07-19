@@ -178,14 +178,14 @@ public class LocalModelManager {
 
     // ── Inference backend (CPU vs GPU) ──────────────────────────────────────
     //
-    // Defaults to CPU (false). GPU (OpenCL, via LiteRT-LM's Backend.GPU()) is faster on most
-    // devices that support it, but engine init has no automatic CPU fallback in LiteRT-LM
-    // itself and is known to hard-fail on some real devices (e.g. certain Exynos/ANGLE-CL
-    // combinations — the OpenCL→SPIR-V compiler rejects a kernel LiteRT-LM's GPU delegate
-    // generates). LiteRtLmEngineBridge catches that failure and retries on CPU automatically,
-    // but defaulting new users straight to GPU would still mean paying that failed-init cost
-    // (and its latency) on every cold load for anyone on an affected device. Opt-in via AI
-    // Settings instead, so the fast path is available without making it the silent default.
+    // Defaults to CPU (false) and, post llama.cpp-migration, this preference is currently a
+    // no-op regardless of value: v1 of LlamaCppEngineBridge is CPU-only per the approved
+    // migration plan (GPU/Vulkan support is an explicit deferred follow-up). Kept here rather
+    // than removed so the AI Settings toggle and its stored preference survive unchanged for
+    // when GPU support is actually wired up — this used to gate LiteRT-LM's OpenCL
+    // Backend.GPU() path, which had no automatic CPU fallback and was known to hard-fail on
+    // some real devices (e.g. certain Exynos/ANGLE-CL combinations); that history is why this
+    // stayed an explicit opt-in rather than a silent default even before the engine migration.
 
     public boolean isGpuBackendPreferred() {
         return prefs.getBoolean(KEY_PREFER_GPU_BACKEND, false);

@@ -223,19 +223,16 @@ public class AiSettingsActivity extends AppCompatActivity {
             binding.tvOfflineRamWarning.setVisibility(View.VISIBLE);
         }
 
-        // GPU acceleration switch — isGpuBackendPreferred()/setGpuBackendPreferred() already
-        // existed on LocalModelManager (LiteRtLmEngineBridge already reads this and falls back
-        // to CPU automatically on any GPU init failure), but nothing in the UI ever set it, so
-        // on-device generation always silently ran CPU-only. Wiring it here is what actually
-        // turns GPU on for users whose device supports it.
+        // GPU acceleration switch — disabled during the llama.cpp migration (this session).
+        // isGpuBackendPreferred()/setGpuBackendPreferred() still exist on LocalModelManager and
+        // the stored preference is preserved, but LlamaCppEngineBridge v1 is CPU-only (GPU/
+        // Vulkan support is an explicit deferred follow-up in the approved migration plan) — the
+        // old LiteRT-LM-era wiring here actually turned GPU on and would now be misleading (the
+        // switch would flip with no effect on generation). Left off/disabled rather than wired
+        // up, so users aren't told they enabled something that silently does nothing.
         binding.switchGpuBackend.setOnCheckedChangeListener(null);
-        binding.switchGpuBackend.setChecked(localModelManager.isGpuBackendPreferred());
-        binding.switchGpuBackend.setOnCheckedChangeListener((btn, checked) -> {
-            localModelManager.setGpuBackendPreferred(checked);
-            // The engine bridge reloads automatically on the next generate() call when the
-            // requested backend differs from the currently-loaded one (see
-            // LiteRtLmEngineBridge#generate's `needsReload` check) — no extra action needed here.
-        });
+        binding.switchGpuBackend.setChecked(false);
+        binding.switchGpuBackend.setEnabled(false);
 
         offlineModelAdapter = new pro.sketchware.ai.adapters.OfflineModelAdapter(
                 pro.sketchware.ai.offline.LocalModelCatalog.all(),

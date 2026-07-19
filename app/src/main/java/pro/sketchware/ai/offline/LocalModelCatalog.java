@@ -7,7 +7,26 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Static catalog of on-device LLM models offered through LiteRT-LM.
+ * Static catalog of on-device LLM models offered through llama.cpp (previously LiteRT-LM).
+ *
+ * <p><b>llama.cpp migration (this session) — catalog rewrite BLOCKED, entries below are STILL
+ * LiteRT-LM {@code .litertlm} files.</b> {@link LocalModelProvider} and {@link
+ * LlamaCppEngineBridge} now target llama.cpp, which loads {@code .gguf} files, not
+ * {@code .litertlm}. The approved migration plan calls for rewriting every entry below to a
+ * verified GGUF equivalent (same model families are available as GGUF from quantizers like
+ * {@code bartowski}/{@code unsloth}), but doing that from this session was not possible:
+ * huggingface.co is blocked by this session's network egress policy (confirmed: a direct CONNECT
+ * to huggingface.co:443 was rejected with a 403 policy denial), so no GGUF filename, quantization
+ * variant, or byte size below could be verified against a real file listing. This catalog's own
+ * history (see the Phase 5.4/5.5 notes further down) already documents two real incidents of
+ * guessed filenames 404ing for actual users — fabricating GGUF URLs here would repeat exactly
+ * that mistake at the whole-catalog scale instead of one entry. <b>Do not treat the entries below
+ * as llama.cpp-compatible until someone with Hugging Face access rewrites them</b> — until then,
+ * {@link LocalModelDownloader} will keep downloading real {@code .litertlm} files that
+ * {@link LlamaCppEngineBridge} cannot load, i.e. offline generation will fail post-migration
+ * until this catalog is actually updated. This is the single largest remaining gap in the
+ * migration; see the plan's "What gets replaced → LocalModelCatalog.java" section for the
+ * per-entry verification discipline to follow when unblocked.
  *
  * <p>Every entry maps to a real, publicly downloadable {@code .litertlm} file on Hugging Face,
  * all currently in the "litert-community" org (https://huggingface.co/litert-community). File

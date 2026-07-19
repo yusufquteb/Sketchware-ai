@@ -1513,4 +1513,67 @@ OkHttp (مش UI thread)، فكان بيكمل شغل فترة قصيرة حتى 
 - **اختبار سيناريو رفض صلاحية POST_NOTIFICATIONS**: التأكد إن التحميل فعليًا
   بيكمل لحد الآخر حتى من غير إشعار ظاهر، زي ما هو موثّق في الجافادوك.
 
+## Phase 6 — Migration من LiteRT-LM إلى llama.cpp (بداية فقط — غير مكتملة)
+
+### السبب
+تحقيق في هذه الجلسة أكّد إن سقف الـ 4096 توكن لكل موديل أوفلاين (`ekv4096`
+مبني في ملف `.litertlm` وقت التصدير من Google/litert-community) هو السبب
+الجذري وراء إن الأوفلاين بياخد أصغر مجموعة أدوات ممكنة (`TINY` tier في
+`ToolRegistry`) بدل ما يستجيب للأدوات زي الأونلاين. تم التأكد إن مفيش نسخة
+أكبر من `ekv4096` منشورة لأي موديل في الكتالوج الحالي، فالحل المعتمد هو
+تغيير المحرك بالكامل لـ llama.cpp اللي بياخد حجم الـ context (`n_ctx`)
+كمعامل وقت التحميل مش وقت التصدير. الخطة الكاملة المعتمدة موجودة في
+سجل الجلسة (plan mode)، مش منسوخة هنا بالكامل — هذا القسم يوثّق فقط اللي
+اتنفذ فعليًا وحدود التنفيذ.
+
+### ما تم تنفيذه فعليًا في هذه الجلسة
+- **ملف جديد**: `LlamaCppEngineBridge.kt` — بديل `LiteRtLmEngineBridge.kt`
+  (**اتحذف**)، بنفس الـ contract الخارجي (`GenerationCallback`,
+  `HistoryTurn`, `generate()`, `cancelGeneration()`, `close()`) عشان
+  `LocalModelProvider` يحتاج أقل تغييرات ممكنة. بيعتمد على `external fun`
+  surface (`LlamaNative`) لسه **مش متصل بأي كود native حقيقي** — الـ
+  `System.loadLibrary("llama-android")` هيرمي `UnsatisfiedLinkError` لحد
+  ما موديول `:llama` الحقيقي يتضاف.
+- **`LocalModelProvider.java`**: `HARD_KV_CACHE_TOKENS` بقى
+  `LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS` (8192 بدل 4096)، مع تعديل
+  الهوامش (`RESERVED_FOR_OUTPUT_TOKENS`, `FINAL_CHECK_SAFETY_MARGIN_TOKENS`,
+  `MAX_KNOWLEDGE_BLOCK_TOKENS`) تناسبيًا، واستبدال كل استدعاءات/إشارات
+  `LiteRtLmEngineBridge` بـ `LlamaCppEngineBridge`.
+- **`ProviderCapabilities.java`**: `LOCAL_LLM.maxContext` بقى `8_192`. تم
+  توثيق مشكلة مفتوحة: بما إن 8192 > `ToolRegistry.TINY_CONTEXT_THRESHOLD_TOKENS`
+  (4096)، الموديل المحلي هيترقّى تلقائيًا لـ `MEDIUM` tier (~20 أداة) عبر
+  `AgentExecutor`'s الموحّد لكل الموفرين — ده **لم يتم التحقق منه ولا
+  تثبيته عمدًا** في هذه الجلسة (الخطة المعتمدة بتقول الاتساع في الأدوات
+  يكون follow-up منفصل)، فلازم يتفحص قبل الاعتماد عليه.
+- **`app/build.gradle`**: حذف `com.google.ai.edge.litertlm:litertlm-android`.
+  موديول `:llama` (الـ native module الحقيقي) **لسه مش مضاف** — راجع
+  التعليق الجديد في الملف لتفاصيل الخطوات الناقصة.
+- **`AndroidManifest.xml`**: حذف `<uses-native-library>` الخاصة بـ OpenCL
+  (كانت لـ LiteRT-LM's GPU backend، مش لازمة لـ llama.cpp CPU-only v1).
+- **`AiSettingsActivity.java` + `activity_ai_settings.xml`**: مفتاح GPU
+  acceleration اتعطّل (`setEnabled(false)`, `setChecked(false)`) بدل ما
+  يفضل شغال وهو مالوش تأثير فعلي — كان هيوهم المستخدم إنه فعّل حاجة.
+- تحديثات توثيق (javadoc/تعليقات) في `LocalModelCatalog.java`,
+  `LocalModelManager.java`, `AiProvider.java` لتعكس المحرك الجديد.
+
+### قيود حقيقية في هذه البيئة — لسه ناقص وحرج
+هذه الجلسة اكتشفت إن بيئة التنفيذ **معندهاش**:
+1. Android NDK مثبّت — الكود الجديد **لم يُبنَ أبدًا**، تمامًا زي حال
+   `LiteRtLmEngineBridge.kt` الأصلي.
+2. وصول لـ github.com (403 policy denial مؤكد) — يعني **موديول
+   `examples/llama.android` الحقيقي من llama.cpp لسه مش متضاف للمشروع**.
+   `LlamaNative`'s الـ `external fun` surface في الملف الجديد **افتراض
+   غير متحقق منه**، لازم يتراجع عليه لما حد يقدر يستنسخ المصدر الحقيقي.
+3. وصول لـ huggingface.co (403 policy denial مؤكد) — يعني
+   **`LocalModelCatalog.java` لسه بيأشر على ملفات `.litertlm` قديمة**، مش
+   `.gguf`. الأوفلاين **مش هيشتغل فعليًا بعد هذا التغيير** لحد ما حد يراجع
+   الكتالوج بروابط GGUF حقيقية متحقق منها (تم توثيق ده بوضوح في class
+   javadoc الخاص بـ `LocalModelCatalog.java` — عمدًا لم يتم تخمين أي رابط،
+   الكتالوج نفسه فيه تاريخ موثّق لروابط اتخمنت غلط وسببت 404).
+
+### الخلاصة
+هذا commit بيمثّل **الطبقة الجاهزة من التعديلات في Java/Kotlin/Gradle/XML
+فقط** — مش migration مكتمل وقابل للتشغيل. الثلاث نقاط الحرجة فوق (NDK،
+موديول llama.cpp الحقيقي، كتالوج GGUF متحقق منه) لازم تتعمل في بيئة عندها
+وصول شبكة كامل + Android SDK/NDK قبل ما الأوفلاين يرجع يشتغل فعليًا.
 

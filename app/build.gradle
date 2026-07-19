@@ -261,18 +261,23 @@ dependencies {
     implementation "net.lingala.zip4j:zip4j:2.11.5"
     implementation "org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r"
 
-    // ── Phase 5: Offline AI Models (on-device inference via LiteRT-LM) ──
-    // Kotlin API for running .litertlm models locally (Qwen, Gemma, etc). No
-    // network required at inference time — only for the one-time model download,
-    // which app/src/main/java/pro/sketchware/ai/offline/LocalModelDownloader.java
-    // does directly over OkHttp (already a transitive dep via libs.bundles.networking),
-    // not through this artifact. UNVERIFIED IN THIS ENVIRONMENT: no network access
-    // here to resolve this from Google's Maven repo — first real Gradle sync is the
-    // actual test. See CHANGES.md Phase 5 for the version-resolution trail and the
-    // Kotlin Gradle plugin bump (2.1.21 -> 2.3.20 above) done specifically to fix the
-    // "kotlin metadata version 2.3.0 unreadable by compiler reading up to 2.2.0" error
-    // from the previous Phase 5 attempt.
-    implementation "com.google.ai.edge.litertlm:litertlm-android:0.13.1"
+    // ── Offline AI Models (on-device inference via llama.cpp) ──
+    // Migrated off LiteRT-LM (com.google.ai.edge.litertlm:litertlm-android) this session —
+    // that engine's .litertlm catalog files each had a fixed 4096-token KV cache baked in at
+    // export time, which this app could not change. llama.cpp takes context size (n_ctx) as a
+    // load-time parameter instead — see LlamaCppEngineBridge's class javadoc.
+    //
+    // NOT YET WIRED UP: this migration still needs the actual native engine module vendored in
+    // (ggml-org/llama.cpp's examples/llama.android — a `:llama` Gradle module providing
+    // libllama.so/libggml.so + JNI bindings via CMake/NDK) and added here as
+    // `implementation(project(":llama"))`, plus `settings.gradle` updated to include that
+    // module and `ndkVersion`/`externalNativeBuild` configured. Blocked in this environment: no
+    // Android NDK installed, and github.com is not reachable from this session's network policy
+    // to clone the module source. See the approved migration plan (this session) for the full
+    // integration steps and LlamaCppEngineBridge's class javadoc for the exact prerequisites.
+    //
+    // kotlinx-coroutines-android is still needed — LlamaCppEngineBridge uses the same
+    // CoroutineScope(SupervisorJob() + Dispatchers.IO) pattern the old bridge did.
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 
     testImplementation "junit:junit:4.13.2"

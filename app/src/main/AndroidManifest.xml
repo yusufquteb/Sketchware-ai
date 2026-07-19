@@ -37,22 +37,13 @@
         android:theme="@style/Theme.SketchwarePro"
         android:usesCleartextTraffic="true"
         tools:targetApi="p">
-        <!-- Required for LiteRT-LM's GPU (OpenCL) backend — see LocalModelManager's GPU_BACKEND_
-             preference and LiteRtLmEngineBridge. android:required="false" means the app still
-             installs fine on devices without these libs; GPU-backend init just fails on those
-             devices and LiteRtLmEngineBridge falls back to CPU. -->
-        <uses-native-library
-            android:name="libvndksupport.so"
-            android:required="false" />
-        <uses-native-library
-            android:name="libOpenCL.so"
-            android:required="false" />
-        <uses-native-library
-            android:name="libOpenCL-pixel.so"
-            android:required="false" />
-        <uses-native-library
-            android:name="libOpenCL-car.so"
-            android:required="false" />
+        <!-- LiteRT-LM's GPU (OpenCL) <uses-native-library> declarations were removed here during
+             the llama.cpp migration (this session): v1 of the llama.cpp-backed offline engine is
+             CPU-only (see the approved migration plan and LlamaCppEngineBridge's class doc) and
+             registers no GPU backend, so these OpenCL library hints no longer apply. If/when a
+             deferred Vulkan GPU backend is added for llama.cpp, revisit whether an equivalent
+             <uses-native-library> declaration is needed for Vulkan (libvulkan.so) rather than
+             restoring these OpenCL-specific ones. -->
         <activity
             android:name=".activities.iconcreator.IconCreatorActivity"
             android:exported="false"
@@ -449,7 +440,7 @@
             </intent-filter>
         </service>
         <service android:name="pro.sketchware.ai.engine.AiBackgroundService" android:exported="false" />
-        <!-- Runs LocalModelCatalog .litertlm downloads as a real foreground service so a
+        <!-- Runs LocalModelCatalog model downloads (.gguf post-migration, was .litertlm) as a real foreground service so a
              transfer survives the user leaving AiSettingsActivity, switching apps, or locking
              the screen — see LocalModelDownloadService's class javadoc. foregroundServiceType is
              declared even though targetSdk (28) doesn't yet require it, so this doesn't need

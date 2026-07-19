@@ -168,7 +168,8 @@ public enum AiProvider {
     // ════════════════════════════════════════════════════════
 
     /**
-     * Runs entirely on-device via LiteRT-LM (com.google.ai.edge.litertlm), no internet
+     * Runs entirely on-device via llama.cpp (previously LiteRT-LM — migrated this session, see
+     * {@link pro.sketchware.ai.offline.LlamaCppEngineBridge}'s class javadoc), no internet
      * connection or API key required. baseUrl/modelsEndpoint/chatEndpoint are unused for
      * this provider (kept as empty strings only because the constructor requires non-null
      * values) — all actual requests go through
