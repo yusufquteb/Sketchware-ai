@@ -23,6 +23,17 @@
          no longer sufficient for a typed foreground service on those versions. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- The vendored :llama module (com.arm.aichat, ggml-org/llama.cpp's Android JNI wrapper —
+         see app/build.gradle's "Offline AI Models" dependency block) declares minSdk=33 in its
+         own build.gradle.kts. This app's minSdk stays 26 deliberately (raising it app-wide would
+         drop Android 8–12 support for every feature, not just offline AI), so
+         tools:overrideLibrary suppresses the manifest-merger error that mismatch would otherwise
+         cause. LlamaCppEngineBridge.isDeviceSupported() is the runtime half of this: every entry
+         point into the module checks Build.VERSION.SDK_INT >= 33 (plus a supported 64-bit ABI)
+         before touching it, so a device below that floor never reaches code the merger only
+         agreed to include because of this override. -->
+    <uses-sdk tools:overrideLibrary="com.arm.aichat" />
+
     <application
         android:name=".SketchApplication"
         android:enableOnBackInvokedCallback="true"

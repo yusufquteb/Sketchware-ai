@@ -33,90 +33,62 @@ import pro.sketchware.ai.models.ToolCall;
  * archive before writing this class — see CHANGES.md Phase 5) so it drops into the existing
  * send path in {@code AiClientFactory} without changes anywhere else in the chat pipeline.
  *
- * <p><b>llama.cpp migration (this session).</b> This provider previously ran on
- * {@code LiteRtLmEngineBridge} (Google's LiteRT-LM), whose {@code .litertlm} catalog files each
- * had a fixed 4096-token KV cache baked in at export time — not a runtime-configurable value,
- * and the root cause of the local model only ever getting {@code ToolRegistry}'s smallest tool
- * tier. It now runs on {@link LlamaCppEngineBridge} (vendored `:llama` module wrapping
- * {@code ggml-org/llama.cpp}'s JNI bindings), which takes context size as a load-time parameter
- * instead — fixed at 8192 tokens for every model in this first migration pass (see
+ * <p><b>llama.cpp migration (this session).</b> This provider previously ran on LiteRT-LM (Google's
+ * {@code .litertlm} engine, since removed), whose catalog files each had a fixed 4096-token KV
+ * cache baked in at export time — not a runtime-configurable value, and the root cause of the
+ * local model only ever getting {@code ToolRegistry}'s smallest tool tier. It now runs on
+ * {@link LlamaCppEngineBridge} (vendored `:llama` module wrapping {@code ggml-org/llama.cpp}'s
+ * own {@code examples/llama.android}), which takes context size as a load-time parameter instead
+ * — fixed at 8192 tokens for every model in this first migration pass (see
  * {@code LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS}; GPU backend and per-device context tiering
- * are deferred follow-ups, not part of this change). All of the prompt-assembly, history-trimming,
- * and tool-call-parsing logic below is engine-agnostic text processing carried over unchanged;
- * only {@link #HARD_KV_CACHE_TOKENS} and the engine call site changed. The historical javadoc
- * below still describes real, still-applicable engineering decisions (structured chat turns over
- * flattened text, stateless-per-call history, the essential-tools-only budget) — read
- * "LiteRT-LM"/{@code Conversation} references in it as "whichever engine was active at the time
- * of that fix"; the underlying reasoning carries over to {@link LlamaCppEngineBridge} unchanged.
- * <b>Not verified against a real build</b> — see {@link LlamaCppEngineBridge}'s class doc for the
- * three unmet prerequisites (no NDK, no GitHub access to vendor the native module, no Hugging
- * Face access to download a GGUF model) this sandbox could not satisfy.
+ * are deferred follow-ups, not part of this change).
+ *
+ * <p><b>The engine is stateful — this class no longer resends full history.</b> This is a
+ * deliberate design change from every prior revision of this class (LiteRT-LM era included): the
+ * vendored llama.cpp module keeps the running conversation (KV cache, chat-templated turn
+ * history, its own generated replies) entirely inside native code once a system prompt has been
+ * established — see {@link LlamaCppEngineBridge}'s class doc. {@link #buildPromptAssembly} now
+ * only ever extracts the *newest* message from {@code messages} (folding a "tool" role result
+ * into user-turn text, same as before) plus the system/tool/knowledge blocks; it does not build
+ * or resend a history list. {@link #isContinuationOf} decides, on every call, whether the
+ * incoming {@code messages} list is a strict-prefix-preserving continuation of what this instance
+ * last sent to the engine — if so, the native conversation's own memory is trusted and only the
+ * new message is sent; if not (first call, provider switched away and back, history edited/
+ * reordered, etc.), {@link LlamaCppEngineBridge#generate}'s {@code forceReset} re-establishes the
+ * system prompt fresh, and only the newest message is sent — older turns are not replayed into
+ * the new conversation, since the module's public API has no bulk-history-seeding method. This is
+ * an accepted, documented trade-off, not an oversight. <b>Not verified against a real build</b> —
+ * see {@link LlamaCppEngineBridge}'s class doc for what's confirmed against the actual vendored
+ * source versus what still needs a real NDK build to test.
  *
  * <p><b>Context/Token MVP — tool calling re-enabled for the local model, essential subset only.</b>
- * Phase 5.4 disabled tools entirely because Phase 5.1's approach (reformat the live
- * {@code ToolRegistry} — 106 registered tools as of that phase — into a compact prompt block on
- * every call) was fundamentally incompatible with a 4096-token model: even a minimal
- * one-line-per-tool format for all 106 tools alone landed in the 8,000–11,000-token range,
- * confirmed from an actual field failure where a single "hi" message produced an estimated
- * ~11203 prompt tokens. Rather than sending the full registry, {@code AgentExecutor} now sends
- * only the 7-tool essential subset ({@code ToolRegistry.getEssentialTools()}), so {@link
- * #buildToolBlock} builds a small tool block from whatever it's given and its measured token
- * cost is reserved in the history budget the same way the system prompt's is (see {@link
- * #buildPromptAssembly}). {@link #parseToolCall}, {@code TOOL_CALL_OPEN_TAG}/{@code
- * TOOL_CALL_CLOSE_TAG}, and the {@code <tool_call>...</tool_call>} convention — previously kept
- * as dead-but-harmless — are now live again for this provider.
+ * Phase 5.4 disabled tools entirely because sending the live {@code ToolRegistry} — 106 registered
+ * tools as of that phase — reformatted into a compact prompt block on every call was fundamentally
+ * incompatible with a 4096-token model: even a minimal one-line-per-tool format for all 106 tools
+ * alone landed in the 8,000–11,000-token range, confirmed from an actual field failure where a
+ * single "hi" message produced an estimated ~11203 prompt tokens. Rather than sending the full
+ * registry, {@code AgentExecutor} now sends only the 7-tool essential subset ({@code
+ * ToolRegistry.getEssentialTools()}), so {@link #buildToolBlock} builds a small tool block from
+ * whatever it's given and its measured token cost is reserved in the prompt budget the same way
+ * the system prompt's is (see {@link #buildPromptAssembly}). {@link #parseToolCall}, {@code
+ * TOOL_CALL_OPEN_TAG}/{@code TOOL_CALL_CLOSE_TAG}, and the {@code <tool_call>...</tool_call>}
+ * convention are live for this provider.
  *
- * <p><b>Phase 5.1 — history trimming</b> (LiteRT-LM era, now historical): {@code
- * LiteRtLmEngineBridge} used to create a fresh LiteRT-LM {@code Conversation} for every {@link
- * #sendChatRequest} call instead of reusing one for the lifetime of the loaded model (that reuse
- * was the actual cause of context roughly doubling every turn). Post-migration, {@link
- * LlamaCppEngineBridge} has no persistent conversation object to begin with, so this specific
- * failure mode cannot recur — but the underlying need for history trimming remains: the engine
- * still has a fixed context window (now 8192 tokens, a load-time parameter rather than a value
- * baked into the model file — see {@link LlamaCppEngineBridge#CONTEXT_SIZE_TOKENS}), and a
- * long-running conversation still needs its own history capped well under that ceiling, since
- * {@link #buildPromptAssembly} keeps re-sending the full
- * history every call by design (see that method's javadoc). {@link #trimHistoryForLocalModel}
- * does that: it keeps the most recent messages that fit inside a conservative token budget,
- * estimated with {@link TokenBudgetChecker#estimateTokens} — the same char-count heuristic
- * already used elsewhere in this codebase for payload-size guards, so this isn't a new,
- * unverified estimation method.
- *
- * <p><b>Structured-message fix (field bug — garbled/looping offline output, LiteRT-LM era).</b>
- * {@link #buildPromptAssembly} previously flattened the whole conversation into one plain-text
- * string ({@code "System: ...\n\nuser: ...\nassistant: "}) that {@code LiteRtLmEngineBridge} sent
- * straight to {@code Conversation.sendMessageAsync(String)}. That bypassed LiteRT-LM's own chat
- * templating — the model never saw its real turn-boundary tokens (e.g. Qwen's {@code <|im_start|>}/
- * {@code <|im_end|>}, Gemma's {@code <start_of_turn>}/{@code <end_of_turn>}), so it had no learned
- * signal for where to stop and kept generating further hallucinated "user:"/"assistant:" turns —
- * the garbled, looping output reported against Qwen3 and Gemma-3 in the field. Fixed by having
- * {@link #buildPromptAssembly} return a {@link PromptAssembly} (system instruction + structured
- * {@link LlamaCppEngineBridge.HistoryTurn} list + the newest user message, all still trimmed by
- * {@link #trimHistoryForLocalModel} exactly as before) instead of one string, and having the
- * engine bridge's {@code generate} method apply the model's own chat template to that structure
- * rather than the app hand-rolling role-label text — {@link LlamaCppEngineBridge} does this via
- * llama.cpp's {@code llama_chat_apply_template} (reading the GGUF's embedded template) the same
- * way {@code LiteRtLmEngineBridge} did via {@code ConversationConfig}. This is the same class of
- * fix for both model families, since both use special-token turn delimiters this app was
- * previously sending as plain text.
- *
- * <p><b>Still open — Phi-4 "exits the project" after a tool call.</b> Reported separately from the
- * garbling above: Phi-4 evidently found enough signal in the old flattened prompt to emit a
- * parseable {@code <tool_call>} block (unlike Qwen3/Gemma-3), so it was not hitting the same
- * template-mismatch failure — this fix is not claimed to resolve that report. The reported
- * symptom (leaving/closing the project after a tool call completes) points at either the
- * tool-result being fed back in a shape Phi-4's own template doesn't expect, or something in how
- * {@code sc_id}/project scope is threaded through {@link AgentExecutor}'s shared tool-execution
- * loop once a call originates from this provider — neither has been isolated yet and needs its
- * own field reproduction now that the garbling is no longer a confound.
+ * <p><b>Still open — Phi-4 "exits the project" after a tool call.</b> A field report from the
+ * LiteRT-LM era: Phi-4 emits a parseable {@code <tool_call>} block but then leaves/closes the
+ * project after the tool result is fed back. Not re-tested against llama.cpp — the suspected cause
+ * (tool-result shape, or {@code sc_id}/project scope threading through {@link AgentExecutor}'s
+ * shared tool-execution loop) is engine-independent, so it needs its own field reproduction on
+ * this engine before being considered resolved either way.
  *
  * <p><b>fetchModels()</b>: there is no network models-list endpoint for a local engine, so this
  * returns the single currently-selected {@link LocalModelCatalog} entry as one {@link ModelInfo}.
  *
- * <p><b>Not tested end-to-end</b>: no Android device/emulator, NDK, or GitHub/Hugging Face
- * network access is available in this environment. See CHANGES.md Phase 5 for the pre-migration
- * field-verification history, and {@link LlamaCppEngineBridge}'s class javadoc for the specific
- * unmet prerequisites this migration still carries.
+ * <p><b>Not tested end-to-end</b>: no Android device/emulator or NDK is available in this
+ * environment (github.com access became available mid-session and was used to vendor the real
+ * `:llama` module and verify its actual API — see {@link LlamaCppEngineBridge}'s class doc — but
+ * huggingface.co remains blocked, and nothing here has been compiled or run). See CHANGES.md
+ * Phase 5/6 for the full field-verification and migration history.
  */
 public class LocalModelProvider extends AiApiClient {
 
@@ -130,25 +102,34 @@ public class LocalModelProvider extends AiApiClient {
     /** Tags of requests the caller has asked to cancel — checked between chunks. */
     private final CopyOnWriteArraySet<Object> cancelledTags = new CopyOnWriteArraySet<>();
 
-    // ── History / prompt budget ─────────────────────────────────────────────
+    /**
+     * The full {@code messages} list this instance sent to the engine on its last call, used by
+     * {@link #isContinuationOf} to decide whether the next call can trust the native engine's own
+     * conversation memory or must force a fresh system-prompt reset — see class javadoc's
+     * "engine is stateful" note. Null until the first call. Not thread-safe beyond the
+     * {@code volatile} publish — this provider's calls are expected to be sequential per
+     * conversation the same way {@link LlamaCppEngineBridge}'s single-threaded engine access is.
+     */
+    private volatile List<ChatMessage> lastSentMessages = null;
+
+    // ── Prompt budget ─────────────────────────────────────────────────────
     //
     // llama.cpp migration: HARD_KV_CACHE_TOKENS now mirrors
     // LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS (8192, a load-time parameter for this engine —
     // see that class's doc) rather than a value baked into the model file at export time, which
-    // is what LiteRT-LM's ekv4096 exports required. Reserve a slice for the model's own output,
-    // and fill the rest with the most recent history. Deliberately conservative:
-    // TokenBudgetChecker's estimator is a coarse 4-chars-per-token heuristic (see its own
-    // javadoc), and under-filling the context window is far safer than an engine-level failure
-    // from overfilling it.
+    // is what LiteRT-LM's ekv4096 exports required. Reserve a slice for the model's own output;
+    // the rest budgets the system instruction (system prompt + knowledge block + tool block)
+    // plus the single newest message this class now sends — see class javadoc for why this is
+    // no longer a multi-turn history budget. Deliberately conservative: TokenBudgetChecker's
+    // estimator is a coarse 4-chars-per-token heuristic (see its own javadoc), and under-filling
+    // the context window is far safer than an engine-level failure from overfilling it.
     //
-    // Context/Token MVP: the tool-block reservation is back, but only for the small 7-tool
-    // essential subset (see class javadoc) rather than the full 106+-tool registry Phase 5.4
-    // found unaffordable. Both the system prompt's and the tool block's real measured sizes are
-    // subtracted from the history budget in buildPromptAssembly. The essential-subset choice is
-    // deliberately kept as-is post-migration even though the doubled context could technically
-    // fit more — see the approved migration plan's "explicitly out of scope" section: widening
-    // the tool set is a separate, deliberate follow-up once this budget is proven stable, not an
-    // automatic side effect of this change.
+    // Context/Token MVP: the tool-block reservation is for the small 7-tool essential subset
+    // (see class javadoc) rather than the full 106+-tool registry Phase 5.4 found unaffordable.
+    // The essential-subset choice is deliberately kept as-is post-migration even though the
+    // doubled context could technically fit more — see the approved migration plan's
+    // "explicitly out of scope" section: widening the tool set is a separate, deliberate
+    // follow-up once this budget is proven stable, not an automatic side effect of this change.
     private static final int HARD_KV_CACHE_TOKENS = LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS;
     private static final int RESERVED_FOR_OUTPUT_TOKENS = 1024;
     /** Safety margin subtracted before the final pre-flight check, on top of the
@@ -175,7 +156,7 @@ public class LocalModelProvider extends AiApiClient {
         super("", AiProvider.LOCAL_LLM);
         this.appContext = context.getApplicationContext();
         this.modelManager = new LocalModelManager(appContext);
-        this.engineBridge = new LlamaCppEngineBridge();
+        this.engineBridge = new LlamaCppEngineBridge(appContext);
         this.knowledgeStore = new pro.sketchware.ai.offline.knowledge.KnowledgeStore(appContext);
     }
 
@@ -224,6 +205,18 @@ public class LocalModelProvider extends AiApiClient {
         // Phase 5.6: DEEPSEEK_R1_DISTILL_QWEN_1_5B was re-enabled in the catalog, so the special
         // case that used to redirect a direct request for it back to the default was removed —
         // an explicit modelId for it is now honored like any other catalog entry.
+        // Runtime half of the minSdk mismatch between this app (minSdk 26) and the vendored
+        // :llama module (minSdk 33, arm64-v8a/x86_64 only) — see AndroidManifest.xml's
+        // tools:overrideLibrary and app/build.gradle's dependency-block comment for the full
+        // reasoning. Checked first, before touching modelManager/engineBridge at all, so a
+        // device below the floor gets a clear message instead of risking an
+        // UnsatisfiedLinkError or crash further down.
+        if (!LlamaCppEngineBridge.isDeviceSupported()) {
+            handler.onError("Offline AI needs Android 13+ on a 64-bit device (arm64-v8a/x86_64) "
+                    + "— this device doesn't meet that requirement.");
+            return;
+        }
+
         LocalModelCatalog requested = modelId != null ? LocalModelCatalog.fromId(modelId) : null;
         LocalModelCatalog selected = requested != null ? requested : modelManager.getSelectedModel();
         if (modelManager.getState(selected) != LocalModelState.READY) {
@@ -232,17 +225,15 @@ public class LocalModelProvider extends AiApiClient {
             return;
         }
 
+        boolean continuing = isContinuationOf(messages);
         PromptAssembly assembly = buildPromptAssembly(messages, systemPrompt, tools);
+        lastSentMessages = messages;
 
-        // Phase 5.3 — final pre-flight check: buildPromptAssembly already trims history to a
-        // computed budget, but that budget is itself an estimate (char-count heuristic) and the
-        // always-kept newest message can alone exceed it (see trimHistoryForLocalModel).
-        // Measuring the *actual* assembled content one last time — right before it reaches the
-        // engine — catches whatever the budgeting step could still miss, so the user gets a
-        // clear in-app message instead of the engine's raw "Input token ids are too long" error.
-        // Estimated the same way regardless of the structured-message rewrite: summing every
-        // piece's own text length is equivalent to estimating the old flattened string, since
-        // TokenBudgetChecker's estimator is a plain character count with no per-call overhead.
+        // Phase 5.3 — final pre-flight check: buildPromptAssembly already truncates the newest
+        // message to a computed budget, but that budget is itself an estimate (char-count
+        // heuristic) — measuring the *actual* assembled content one last time, right before it
+        // reaches the engine, catches whatever the budgeting step could still miss, so the user
+        // gets a clear in-app message instead of the engine's raw "too long" failure.
         int finalPromptTokens = assembly.estimatedTotalTokens();
         int finalCheckLimit = HARD_KV_CACHE_TOKENS - RESERVED_FOR_OUTPUT_TOKENS - FINAL_CHECK_SAFETY_MARGIN_TOKENS;
         if (finalPromptTokens > finalCheckLimit) {
@@ -268,8 +259,8 @@ public class LocalModelProvider extends AiApiClient {
         // this bug's exact reported symptom.
         ToolCallStreamGate streamGate = new ToolCallStreamGate(TOOL_CALL_OPEN_TAG, handler::onChunk);
 
-        engineBridge.generate(modelFile, assembly.systemInstruction, assembly.history,
-                assembly.latestUserMessage, modelManager.isGpuBackendPreferred(),
+        engineBridge.generate(modelFile, assembly.systemInstruction, assembly.latestUserMessage,
+                /* forceReset= */ !continuing, modelManager.isGpuBackendPreferred(),
                 new LlamaCppEngineBridge.GenerationCallback() {
             @Override
             public void onChunk(@NonNull String textDelta) {
@@ -305,31 +296,19 @@ public class LocalModelProvider extends AiApiClient {
     }
 
     /**
-     * Holds the structured pieces {@link LlamaCppEngineBridge#generate} needs, replacing the
-     * single flattened prompt string this method used to return — see that class's
-     * "Structured-message fix" javadoc for why a flattened string was the actual root cause of
-     * the garbled/looping offline output reported in the field (Qwen3/Gemma-3: no learned
-     * turn-boundary signal in plain "user:"/"assistant:" text, so generation ran past the end of
-     * its own answer). {@code history} holds every trimmed message except the newest, which is
-     * always sent separately as {@code latestUserMessage} — matching
-     * {@code ConversationConfig.initialMessages} + a final {@code sendMessageAsync} call, per the
-     * official getting-started sample. Despite the field's name, this is not always literally a
-     * "user" turn: {@code AgentExecutor}'s multi-iteration tool-calling loop can re-call
-     * {@code sendChatRequest} with the conversation ending on a "tool" role message (the result of
-     * the previous iteration's tool call) — see {@link #buildPromptAssembly} for how that's
-     * labeled before being sent.
+     * Holds the structured pieces {@link LlamaCppEngineBridge#generate} needs. No history list —
+     * see class javadoc's "engine is stateful" note; the native conversation carries its own
+     * memory once established, so only the system instruction and the single newest message are
+     * ever built here.
      */
     private static final class PromptAssembly {
         @Nullable final String systemInstruction;
-        @NonNull final List<LlamaCppEngineBridge.HistoryTurn> history;
         @NonNull final String latestUserMessage;
         final int estimatedTokens;
 
         PromptAssembly(@Nullable String systemInstruction,
-                        @NonNull List<LlamaCppEngineBridge.HistoryTurn> history,
                         @NonNull String latestUserMessage, int estimatedTokens) {
             this.systemInstruction = systemInstruction;
-            this.history = history;
             this.latestUserMessage = latestUserMessage;
             this.estimatedTokens = estimatedTokens;
         }
@@ -340,41 +319,57 @@ public class LocalModelProvider extends AiApiClient {
     }
 
     /**
-     * Builds the structured system instruction + history turns for a call, replacing the old
-     * single-flattened-prompt-string approach. This phase keeps generation stateless per call —
-     * each request re-sends full context — rather than trying to keep a long-lived LiteRT-LM
-     * {@code Conversation} in sync with this app's own multi-provider message list (which can
-     * switch providers mid-conversation, something a persistent on-device conversation object has
-     * no way to represent). This stateless-per-call design was originally motivated by
-     * LiteRT-LM's {@code Conversation} object (see that engine's now-removed bridge history in
-     * version control for the full "Phase 5.1 fix" evidence trail) and carries over unchanged to
-     * {@link LlamaCppEngineBridge}, which has no persistent conversation object to begin with —
-     * every call renders a fresh prompt from {@code systemInstruction}/history/
-     * {@code latestUserMessage} through the GGUF's own chat template.
+     * True if {@code messages} is a strict-prefix-preserving continuation of the list this
+     * instance last sent to the engine ({@link #lastSentMessages}) — i.e. every message this
+     * provider already told the engine about is still present, unchanged, in the same order,
+     * with only new messages appended after it. When true, the native conversation's own memory
+     * (see {@link LlamaCppEngineBridge}'s class doc) is trusted and {@link #sendChatRequest} only
+     * sends the newest message. When false (first call ever, a provider switch away and back,
+     * edited/reordered/regenerated history, or a completely different conversation), the caller
+     * passes {@code forceReset=true} to {@link LlamaCppEngineBridge#generate}, which
+     * re-establishes the system prompt and starts the native conversation fresh from just the
+     * newest message — older turns are not replayed in, since the engine's public API has no
+     * bulk-history-seeding method (see that class's doc). This is a heuristic, not a guarantee:
+     * it compares by role+content equality, not object identity, so it correctly recognizes
+     * continuation across independently-constructed {@link ChatMessage} instances with the same
+     * content (e.g. after being reloaded from persistence) as long as nothing actually changed.
+     */
+    private boolean isContinuationOf(List<ChatMessage> messages) {
+        List<ChatMessage> prior = lastSentMessages;
+        if (prior == null || messages == null || messages.size() <= prior.size()) return false;
+        for (int i = 0; i < prior.size(); i++) {
+            ChatMessage a = prior.get(i);
+            ChatMessage b = messages.get(i);
+            if (!java.util.Objects.equals(a.getRole(), b.getRole())
+                    || !java.util.Objects.equals(a.getContent(), b.getContent())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Builds the system instruction (system prompt + persistent knowledge block + tool block)
+     * and extracts the single newest message to send — see class javadoc's "engine is stateful"
+     * note for why this no longer builds or trims a multi-turn history list the way every prior
+     * revision of this class did.
      *
-     * <p><b>Context/Token MVP — small tool block reinstated.</b> {@code tools} is expected to be
-     * the 7-tool essential subset ({@code ToolRegistry.getEssentialTools()}), not the full
-     * 106+-tool registry Phase 5.4 found unaffordable (an all-106 compact block alone landed in
-     * the 8,000–11,000-token range — confirmed from an actual failure where a single "hi"
-     * message reported ~11203 estimated tokens against the 3520-token pre-flight limit). See
-     * {@link #buildToolBlock} for how the block itself is built. It's folded into
-     * {@code systemInstruction} (standing instructions for the whole conversation) rather than
-     * appearing as a fake extra "turn" in {@code initialMessages} — a tool catalog is not
-     * something either party "said," and putting it in {@code systemInstruction} keeps every
-     * entry in {@code initialMessages} an actual past user/assistant turn, which is what lets
-     * LiteRT-LM's template render them with the model's real turn-boundary tokens.
+     * <p><b>Context/Token MVP — small tool block.</b> {@code tools} is expected to be the 7-tool
+     * essential subset ({@code ToolRegistry.getEssentialTools()}), not the full 106+-tool
+     * registry Phase 5.4 found unaffordable (an all-106 compact block alone landed in the
+     * 8,000–11,000-token range — confirmed from an actual failure where a single "hi" message
+     * reported ~11203 estimated tokens). See {@link #buildToolBlock} for how the block itself is
+     * built.
      *
      * <p><b>Persistent knowledge block.</b> Project rules/env/tool notes stored in {@link
      * #knowledgeStore} are folded into {@code systemInstruction} the same way, budgeted the same
      * way {@code toolBlock} is — see {@link pro.sketchware.ai.offline.knowledge.KnowledgeBlockBuilder}.
-     * This exists precisely because {@link #trimHistoryForLocalModel} below drops the *oldest*
-     * chat messages first: a rule stated early in a long conversation would otherwise be exactly
-     * what gets trimmed away. Reading this block from a store outside {@code messages} means it
-     * survives regardless of how much history is still in the trimming window.
+     * Reading this from a store outside {@code messages} means it's re-sent every time the system
+     * prompt is (re-)established, regardless of how much native conversation memory is retained.
      *
-     * <p>Because this is resent on every single call, history is trimmed to what fits the
-     * remaining budget after the system instruction (system prompt + tool block + knowledge
-     * block) and output reserve are accounted for (see {@link #trimHistoryForLocalModel}).
+     * <p>The newest message is truncated (tail kept) to fit whatever budget remains after the
+     * system instruction's real measured size is subtracted from {@link #HARD_KV_CACHE_TOKENS} —
+     * see {@link #truncateStringToBudget}.
      */
     private PromptAssembly buildPromptAssembly(List<ChatMessage> messages, String systemPrompt,
                                                 List<ToolDefinition> tools) {
@@ -382,9 +377,20 @@ public class LocalModelProvider extends AiApiClient {
         String toolBlock = buildToolBlock(tools);
         int toolBlockTokens = TokenBudgetChecker.estimateTokens(toolBlock);
 
-        // Rank NORMAL knowledge entries against the newest user message — the same signal
-        // trimHistoryForLocalModel always keeps whole, so relevance and "what's guaranteed to
-        // survive trimming" point at the same message.
+        ChatMessage newest = (messages != null && !messages.isEmpty())
+                ? messages.get(messages.size() - 1) : null;
+        String newestContentRaw = newest != null && newest.getContent() != null
+                ? newest.getContent() : "";
+        // "tool" is this app's own third role (see ChatMessage's constructors) with no dedicated
+        // chat-template role of its own on the native side (only system/user/assistant — see
+        // LlamaCppEngineBridge's class doc) — folded into a labeled user-turn text so the model
+        // still sees the tool result as content.
+        String latestUserMessage = newest != null && "tool".equals(newest.getRole())
+                ? "[Tool result: " + newest.getToolName() + "] " + newestContentRaw
+                : newestContentRaw;
+
+        // Rank NORMAL knowledge entries against the newest message — the same message this call
+        // is actually about to send, so relevance ranking matches what the model will see.
         //
         // RFC-001 review, recommendation 1: routed through KnowledgeRetriever rather than
         // calling KnowledgeBlockBuilder directly, per KnowledgeRetriever's own javadoc — "both
@@ -393,26 +399,13 @@ public class LocalModelProvider extends AiApiClient {
         // once wired in, so the two engines never drift into two different notions of what the
         // assistant knows." pageContext isn't currently threaded into sendChatRequest's
         // signature (it would require changing the AiApiClient interface every provider
-        // implements, out of scope here), so this passes null for it exactly as the prior direct
-        // KnowledgeBlockBuilder.build() call did — behavior for this call site is unchanged,
-        // only the entry point used to reach it.
-        String latestUserMessage = latestMessageContent(messages);
+        // implements, out of scope here), so this passes null for it as before.
         pro.sketchware.ai.offline.knowledge.KnowledgeBlockBuilder.Result knowledgeResult =
                 pro.sketchware.ai.offline.knowledge.KnowledgeRetriever.buildContextBlock(
                         knowledgeStore, latestUserMessage, /* pageContext= */ null,
                         MAX_KNOWLEDGE_BLOCK_TOKENS);
         String knowledgeBlock = knowledgeResult.block;
         int knowledgeBlockTokens = knowledgeResult.estimatedTokens;
-
-        int historyBudget = HARD_KV_CACHE_TOKENS - RESERVED_FOR_OUTPUT_TOKENS
-                - systemPromptTokens - toolBlockTokens - knowledgeBlockTokens;
-        // Guard against a pathologically large system prompt (or tool block, or a knowledge
-        // block dominated by CRITICAL entries — see that builder's javadoc on why CRITICAL
-        // entries are never trimmed) alone consuming the whole cache — trimHistoryForLocalModel
-        // still always keeps (truncated if needed) the single newest message, so a
-        // zero-or-negative budget here just means "keep only that newest message, as small as
-        // it can be made."
-        if (historyBudget < 0) historyBudget = 0;
 
         StringBuilder systemSb = new StringBuilder();
         if (systemPrompt != null && !systemPrompt.isEmpty()) {
@@ -428,52 +421,19 @@ public class LocalModelProvider extends AiApiClient {
         }
         String systemInstruction = systemSb.length() > 0 ? systemSb.toString() : null;
 
-        List<ChatMessage> trimmed = trimHistoryForLocalModel(messages, historyBudget);
+        int messageBudget = HARD_KV_CACHE_TOKENS - RESERVED_FOR_OUTPUT_TOKENS
+                - systemPromptTokens - toolBlockTokens - knowledgeBlockTokens;
+        // Guard against a pathologically large system prompt (or tool block, or a knowledge
+        // block dominated by CRITICAL entries — see that builder's javadoc on why CRITICAL
+        // entries are never trimmed) alone consuming the whole cache — the newest message is
+        // still always kept (truncated if needed), so a zero-or-negative budget here just means
+        // "keep only a small tail of it."
+        if (messageBudget < 0) messageBudget = 0;
+        latestUserMessage = truncateStringToBudget(latestUserMessage, messageBudget);
 
-        // The newest message is always sent as latestUserMessage (see PromptAssembly doc), so
-        // it's excluded from initialMessages here even though trimHistoryForLocalModel keeps it
-        // as the last element of `trimmed`.
-        List<LlamaCppEngineBridge.HistoryTurn> history = new ArrayList<>();
-        int historyTokens = 0;
-        String newestContent = "";
-        for (int i = 0; i < trimmed.size(); i++) {
-            ChatMessage m = trimmed.get(i);
-            String content = m.getContent() != null ? m.getContent() : "";
-            historyTokens += TokenBudgetChecker.estimateTokens(content);
-
-            // "tool" is this app's own third role (see ChatMessage's constructors) with no
-            // dedicated chat-template role of its own — folded into a labeled user turn so the
-            // model still sees the tool result as content, rather than guessing at an
-            // unconfirmed template role name.
-            boolean isUser = !"assistant".equals(m.getRole());
-            String text = "assistant".equals(m.getRole()) ? content
-                    : "tool".equals(m.getRole()) ? "[Tool result: " + m.getToolName() + "] " + content
-                    : content;
-
-            if (i == trimmed.size() - 1) {
-                // Newest turn — sent separately via sendMessageAsync, not added to `history`.
-                // AgentExecutor's multi-iteration tool-calling loop can re-call sendChatRequest
-                // with the list ending on a "tool" role message (the result of the previous
-                // iteration's tool call), not only a "user" message — so this uses the same
-                // role-labeled text as the history branch above, rather than assuming the newest
-                // turn is always literal user text.
-                newestContent = text;
-                continue;
-            }
-            history.add(new LlamaCppEngineBridge.HistoryTurn(isUser, text));
-        }
-
-        int totalTokens = systemPromptTokens + toolBlockTokens + knowledgeBlockTokens + historyTokens;
-        return new PromptAssembly(systemInstruction, history, newestContent, totalTokens);
-    }
-
-    /** Content of the last message in {@code messages}, or null — used only to rank knowledge
-     *  entries by relevance, never to decide what's kept in history (that's still
-     *  {@link #trimHistoryForLocalModel}'s job, unchanged). */
-    @Nullable
-    private String latestMessageContent(List<ChatMessage> messages) {
-        if (messages == null || messages.isEmpty()) return null;
-        return messages.get(messages.size() - 1).getContent();
+        int totalTokens = systemPromptTokens + toolBlockTokens + knowledgeBlockTokens
+                + TokenBudgetChecker.estimateTokens(latestUserMessage);
+        return new PromptAssembly(systemInstruction, latestUserMessage, totalTokens);
     }
 
     /**
@@ -567,79 +527,23 @@ public class LocalModelProvider extends AiApiClient {
     }
 
     /**
-     * Keeps the most recent messages that fit within {@code budgetTokens}, dropping the oldest
-     * ones first. Walks from the newest message backwards so the cut always falls at the older
-     * end of the conversation, then restores chronological order.
-     *
-     * <p>The history budget accounts for both the system prompt and the (now small, 7-tool)
-     * tool block — see {@link #buildPromptAssembly}. In practice this still leaves most
-     * single-turn exchanges with the current message plus one or more prior turns; the
-     * truncation path below only engages when a single message is large enough to matter on its
-     * own (e.g. a pasted file), not for ordinary short chat turns.
-     *
-     * <p>The newest message is always kept, truncated to fit {@code budgetTokens} when it alone
-     * exceeds it, instead of being kept whole or dropped — see {@link #truncateToBudget}.
-     *
-     * <p>This still does not summarise or rewrite anything for messages that fit — dropped
-     * older messages are simply omitted for this call, exactly like a context window naturally
-     * would. {@code TokenOptimizer}'s richer summarisation pipeline is intentionally not reused
-     * here: it's tuned for cloud-provider context windows (tens of thousands of tokens) and this
-     * is a much smaller, purely local-model concern, per this phase's scope.
-     */
-    private List<ChatMessage> trimHistoryForLocalModel(List<ChatMessage> messages, int budgetTokens) {
-        List<ChatMessage> result = new ArrayList<>();
-        if (messages == null || messages.isEmpty()) return result;
-
-        int budgetRemaining = budgetTokens;
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            ChatMessage m = messages.get(i);
-            int cost = TokenBudgetChecker.estimateTokens(m.getContent());
-
-            if (result.isEmpty() && cost > budgetRemaining) {
-                // The single newest message alone exceeds the budget. Keep it — dropping it
-                // entirely would silently discard the user's latest turn — but truncate its
-                // content to fit, rather than sending it whole and letting the engine reject
-                // the request outright.
-                result.add(0, truncateToBudget(m, Math.max(budgetRemaining, 0)));
-                break;
-            }
-            if (!result.isEmpty() && cost > budgetRemaining) {
-                // Stop once the budget is exhausted for any older message; the newest one is
-                // already safely in `result` from a prior iteration.
-                break;
-            }
-            result.add(0, m);
-            budgetRemaining -= cost;
-        }
-        return result;
-    }
-
-    /**
-     * Returns a copy of {@code message} with its content truncated to roughly fit
-     * {@code budgetTokens} (via {@link TokenBudgetChecker}'s char-per-token estimate), keeping
-     * the tail of the content rather than the head. The original {@code message} object passed
-     * in by the caller is never mutated — {@code messages} is owned by the caller (e.g. the
-     * conversation's persisted history) and may still be sent to a different provider later in
-     * the same session (see {@link #buildPromptAssembly} class-level rationale on
-     * per-provider stateless prompts), so mutating it in place here would leak a local-model-only
-     * truncation into that shared list.
+     * Truncates {@code content} (tail kept, not head) to roughly fit {@code budgetTokens} via
+     * {@link TokenBudgetChecker}'s char-per-token estimate. Replaces the old message-list
+     * trimming this class used when it resent full history — see class javadoc's "engine is
+     * stateful" note for why only the single newest message's size matters here now.
      *
      * <p>A budget of 0 or less still keeps a small tail rather than an empty string, so the
      * model always sees at least a fragment of the user's actual latest message instead of
      * nothing.
      */
-    private ChatMessage truncateToBudget(ChatMessage message, int budgetTokens) {
-        String content = message.getContent();
-        if (content == null || content.isEmpty()) return message;
+    private String truncateStringToBudget(String content, int budgetTokens) {
+        if (content == null || content.isEmpty()) return content == null ? "" : content;
 
         int maxChars = Math.max(budgetTokens, 1) * 4; // inverse of TokenBudgetChecker's 4-chars-per-token estimate
-        if (content.length() <= maxChars) return message;
+        if (content.length() <= maxChars) return content;
 
-        String truncated = "…(earlier part of this message was trimmed to fit the on-device model)…\n"
+        return "…(earlier part of this message was trimmed to fit the on-device model)…\n"
                 + content.substring(content.length() - maxChars);
-
-        ChatMessage copy = new ChatMessage(message.getConversationId(), truncated);
-        return copy;
     }
 
     /**
@@ -818,6 +722,7 @@ public class LocalModelProvider extends AiApiClient {
     public void shutdown() {
         cancelAll();
         engineBridge.close();
+        lastSentMessages = null; // engine's own conversation memory is gone — force a reset next call
         knowledgeStore.close();
     }
 

@@ -10,3 +10,13 @@ dependencyResolutionManagement {
 
 rootProject.name = "Sketchware Pro"
 include(":app")
+
+// llama.cpp's official Android JNI wrapper module (com.arm.aichat), vendored via the
+// third_party/llama.cpp git submodule pinned to commit 571d0d5 (tag b10068) — see that
+// submodule's examples/llama.android/lib/src/main/cpp/CMakeLists.txt, which locates the rest
+// of the llama.cpp/ggml source via a relative path from this exact location, so this module
+// cannot be copied out of the submodule tree on its own. NOT YET BUILD-VERIFIED IN THIS
+// ENVIRONMENT: no Android NDK is installed here (see LlamaCppEngineBridge's class javadoc for
+// the full disclosure) — first real Gradle sync + NDK build is the actual test.
+include(":llama")
+project(":llama").projectDir = file("third_party/llama.cpp/examples/llama.android/lib")
