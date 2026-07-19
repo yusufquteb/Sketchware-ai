@@ -1,0 +1,45 @@
+<resources>
+    <!-- Styles with actual custom implementations that extend or override the
+         Material 3 Expressive library defaults.  Plain one-line aliases that
+         just map an Expressive name to the equivalent M3 name were removed now
+         that com.google.android.material:material:1.14.0 ships the full
+         Material3Expressive style family natively. -->
+
+    <!-- Icon-only tonal button: square-ish 40×40 dp pill with secondary-container fill.
+         The upstream Widget.Material3Expressive.Button.IconButton.Tonal in M1.14.0
+         uses different padding/shape, so we keep our intentional override. -->
+    <style name="Widget.Material3Expressive.Button.IconButton.Tonal" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorSecondaryContainer</item>
+        <item name="iconTint">?attr/colorOnSecondaryContainer</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="iconPadding">0dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:paddingLeft">8dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingRight">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
+
+    <!-- Active indicator slot for bottom navigation — kept as empty anchor so
+         any reference to this style name resolves without errors on pre-1.14 builds. -->
+    <style name="Widget.Material3Expressive.NavigationBarView.ActiveIndicator" parent="" />
+
+    <!-- Toolbar with surface-coloured background and on-surface text/icons.
+         Used as the parent of Widget.SketchwarePro.Toolbar.SmallText. -->
+    <style name="Widget.Material3Expressive.Toolbar.OnSurface" parent="Widget.Material3.Toolbar">
+        <item name="android:background">?attr/colorSurface</item>
+        <item name="titleTextColor">?attr/colorOnSurface</item>
+        <item name="subtitleTextColor">?attr/colorOnSurfaceVariant</item>
+        <item name="navigationIconTint">?attr/colorOnSurface</item>
+    </style>
+
+    <!-- Large collapsing toolbar that reveals the surface colour when collapsed
+         and keeps a transparent status-bar scrim when expanded. -->
+    <style name="Widget.Material3Expressive.CollapsingToolbar.Large" parent="Widget.Material3.CollapsingToolbar">
+        <item name="contentScrim">?attr/colorSurface</item>
+        <item name="statusBarScrim">@android:color/transparent</item>
+    </style>
+</resources>

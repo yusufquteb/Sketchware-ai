@@ -1,0 +1,39 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    ext {
+        agp_version = '8.12.0'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:$agp_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20"
+        classpath "com.google.firebase:firebase-crashlytics-gradle:3.0.6"
+        classpath "com.google.gms:google-services:4.4.4"
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+
+    // The project also declares older embedded Kotlin compiler artifacts
+    // elsewhere (e.g. app's compileOnly "org.jetbrains.kotlin:kotlin-compiler:2.1.21",
+    // used for on-device compilation of user projects, not for building this
+    // app). Without this, that older compiler-embeddable jar can end up
+    // shadowing the Kotlin Gradle Plugin's own compiler on the buildscript
+    // classpath, so :app:compileAndroid26DebugKotlin silently runs with an
+    // old Kotlin compiler (2.1.0) instead of the declared 2.3.20 — causing
+    // "Class X was compiled with an incompatible version of Kotlin" errors
+    // against any dependency built with newer Kotlin metadata (e.g.
+    // litertlm-android). Forcing this pins the buildscript's own compiler
+    // to the version we actually declare above.
+    configurations.classpath {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.20"
+        }
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
+}

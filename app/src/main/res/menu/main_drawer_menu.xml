@@ -1,0 +1,18 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/import_android_studio_project"
+        android:icon="@drawable/ic_mtrl_download"
+        android:title="Import Android Studio / GitHub project" />
+
+    <item
+        android:id="@+id/project_cleanup"
+        android:icon="@drawable/ic_mtrl_delete_sweep"
+        android:title="Clean Project Cache" />
+
+    <item
+        android:id="@+id/app_settings"
+        android:icon="@drawable/ic_mtrl_settings"
+        android:title="Settings" />
+
+</menu>

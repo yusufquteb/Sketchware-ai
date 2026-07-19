@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  bg_ai_sheet_drag_handle.xml
+  Dedicated drag-handle bar for design_ai_bottom_sheet.xml.
+  Uses colorOnSurfaceVariant (not colorOutlineVariant) for stronger
+  contrast against colorSurface in dark theme, where colorOutlineVariant
+  was too close to the background color to be visible.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="2dp" />
+    <solid android:color="?attr/colorOnSurfaceVariant" />
+</shape>

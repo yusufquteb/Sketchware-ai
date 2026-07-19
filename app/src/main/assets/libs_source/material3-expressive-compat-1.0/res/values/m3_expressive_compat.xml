@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material3 Expressive compat stubs — for material < 1.14.0
+         All intermediate dotted-name levels are defined with explicit parents
+         so AAPT2 never triggers the implicit-parent lookup on a missing style. -->
+
+    <!-- Root anchors — delegates to nearest Material3 equivalents -->
+    <style name="ThemeOverlay.Material3Expressive" parent="ThemeOverlay.Material3" />
+    <style name="MaterialAlertDialog.Material3Expressive" parent="MaterialAlertDialog.Material3" />
+    <style name="Theme.Material3Expressive" parent="Theme.Material3" />
+    <style name="Theme.Material3Expressive.Light" parent="Theme.Material3.Light" />
+    <style name="Theme.Material3Expressive.Dark" parent="Theme.Material3.Dark" />
+    <style name="Theme.Material3Expressive.DynamicColors" parent="Theme.Material3.DynamicColors.DayNight" />
+    <style name="Widget.Material3Expressive" parent="android:Widget" />
+    <style name="Widget.Material3Expressive.Button" parent="Widget.Material3.Button" />
+    <style name="Widget.Material3Expressive.Button.IconButton" parent="Widget.Material3.Button" />
+    <style name="Widget.Material3Expressive.CollapsingToolbar" parent="Widget.Material3.CollapsingToolbar" />
+    <style name="Widget.Material3Expressive.Toolbar" parent="Widget.Material3.Toolbar" />
+    <style name="Widget.Material3Expressive.FloatingActionButton" parent="Widget.Material3.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.ExtendedFloatingActionButton" parent="Widget.Material3.ExtendedFloatingActionButton" />
+    <style name="Widget.Material3Expressive.CardView" parent="Widget.Material3.CardView" />
+    <style name="Widget.Material3Expressive.BottomSheet" parent="Widget.Material3.BottomSheet" />
+
+    <!-- ThemeOverlay children -->
+    <style name="ThemeOverlay.Material3Expressive.Dialog" parent="ThemeOverlay.Material3Expressive" />
+    <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog" parent="ThemeOverlay.Material3Expressive.Dialog" />
+    <style name="ThemeOverlay.Material3Expressive.MaterialAlertDialog.Centered" parent="ThemeOverlay.Material3.MaterialAlertDialog.Centered" />
+    <style name="ThemeOverlay.Material3Expressive.BottomSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog" />
+
+    <!-- Theme children -->
+    <style name="Theme.Material3Expressive.Light.NoActionBar" parent="Theme.Material3Expressive.Light" />
+    <style name="Theme.Material3Expressive.Dark.NoActionBar" parent="Theme.Material3Expressive.Dark" />
+    <style name="Theme.Material3Expressive.DynamicColors.Light" parent="Theme.Material3Expressive.DynamicColors" />
+    <style name="Theme.Material3Expressive.DynamicColors.Dark" parent="Theme.Material3Expressive.DynamicColors" />
+    <style name="Theme.Material3Expressive.DynamicColors.Light.NoActionBar" parent="Theme.Material3Expressive.DynamicColors.Light" />
+    <style name="Theme.Material3Expressive.DynamicColors.Dark.NoActionBar" parent="Theme.Material3Expressive.DynamicColors.Dark" />
+
+    <!-- Widget.Button children -->
+    <style name="Widget.Material3Expressive.Button.OutlinedButton" parent="Widget.Material3.Button.OutlinedButton" />
+    <style name="Widget.Material3Expressive.Button.TonalButton" parent="Widget.Material3.Button.TonalButton" />
+    <style name="Widget.Material3Expressive.Button.ElevatedButton" parent="Widget.Material3.Button.ElevatedButton" />
+    <style name="Widget.Material3Expressive.Button.IconButton.Filled" parent="Widget.Material3Expressive.Button.IconButton" />
+
+    <!-- Widget.CollapsingToolbar / Toolbar children -->
+    <style name="Widget.Material3Expressive.CollapsingToolbar.Large" parent="Widget.Material3Expressive.CollapsingToolbar" />
+    <style name="Widget.Material3Expressive.Toolbar.OnSurface" parent="Widget.Material3Expressive.Toolbar" />
+    <style name="Widget.Material3Expressive.Toolbar.Surface" parent="Widget.Material3Expressive.Toolbar" />
+
+    <!-- Progress indicators -->
+    <style name="Widget.Material3Expressive.CircularProgressIndicator" parent="Widget.Material3.CircularProgressIndicator" />
+    <style name="Widget.Material3Expressive.CircularProgressIndicator.Wavy" parent="Widget.Material3Expressive.CircularProgressIndicator" />
+    <style name="Widget.Material3Expressive.LinearProgressIndicator" parent="Widget.Material3.LinearProgressIndicator" />
+
+    <!-- FAB children -->
+    <style name="Widget.Material3Expressive.FloatingActionButton.Small" parent="Widget.Material3Expressive.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.FloatingActionButton.Large" parent="Widget.Material3Expressive.FloatingActionButton" />
+    <style name="Widget.Material3Expressive.ExtendedFloatingActionButton.Icon" parent="Widget.Material3Expressive.ExtendedFloatingActionButton" />
+
+    <!-- Chip (no intermediate needed — each has explicit parent) -->
+    <style name="Widget.Material3Expressive.Chip.Assist" parent="Widget.Material3.Chip.Assist" />
+    <style name="Widget.Material3Expressive.Chip.Filter" parent="Widget.Material3.Chip.Filter" />
+    <style name="Widget.Material3Expressive.Chip.Input" parent="Widget.Material3.Chip.Input" />
+    <style name="Widget.Material3Expressive.Chip.Suggestion" parent="Widget.Material3.Chip.Suggestion" />
+
+    <!-- Navigation / Container -->
+    <style name="Widget.Material3Expressive.BottomNavigationView" parent="Widget.Material3.BottomNavigationView" />
+    <style name="Widget.Material3Expressive.NavigationView" parent="Widget.Material3.NavigationView" />
+
+    <!-- CardView children -->
+    <style name="Widget.Material3Expressive.CardView.Filled" parent="Widget.Material3Expressive.CardView" />
+    <style name="Widget.Material3Expressive.CardView.Elevated" parent="Widget.Material3Expressive.CardView" />
+    <style name="Widget.Material3Expressive.CardView.Outlined" parent="Widget.Material3Expressive.CardView" />
+
+    <!-- BottomSheet children -->
+    <style name="Widget.Material3Expressive.BottomSheet.Modal" parent="Widget.Material3Expressive.BottomSheet" />
+</resources>

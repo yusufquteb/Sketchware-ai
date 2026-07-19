@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    item_chat_msg_ai.xml — Stage 3 FINAL
+    =====================================
+    AI message card: MaterialCardView with flat 1dp left border accent.
+
+    Structure:
+      [outer LinearLayout — padding, no nesting penalty]
+        [avatar row — icon + timestamp]
+        [streaming dots — GONE when not streaming]
+        [MaterialCardView — message card]
+          [header  — AI badge + status chip]
+          [body    — selectable TextView (Text Selection Fix applied)]
+          [footer  — copy | share | expand row]
+
+    Text Selection Fix (Stage 3 CRITICAL):
+      - textIsSelectable="true"
+      - longClickable="true"
+      - clickable="false"
+      - focusableInTouchMode="true"
+      Parent view: clickable="false", focusable="false",
+                   descendantFocusability="afterDescendants"
+
+    Expand button: ONLY arrow icon, rotates 0°↔180°.
+    NO hardcoded colors — all via ?attr/*.
+    All touch targets ≥ 48dp.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="6dp"
+    android:paddingBottom="2dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="52dp"
+    android:clickable="false"
+    android:focusable="false"
+    android:descendantFocusability="afterDescendants">
+
+    <!-- ── Row 1: Avatar + Label + Timestamp ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="5dp"
+        android:clickable="false"
+        android:focusable="false">
+
+        <!-- AI circular avatar chip -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="?attr/colorPrimaryContainer"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_chat_ai_avatar"
+                android:contentDescription="@null"
+                app:tint="?attr/colorOnPrimaryContainer" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- "AI" label -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="@string/chat_ai_label"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="?attr/colorPrimary"
+            android:letterSpacing="0.04" />
+
+        <!-- Timestamp — fills remaining space -->
+        <TextView
+            android:id="@+id/chat_msg_time"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:alpha="0.55" />
+    </LinearLayout>
+
+    <!-- ── Row 2: Streaming indicator (three dots) ── -->
+    <LinearLayout
+        android:id="@+id/chat_msg_streaming_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/streaming_dot_1"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/chat_typing_dot"
+            android:alpha="0.4" />
+        <View
+            android:id="@+id/streaming_dot_2"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:layout_marginEnd="3dp"
+            android:background="@drawable/chat_typing_dot"
+            android:alpha="0.4" />
+        <View
+            android:id="@+id/streaming_dot_3"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:background="@drawable/chat_typing_dot"
+            android:alpha="0.4" />
+    </LinearLayout>
+
+    <!-- ── Row 3: Message MaterialCardView ── -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/chat_msg_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+       
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+        app:strokeWidth="0dp"
+        android:clickable="false"
+        android:focusable="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:clickable="false"
+            android:focusable="false"
+            android:descendantFocusability="afterDescendants">
+
+            <!-- Body: selectable message text -->
+            <!--
+                TEXT SELECTION FIX (CRITICAL — Stage 3):
+                  textIsSelectable="true"  → enables selection handles
+                  longClickable="true"     → enables long-press selection menu
+                  clickable="false"        → prevents click from consuming long-press
+                  focusableInTouchMode="true" → allows focus for selection
+            -->
+            <TextView
+                android:id="@+id/chat_msg_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="10dp"
+                android:lineSpacingMultiplier="1.5"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:textIsSelectable="true"
+                android:longClickable="true"
+                android:clickable="false"
+                android:focusableInTouchMode="true" />
+
+            <!-- Footer: actions row (copy | share | expand) -->
+            <LinearLayout
+                android:id="@+id/chat_msg_actions_row"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone"
+                android:clickable="false"
+                android:focusable="false">
+
+                <!-- Thin divider above actions -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:background="?attr/colorOutlineVariant"
+                    android:visibility="gone" />
+
+                <!-- Copy button -->
+                <ImageButton
+                    android:id="@+id/chat_msg_btn_copy"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/chat_copy_message"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_chat_copy"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <!-- Share button -->
+                <ImageButton
+                    android:id="@+id/chat_msg_btn_share"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/chat_share_message"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_chat_share"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <!-- Spacer -->
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!--
+                    Expand button: arrow icon ONLY.
+                    Rotates 0° (collapsed) ↔ 180° (expanded).
+                    RULE: No text/label next to this button.
+                -->
+                <ImageButton
+                    android:id="@+id/chat_msg_btn_expand"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/chat_expand_message"
+                    android:padding="13dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_chat_expand_arrow"
+                    android:visibility="gone"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

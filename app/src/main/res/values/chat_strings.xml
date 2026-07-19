@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ── Activity / BottomSheet scaffold ── -->
+    <string name="chat_activity_title">Sketchware AI</string>
+    <string name="chat_default_model">AI Assistant</string>
+    <string name="chat_close">Close</string>
+    <string name="chat_nav_back">Back</string>
+
+    <!-- ── Empty state ── -->
+    <string name="chat_empty_title">Start a conversation</string>
+    <string name="chat_empty_subtitle">Ask for help with your Sketchware project — code, layouts, fixes, or features.</string>
+
+    <!-- ── Input area ── -->
+    <string name="chat_input_hint">Ask anything…</string>
+    <string name="chat_attach_file">Attach file</string>
+    <string name="chat_voice_input">Voice input</string>
+    <string name="chat_send_message">Send message</string>
+
+    <!-- ── Typing indicator ── -->
+    <string name="chat_ai_typing">AI is typing</string>
+
+    <!-- ── Labels ── -->
+    <string name="chat_ai_label">AI</string>
+    <string name="chat_internal_assistant_label">Assistant</string>
+
+    <!-- ── Navigation / UX ── -->
+    <string name="chat_scroll_to_bottom">Scroll to bottom</string>
+
+    <!-- ── Message actions ── -->
+    <string name="chat_copy_message">Copy message</string>
+    <string name="chat_share_message">Share message</string>
+    <string name="chat_expand_message">Expand message</string>
+
+    <string name="chat_copy">Copy</string>
+    <string name="chat_share">Share</string>
+    <string name="chat_expand">Expand</string>
+    <string name="chat_select_all">Select All</string>
+    <string name="chat_cancel">Cancel</string>
+
+    <!-- ── Feedback ── -->
+    <string name="chat_copied_to_clipboard">Copied to clipboard</string>
+    <string name="chat_copied_feedback">Copied to clipboard</string>
+
+    <!-- ── System messages ── -->
+    <string name="chat_system_cleared">Conversation cleared.</string>
+
+    <!-- ── Errors ── -->
+    <string name="chat_error_empty_input">Please type a message first.</string>
+    <string name="chat_error_ai_busy">AI is still responding. Please wait.</string>
+    <string name="chat_error_generic">Something went wrong. Please try again.</string>
+    <string name="chat_attach_error">Failed to attach file</string>
+
+    <!-- ── File attach ── -->
+    <string name="chat_attach_image_hint">[Image: %1$s]</string>
+
+</resources>

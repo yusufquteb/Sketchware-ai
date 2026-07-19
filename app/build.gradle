@@ -1,0 +1,399 @@
+import com.android.build.api.variant.FilterConfiguration.FilterType
+
+def secrets = System.getenv("GOOGLE_SERVICES_JSON")
+def analyticsEnabled = secrets != null
+
+apply plugin: "com.android.application"
+apply plugin: "kotlin-android"
+
+if (analyticsEnabled) {
+    apply plugin: "com.google.gms.google-services"
+    apply plugin: "com.google.firebase.crashlytics"
+}
+
+android {
+    compileSdk = 36
+
+    def gitCommitHash = "git rev-parse HEAD".execute().text.trim()
+    def shortCommitHash = "git rev-parse --short HEAD".execute().text.trim()
+
+    defaultConfig {
+        applicationId = "pro.sketchware"
+        namespace = "pro.sketchware"
+        //noinspection ExpiredTargetSdkVersion since we don't target getting Sketchware Pro on Google Play.
+        targetSdk = 28
+        minSdk = 26
+        versionCode = 151
+        versionName = "v8.0.0-${shortCommitHash}"
+
+        buildConfigField("String", "GIT_HASH", "\"${gitCommitHash}\"")
+
+    }
+
+    signingConfigs {
+        debug {
+            def keystoreFile = file("../testkey.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "testkey"
+                keyAlias = "testkey"
+                keyPassword = "testkey"
+            }
+            // If testkey.keystore is absent (local build), Android falls back
+            // to the default debug keystore (~/.android/debug.keystore).
+        }
+        // NOTE: there is currently no dedicated release signing config. The
+        // "release" build type below is signed with signingConfigs.debug,
+        // meaning a "release" APK from this project is not actually signed
+        // for distribution -- it uses the same debug-only key as every other
+        // debug build on this machine. For a real final/distributable build,
+        // generate your own keystore (keytool -genkeypair ...), keep it and
+        // its passwords OUT of version control, and add a release {} block
+        // here pointing to it. Nothing here can safely do that for you, since
+        // it involves a private key only you should hold.
+    }
+
+    splits {
+        // ABI splits: produces one smaller APK per CPU architecture instead
+        // of a single APK bundling all four. This project links native code
+        // through libsu, R8/D8, and other dependencies, so native .so files
+        // for every ABI are a meaningful share of the current APK size.
+        // Whoever installs a split APK must pick the one matching their
+        // device's architecture (arm64-v8a covers the overwhelming majority
+        // of modern Android devices; armeabi-v7a covers older/32-bit ones).
+        abi {
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            universalApk true // also produce one fallback APK with all ABIs
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            shrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.debug
+        }
+        debug {
+            minifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    packagingOptions {
+        resources.excludes += "license/*"
+        resources.excludes += "META-INF/DEPENDENCIES"
+        resources.pickFirsts += "api_database/*"
+
+        // Safe size reduction: strip duplicate/unused metadata that many
+        // transitive dependencies bundle (license text, module descriptors,
+        // notice files). None of this is read at runtime; it's purely
+        // packaging noise duplicated across dozens of jars. This is a
+        // well-established, low-risk exclusion list (unlike touching code
+        // shrinking, which isn't in scope here).
+        resources.excludes += "META-INF/LICENSE*"
+        resources.excludes += "META-INF/NOTICE*"
+        resources.excludes += "META-INF/*.kotlin_module"
+        resources.excludes += "META-INF/*.version"
+        resources.excludes += "META-INF/proguard/*"
+        resources.excludes += "META-INF/INDEX.LIST"
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    androidResources {
+        additionalParameters.addAll("--stable-ids", "${rootDir}/public-stable-ids.txt")
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+        resValues = true
+    }
+
+    configurations.implementation {
+        exclude group: 'javax.inject', module: 'javax.inject'
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-compiler-embeddable"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-common"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-scripting-jvm"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-script-runtime"
+    }
+
+    flavorDimensions "default"
+    productFlavors {
+        android26 {
+            versionName "v8.0.0-${shortCommitHash}"
+            dimension "default"
+            resValue "integer", "for_min_sdk", "26"
+            resValue "bool", "enable_relase_app", "true"
+            resValue "bool", "enable_r8", "true"
+        }
+        android33 {
+            versionName "v8.0.0-${shortCommitHash}"
+            dimension "default"
+            resValue "integer", "for_min_sdk", "33"
+            resValue "bool", "enable_relase_app", "true"
+            resValue "bool", "enable_r8", "true"
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+
+        def flavorName = variant.productFlavors.isEmpty()
+                ? "noflavor"
+                : variant.productFlavors.collect { it.second }.join("-")
+
+        def buildType = variant.buildType
+
+        // Give each ABI split a distinct, ordered versionCode
+        // (baseVersionCode * 10 + abiOffset) so a device/package manager can
+        // tell them apart and correctly identify newer builds, and name each
+        // output after its ABI so it's obvious which one to install.
+        // Uses the real configured versionCode (e.g. from
+        // defaultConfig.versionCode) rather than a hardcoded number, so this
+        // doesn't silently go stale on the next version bump.
+        //
+        // Scoped to the release build type only: debug builds don't need
+        // per-ABI output naming/versioning, and keeping this logic away from
+        // debug removes any chance of it affecting everyday debug builds.
+        def abiCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4]
+
+        variant.outputs.forEach { output ->
+            def abiFilter = output.filters.find { it.filterType == FilterType.ABI }?.identifier
+            def abiSuffix = abiFilter ? "-${abiFilter}" : (variant.outputs.size() > 1 ? "-universal" : "")
+
+            output.outputFileName.set(
+                    "app-${buildType}-${flavorName}${abiSuffix}.apk"
+            )
+
+            if (abiFilter != null && abiCodes.containsKey(abiFilter)) {
+                def baseVersionCode = output.versionCode.getOrElse(1)
+                output.versionCode.set(baseVersionCode * 10 + abiCodes[abiFilter])
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar", "*.aar"])
+    testImplementation "junit:junit:4.13.2"
+
+    implementation libs.bundles.ui
+    implementation libs.bundles.image
+    implementation libs.bundles.coil
+    implementation libs.bundles.networking
+
+    // Sora editor (with BOM for consistent versions)
+    def editorGroupId = "io.github.Rosemoe.sora-editor"
+    implementation platform("$editorGroupId:bom:0.23.5")
+    implementation "$editorGroupId:editor"
+    implementation "$editorGroupId:language-java"
+    implementation "$editorGroupId:language-textmate"
+
+    implementation "com.google.code.gson:gson:2.13.2"
+    implementation "io.noties.markwon:core:4.6.2"
+    implementation "com.github.Cosmic-Ide:DependencyResolver:05ec26af0b"
+    implementation "com.github.PranavPurwar:filepicker:74526bea66"
+    implementation "com.github.topjohnwu.libsu:core:5.0.4"
+    implementation "dev.chrisbanes.insetter:insetter:0.6.1"
+    implementation "com.github.Iyxan23:zipalign-java:1.2.2"
+    implementation "com.madgag:scpkix-jdk15on:1.47.0.3"
+    implementation "javax.xml.stream:stax-api:1.0-2"
+    implementation "com.github.waelchateur:kotlinc-for-sketchware:2.1.21_rc3"
+    implementation "io.github.itsaky:nb-javac-android:17.0.0.3"
+    implementation "com.fasterxml.woodstox:woodstox-core:6.5.1"
+    implementation "com.guardsquare:proguard-core:9.0.2"
+    compileOnly "org.jetbrains.kotlin:kotlin-compiler:2.1.21"
+
+    // Flavor-specific dependencies (direct coordinates)
+    android26Implementation "com.android.tools.build:bundletool:1.18.1"
+    android33Implementation "com.android.tools.build:bundletool:1.18.3"
+    android26Implementation "com.google.protobuf:protobuf-java:3.19.2"
+    android33Implementation "com.google.protobuf:protobuf-java:4.33.2"
+    android26Implementation("com.android.tools:sdklib:25.3.0") {
+        exclude group: "com.intellij", module: "annotations"
+    }
+    android33Implementation("com.android.tools:sdklib:26.4.3") {
+        exclude group: "com.intellij", module: "annotations"
+    }
+    android26Implementation "com.android.tools:r8:8.11.18"
+    android33Implementation "com.android.tools:r8:8.13.17"
+    android26Implementation "org.eclipse.jdt:ecj:3.34.0"
+    android33Implementation "org.eclipse.jdt:ecj:3.45.0"
+    android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
+        exclude group: "com.google.guava", module: "guava"
+    }
+    android33Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.27.1") {
+        exclude group: "com.google.guava", module: "guava"
+    }
+
+    // Analytics and Crashlytics
+    if (analyticsEnabled) {
+        new File("$projectDir/google-services.json").text = secrets
+    }
+    implementation platform("com.google.firebase:firebase-bom:34.9.0")
+    implementation "com.google.firebase:firebase-crashlytics"
+    implementation "com.google.firebase:firebase-analytics"
+    implementation "com.google.firebase:firebase-messaging"
+
+    // NOTE: switched from desugar_jdk_libs_nio to the full desugar_jdk_libs.
+    // The "_nio" variant only backports java.nio.file.* APIs. It does NOT cover
+    // InputStream.readAllBytes() (added in Java 9, part of java.io, not java.nio),
+    // which caused a runtime NoSuchMethodError on devices below API 33/34 (and inside
+    // the isolated ECJCompilerService process, which runs the bundled ECJ compiler
+    // library that internally calls InputStream.readAllBytes()). The full artifact
+    // backports java.io/java.util/java.time/java.nio APIs and fixes this class of crash.
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
+
+    // Additional project workflow dependencies
+    implementation "net.lingala.zip4j:zip4j:2.11.5"
+    implementation "org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r"
+
+    // ── Phase 5: Offline AI Models (on-device inference via LiteRT-LM) ──
+    // Kotlin API for running .litertlm models locally (Qwen, Gemma, etc). No
+    // network required at inference time — only for the one-time model download,
+    // which app/src/main/java/pro/sketchware/ai/offline/LocalModelDownloader.java
+    // does directly over OkHttp (already a transitive dep via libs.bundles.networking),
+    // not through this artifact. UNVERIFIED IN THIS ENVIRONMENT: no network access
+    // here to resolve this from Google's Maven repo — first real Gradle sync is the
+    // actual test. See CHANGES.md Phase 5 for the version-resolution trail and the
+    // Kotlin Gradle plugin bump (2.1.21 -> 2.3.20 above) done specifically to fix the
+    // "kotlin metadata version 2.3.0 unreadable by compiler reading up to 2.2.0" error
+    // from the previous Phase 5 attempt.
+    implementation "com.google.ai.edge.litertlm:litertlm-android:0.13.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+
+    testImplementation "junit:junit:4.13.2"
+}
+
+tasks.register('createMockGoogleServices') {
+    doLast {
+        def googleServicesFile = file("google-services.json")
+        if (secrets != null) {
+            googleServicesFile.text = secrets
+            return
+        }
+        if (!googleServicesFile.exists()) {
+            def mockContent = """{
+  "project_info": {
+    "project_number": "123456789000",
+    "firebase_url": "https://mock-project-default-rtdb.firebaseio.com",
+    "project_id": "mock-project",
+    "storage_bucket": "mock-project.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789000:android:mockappid123456",
+        "android_client_info": {
+          "package_name": "${android.defaultConfig.applicationId}"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "mock_AIzaSyBQJCUXVKUjD38-u5pWkqMtesIfFvxAcvs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}"""
+            googleServicesFile.text = mockContent
+        }
+        def mockReleaseFile = file("src/release/google-services.json")
+        if (!mockReleaseFile.exists()) {
+            mockReleaseFile.parentFile.mkdirs()
+            mockReleaseFile.text = googleServicesFile.text
+        }
+    }
+}
+
+preBuild.dependsOn createMockGoogleServices
+
+// ── Desugared-library config for user-project dexing (readAllBytes() fix) ──
+// WHY THIS EXISTS: app/src/main/java/mod/jbk/build/compiler/dex/DexCompiler.java
+// dexes a *user's* Sketchware-ai project via a bare D8Command.builder() call with
+// no desugared-library configuration attached. This app's own Gradle build has
+// coreLibraryDesugaring enabled (see compileOptions above), which correctly
+// desugars calls like InputStream.readAllBytes() in THIS APP's own code — but
+// that has no effect on code D8 dexes at runtime for a *user's* project, since
+// that's a separate, manually-constructed D8 invocation with its own (until now,
+// absent) desugaring configuration. Result: a user's project containing (directly
+// or via a linked library) a call to a Java 9+ API not present on their device's
+// API level would dex successfully but crash at runtime with NoSuchMethodError —
+// confirmed via a real-world report: building a project on an API 29 emulator.
+//
+// FIX: resolve the same com.android.tools:desugar_jdk_libs_configuration artifact
+// AGP itself uses for this app's own build, extract its JSON spec, and stage it
+// as a raw asset (app/src/main/assets/desugar_jdk_libs_configuration.json) so
+// DexCompiler.java can read it at runtime and pass it to
+// D8Command.builder().addDesugaredLibraryConfiguration(String) — a public method
+// confirmed present on BaseCompilerCommand.Builder (which D8Command.Builder
+// extends) in the r8 versions this project depends on (8.11.18 / 8.13.17). This
+// takes the String overload specifically so no direct reference to the
+// com.android.tools.r8.StringResource type is needed at all — StringResource not
+// being part of the resolvable public API surface was the reason an earlier
+// attempt at this fix failed to compile (see DexCompiler.java's own history notes).
+//
+// The JSON is resolved from Maven at build time (not hand-copied into this repo)
+// so it always matches the exact desugar_jdk_libs version this app depends on,
+// and updates automatically if that version is ever bumped.
+configurations {
+    desugarConfigJson {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    desugarConfigJson "com.android.tools:desugar_jdk_libs_configuration:2.1.5"
+}
+
+tasks.register('stageDesugaredLibraryConfigAsset') {
+    def outputFile = file("src/main/assets/desugar_jdk_libs_configuration.json")
+    def resolvedFiles = configurations.desugarConfigJson
+
+    inputs.files(resolvedFiles)
+    outputs.file(outputFile)
+
+    doLast {
+        def artifactFile = resolvedFiles.singleFile
+        def foundEntry = false
+        outputFile.parentFile.mkdirs()
+        zipTree(artifactFile).matching { include "**/*.json" }.visit { details ->
+            if (!details.isDirectory() && !foundEntry) {
+                outputFile.bytes = details.file.bytes
+                foundEntry = true
+            }
+        }
+        if (!foundEntry) {
+            throw new GradleException(
+                "stageDesugaredLibraryConfigAsset: no .json entry found inside " +
+                "com.android.tools:desugar_jdk_libs_configuration:2.1.5 (artifact: " +
+                artifactFile + "). DexCompiler.java's readAllBytes() fix depends on " +
+                "this file existing at src/main/assets/desugar_jdk_libs_configuration.json — " +
+                "check whether the artifact's internal layout changed.")
+        }
+    }
+}
+
+preBuild.dependsOn stageDesugaredLibraryConfigAsset

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chat_bubble_user_bg.xml
+    ========================
+    User message bubble background.
+    Shape: rounded rectangle — all corners 20dp, top-right = 4dp (tail effect).
+    Color: ?attr/colorPrimary (set programmatically via MaterialShapeDrawable
+    or referenced via theme attribute in the layout).
+
+    Note: Since XML drawables cannot directly reference ?attr/ colors,
+    the actual colorPrimary tint is applied via MaterialCardView background
+    or a GradientDrawable set in code. This drawable defines the SHAPE only.
+    For pure XML usage, use a filled color from the theme-compatible approach below.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners
+        android:topLeftRadius="20dp"
+        android:topRightRadius="4dp"
+        android:bottomLeftRadius="20dp"
+        android:bottomRightRadius="20dp" />
+
+    <!-- Color applied programmatically using ?attr/colorPrimary -->
+    <!-- For XML-only approach, use a color alias that maps to primary -->
+    <solid android:color="@color/chat_bubble_user_color" />
+
+</shape>

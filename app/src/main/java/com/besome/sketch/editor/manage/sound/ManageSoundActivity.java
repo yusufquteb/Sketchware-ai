@@ -1,0 +1,226 @@
+package com.besome.sketch.editor.manage.sound;
+
+import android.os.Bundle;
+import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager.widget.ViewPager;
+
+import com.besome.sketch.lib.base.BaseAppCompatActivity;
+
+import java.lang.ref.WeakReference;
+
+import a.a.a.MA;
+import a.a.a.Qp;
+import a.a.a.Yv;
+import a.a.a.mB;
+import a.a.a.ow;
+import pro.sketchware.R;
+import pro.sketchware.ai.shared.AiAssistantBottomSheet;
+import pro.sketchware.ai.shared.AiPageConfig;
+import pro.sketchware.databinding.ManageSoundBinding;
+import androidx.activity.OnBackPressedCallback;
+
+public class ManageSoundActivity extends BaseAppCompatActivity implements ViewPager.OnPageChangeListener {
+
+    private final int TAB_COUNT = 2;
+    public ManageSoundBinding binding;
+    public ow projectSounds;
+    public Yv collectionSounds;
+    private String sc_id;
+
+    @Override
+    public void onPageScrollStateChanged(int state) {
+    }
+
+    @Override
+    public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+    }
+
+        /**
+     * Back-press logic extracted from the former @Override onBackPressed().
+     * Called by OnBackPressedCallback registered in onCreate().
+     */
+    private void handleBackPress() {
+        if (projectSounds.isSelecting) {
+            projectSounds.setSelecting(false);
+        } else if (collectionSounds.isSelecting()) {
+            collectionSounds.resetSelection();
+        } else {
+            k();
+            try {
+                projectSounds.stopPlayback();
+                collectionSounds.stopPlayback();
+                new SaveAsyncTask(this).schedule(500L);
+            } catch (Exception e) {
+                h();
+            }
+        }
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (!super.isStoragePermissionGranted()) {
+            finish();
+        }
+
+        binding = ManageSoundBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        binding.toolbar.setNavigationOnClickListener(v -> {
+            if (!mB.a()) {
+                getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
+        sc_id = savedInstanceState == null ? getIntent().getStringExtra("sc_id") : savedInstanceState.getString("sc_id");
+        binding.toolbar.inflateMenu(R.menu.compile_log_menu);
+        binding.toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_ai_fix && sc_id != null) {
+                openSoundAi();
+                return true;
+            }
+            return false;
+        });
+
+        binding.viewPager.setAdapter(new PagerAdapter(getSupportFragmentManager()));
+        binding.viewPager.setOffscreenPageLimit(TAB_COUNT);
+        binding.viewPager.addOnPageChangeListener(this);
+        binding.tabLayout.setupWithViewPager(binding.viewPager);
+    
+        // Register back-press callback — required on targetSdk >= 33
+        // where @Override onBackPressed() is bypassed by the dispatcher.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackPress();
+            }
+        });
+}
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (!super.isStoragePermissionGranted()) {
+            finish();
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putString("sc_id", sc_id);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onPageSelected(int position) {
+        projectSounds.setSelecting(false);
+        collectionSounds.resetSelection();
+        if (position == 0) {
+            binding.fab.show();
+            collectionSounds.stopPlayback();
+        } else {
+            binding.fab.hide();
+            projectSounds.stopPlayback();
+        }
+    }
+
+    private static class SaveAsyncTask extends MA {
+        private final WeakReference<ManageSoundActivity> activityWeakReference;
+
+        public SaveAsyncTask(ManageSoundActivity activity) {
+            super(activity);
+            activityWeakReference = new WeakReference<>(activity);
+            activity.addTask(this);
+        }
+
+        @Override
+        public void a() {
+            var activity = activityWeakReference.get();
+            activity.h();
+            activity.setResult(RESULT_OK);
+            activity.finish();
+            Qp.g().d();
+        }
+
+        @Override
+        public void b() {
+            activityWeakReference.get().projectSounds.saveSounds();
+        }
+
+        @Override
+        public void a(String str) {
+            activityWeakReference.get().h();
+        }
+    }
+
+    private void openSoundAi() {
+        java.util.List<AiPageConfig.Tool> tools = new java.util.ArrayList<>();
+        tools.add(new AiPageConfig.Tool("Sound Assets", R.drawable.ic_mtrl_box));
+        tools.add(AiPageConfig.Tool.ai("List Project Sounds",
+                R.drawable.ic_mtrl_box,
+                "List all sound files in project " + sc_id + "."));
+        tools.add(AiPageConfig.Tool.ai("Suggest Sound Effects",
+                R.drawable.ic_mtrl_article,
+                "Suggest appropriate sound effects for my Android app."));
+
+        AiPageConfig config = new AiPageConfig.Builder()
+                .pageTitle("Sound Manager AI")
+                .scopeLabel("Project: " + sc_id)
+                .inputHint("Ask about sound assets…")
+                .systemPrompt("You are an Android audio/sound resource assistant inside Sketchware Pro.\n"
+                        + "Project sc_id: " + sc_id + "\n"
+                        + "Help the user manage sound files and audio resources.\n"
+                        + "Use read_file and list_files tools to inspect sound assets.\n"
+                        + "Reply in the user's language.")
+                .tools(tools)
+                .projectIds(java.util.Arrays.asList(sc_id))
+                .workspaceId(sc_id)
+                .build();
+
+        AiAssistantBottomSheet.newInstance(config)
+                .show(getSupportFragmentManager(), "sound_ai");
+    }
+
+    private class PagerAdapter extends FragmentPagerAdapter {
+        private final String[] titles;
+
+        public PagerAdapter(FragmentManager fragmentManager) {
+            super(fragmentManager);
+            titles = new String[TAB_COUNT];
+            titles[0] = getString(R.string.design_manager_tab_title_this_project);
+            titles[1] = getString(R.string.design_manager_tab_title_my_collection);
+        }
+
+        @Override
+        public int getCount() {
+            return TAB_COUNT;
+        }
+
+        @Override
+        @NonNull
+        public Object instantiateItem(@NonNull ViewGroup viewGroup, int position) {
+            Fragment fragment = (Fragment) super.instantiateItem(viewGroup, position);
+            if (position != 0) {
+                collectionSounds = (Yv) fragment;
+            } else {
+                projectSounds = (ow) fragment;
+            }
+            return fragment;
+        }
+
+        @Override
+        @NonNull
+        public Fragment getItem(int position) {
+            return position == 0 ? new ow() : new Yv();
+        }
+
+        @Override
+        public CharSequence getPageTitle(int position) {
+            return titles[position];
+        }
+    }
+}

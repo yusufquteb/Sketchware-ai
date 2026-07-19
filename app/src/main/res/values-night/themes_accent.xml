@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    res/values-night/themes_accent.xml  ──  DARK variants
+    ══════════════════════════════════════════════════════════════════
+    Mirror of res/values/themes_accent.xml for night / dark mode.
+    Android picks this file automatically — IDENTICAL style names.
+
+    Dark design rules applied:
+      • Backgrounds: #0F172A (blue-dark) or #111827 — never #000000
+      • Primary: tone ~80 (pastel, desaturated — never neon)
+      • Containers: tone ~30 (dark tonal pockets)
+      • Surfaces: layered dark neutrals for tonal elevation
+    ══════════════════════════════════════════════════════════════════
+-->
+<resources>
+
+    <!-- ════════════════════════════════════════════════════════
+         1.  ModernBlue Dark
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.ModernBlue" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#9EC8FF</item>
+        <item name="colorOnPrimary">#003260</item>
+        <item name="colorPrimaryContainer">#004786</item>
+        <item name="colorOnPrimaryContainer">#D3E4FF</item>
+        <item name="colorPrimaryInverse">#1B5E9E</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#BAC8DA</item>
+        <item name="colorOnSecondary">#253040</item>
+        <item name="colorSecondaryContainer">#3B4657</item>
+        <item name="colorOnSecondaryContainer">#D6E3F7</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#D9BAE8</item>
+        <item name="colorOnTertiary">#3C2B4A</item>
+        <item name="colorTertiaryContainer">#524062</item>
+        <item name="colorOnTertiaryContainer">#F3DAFF</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#0F172A</item>
+        <item name="colorOnBackground">#E1E3E8</item>
+        <item name="colorSurface">#0F172A</item>
+        <item name="colorSurfaceBright">#2D3442</item>
+        <item name="colorSurfaceDim">#0F172A</item>
+        <item name="colorSurfaceVariant">#42474E</item>
+        <item name="colorOnSurfaceVariant">#C1C7CE</item>
+        <item name="colorSurfaceContainer">#1D2433</item>
+        <item name="colorSurfaceContainerLow">#171E2C</item>
+        <item name="colorSurfaceContainerHigh">#262E3C</item>
+        <item name="colorSurfaceContainerHighest">#313847</item>
+        <item name="colorSurfaceContainerLowest">#0B1120</item>
+        <item name="colorOnSurface">#E1E3E8</item>
+        <!-- Outline -->
+        <item name="colorOutline">#8C9199</item>
+        <item name="colorOutlineVariant">#42474E</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         2.  AITeal Dark
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.AITeal" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#80D5CB</item>
+        <item name="colorOnPrimary">#003730</item>
+        <item name="colorPrimaryContainer">#00504A</item>
+        <item name="colorOnPrimaryContainer">#9DF3E3</item>
+        <item name="colorPrimaryInverse">#006A60</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#B0CCCA</item>
+        <item name="colorOnSecondary">#1A3534</item>
+        <item name="colorSecondaryContainer">#314B4A</item>
+        <item name="colorOnSecondaryContainer">#CCECEB</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#A5C8E4</item>
+        <item name="colorOnTertiary">#0D3048</item>
+        <item name="colorTertiaryContainer">#264760</item>
+        <item name="colorOnTertiaryContainer">#CAE5FF</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#0F172A</item>
+        <item name="colorOnBackground">#D9E5E4</item>
+        <item name="colorSurface">#0F172A</item>
+        <item name="colorSurfaceBright">#2B3736</item>
+        <item name="colorSurfaceDim">#0F172A</item>
+        <item name="colorSurfaceVariant">#3C4847</item>
+        <item name="colorOnSurfaceVariant">#BCC8C8</item>
+        <item name="colorSurfaceContainer">#192424</item>
+        <item name="colorSurfaceContainerLow">#141E1E</item>
+        <item name="colorSurfaceContainerHigh">#232E2E</item>
+        <item name="colorSurfaceContainerHighest">#2E3939</item>
+        <item name="colorSurfaceContainerLowest">#0A1515</item>
+        <item name="colorOnSurface">#D9E5E4</item>
+        <!-- Outline -->
+        <item name="colorOutline">#88928F</item>
+        <item name="colorOutlineVariant">#3C4847</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         3.  NeutralClean Dark
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.NeutralClean" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#B5BCCA</item>
+        <item name="colorOnPrimary">#212830</item>
+        <item name="colorPrimaryContainer">#373D48</item>
+        <item name="colorOnPrimaryContainer">#D2D9E4</item>
+        <item name="colorPrimaryInverse">#4F5660</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#BFC5D3</item>
+        <item name="colorOnSecondary">#282F3C</item>
+        <item name="colorSecondaryContainer">#3E4553</item>
+        <item name="colorOnSecondaryContainer">#DBE2F0</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#D6BCE0</item>
+        <item name="colorOnTertiary">#392941</item>
+        <item name="colorTertiaryContainer">#514059</item>
+        <item name="colorOnTertiaryContainer">#F3E0FB</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#111827</item>
+        <item name="colorOnBackground">#E1E3E8</item>
+        <item name="colorSurface">#111827</item>
+        <item name="colorSurfaceBright">#2E323F</item>
+        <item name="colorSurfaceDim">#111827</item>
+        <item name="colorSurfaceVariant">#44474E</item>
+        <item name="colorOnSurfaceVariant">#C4C6CD</item>
+        <item name="colorSurfaceContainer">#1E2230</item>
+        <item name="colorSurfaceContainerLow">#181C2A</item>
+        <item name="colorSurfaceContainerHigh">#282B3B</item>
+        <item name="colorSurfaceContainerHighest">#333646</item>
+        <item name="colorSurfaceContainerLowest">#0D1120</item>
+        <item name="colorOnSurface">#E1E3E8</item>
+        <!-- Outline -->
+        <item name="colorOutline">#8E9099</item>
+        <item name="colorOutlineVariant">#44474E</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         4.  IndigoSoft Dark  (default)
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.IndigoSoft" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#BEC2FF</item>
+        <item name="colorOnPrimary">#07158A</item>
+        <item name="colorPrimaryContainer">#252CA1</item>
+        <item name="colorOnPrimaryContainer">#DEE0FF</item>
+        <item name="colorPrimaryInverse">#3F48B0</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#C4C4DC</item>
+        <item name="colorOnSecondary">#2D2E43</item>
+        <item name="colorSecondaryContainer">#434459</item>
+        <item name="colorOnSecondaryContainer">#DFE0FA</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#E9BAD6</item>
+        <item name="colorOnTertiary">#46263D</item>
+        <item name="colorTertiaryContainer">#5E3D54</item>
+        <item name="colorOnTertiaryContainer">#FFD8F3</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#0F172A</item>
+        <item name="colorOnBackground">#E4E1E9</item>
+        <item name="colorSurface">#0F172A</item>
+        <item name="colorSurfaceBright">#2E2E42</item>
+        <item name="colorSurfaceDim">#0F172A</item>
+        <item name="colorSurfaceVariant">#47464F</item>
+        <item name="colorOnSurfaceVariant">#C7C5D0</item>
+        <item name="colorSurfaceContainer">#1E1E2E</item>
+        <item name="colorSurfaceContainerLow">#181828</item>
+        <item name="colorSurfaceContainerHigh">#282839</item>
+        <item name="colorSurfaceContainerHighest">#333345</item>
+        <item name="colorSurfaceContainerLowest">#0B0B1E</item>
+        <item name="colorOnSurface">#E4E1E9</item>
+        <!-- Outline -->
+        <item name="colorOutline">#908F9A</item>
+        <item name="colorOutlineVariant">#47464F</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         5.  EmeraldSoft Dark
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.EmeraldSoft" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#8BD5AB</item>
+        <item name="colorOnPrimary">#003823</item>
+        <item name="colorPrimaryContainer">#005235</item>
+        <item name="colorOnPrimaryContainer">#A7F2C6</item>
+        <item name="colorPrimaryInverse">#1A6B47</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#B3CCBA</item>
+        <item name="colorOnSecondary">#203528</item>
+        <item name="colorSecondaryContainer">#354C3E</item>
+        <item name="colorOnSecondaryContainer">#CFE9D8</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#A2CFD9</item>
+        <item name="colorOnTertiary">#053641</item>
+        <item name="colorTertiaryContainer">#1D4E59</item>
+        <item name="colorOnTertiaryContainer">#BEEAF5</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#0F172A</item>
+        <item name="colorOnBackground">#D7E5DB</item>
+        <item name="colorSurface">#0F172A</item>
+        <item name="colorSurfaceBright">#293530</item>
+        <item name="colorSurfaceDim">#0F172A</item>
+        <item name="colorSurfaceVariant">#3C4840</item>
+        <item name="colorOnSurfaceVariant">#BAC9BF</item>
+        <item name="colorSurfaceContainer">#192520</item>
+        <item name="colorSurfaceContainerLow">#141F1A</item>
+        <item name="colorSurfaceContainerHigh">#222E28</item>
+        <item name="colorSurfaceContainerHighest">#2D3933</item>
+        <item name="colorSurfaceContainerLowest">#0A1310</item>
+        <item name="colorOnSurface">#D7E5DB</item>
+        <!-- Outline -->
+        <item name="colorOutline">#879289</item>
+        <item name="colorOutlineVariant">#3C4840</item>
+    </style>
+
+    <!-- ════════════════════════════════════════════════════════
+         6.  CoffeeWarm Dark
+         ════════════════════════════════════════════════════════ -->
+    <style name="ThemeOverlay.Accent.CoffeeWarm" parent="">
+        <!-- Primary -->
+        <item name="colorPrimary">#EFBA88</item>
+        <item name="colorOnPrimary">#462C0B</item>
+        <item name="colorPrimaryContainer">#5F4220</item>
+        <item name="colorOnPrimaryContainer">#FFDCBA</item>
+        <item name="colorPrimaryInverse">#7B5A38</item>
+        <!-- Secondary -->
+        <item name="colorSecondary">#DBBFA5</item>
+        <item name="colorOnSecondary">#3D2C1A</item>
+        <item name="colorSecondaryContainer">#55432E</item>
+        <item name="colorOnSecondaryContainer">#F9DEC3</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#BACCA3</item>
+        <item name="colorOnTertiary">#233511</item>
+        <item name="colorTertiaryContainer">#3A4C27</item>
+        <item name="colorOnTertiaryContainer">#D5EABA</item>
+        <!-- Background + Surface -->
+        <item name="android:colorBackground">#0F172A</item>
+        <item name="colorOnBackground">#EDE0D3</item>
+        <item name="colorSurface">#0F172A</item>
+        <item name="colorSurfaceBright">#382E25</item>
+        <item name="colorSurfaceDim">#0F172A</item>
+        <item name="colorSurfaceVariant">#4E4439</item>
+        <item name="colorOnSurfaceVariant">#D2C4B7</item>
+        <item name="colorSurfaceContainer">#241E19</item>
+        <item name="colorSurfaceContainerLow">#1C1712</item>
+        <item name="colorSurfaceContainerHigh">#2E2822</item>
+        <item name="colorSurfaceContainerHighest">#3A322A</item>
+        <item name="colorSurfaceContainerLowest">#100D07</item>
+        <item name="colorOnSurface">#EDE0D3</item>
+        <!-- Outline -->
+        <item name="colorOutline">#9E8E82</item>
+        <item name="colorOutlineVariant">#4E4439</item>
+    </style>
+
+</resources>
