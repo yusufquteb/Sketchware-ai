@@ -197,12 +197,12 @@
                             android:textColor="?attr/colorError"
                             android:visibility="gone" />
 
-                        <!-- GPU acceleration: LocalModelManager already had
-                             isGpuBackendPreferred()/setGpuBackendPreferred() fully wired into
-                             LiteRtLmEngineBridge (with automatic fallback to CPU on any GPU
-                             init failure), but no switch anywhere ever called it — so every
-                             on-device generation silently ran CPU-only regardless of device
-                             capability. This is that switch. -->
+                        <!-- GPU acceleration switch: disabled (AiSettingsActivity forces it off
+                             and non-interactive) during the llama.cpp migration — v1 of
+                             LlamaCppEngineBridge is CPU-only, GPU/Vulkan support is an explicit
+                             deferred follow-up. Left in the layout rather than removed so it can
+                             be re-enabled once that follow-up lands, instead of re-adding the
+                             view from scratch. -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"

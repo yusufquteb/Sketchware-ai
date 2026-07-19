@@ -27,11 +27,30 @@ import pro.sketchware.ai.models.ModelInfo;
 import pro.sketchware.ai.models.ToolCall;
 
 /**
- * {@link AiApiClient} implementation that runs entirely on-device via {@link LiteRtLmEngineBridge}
+ * {@link AiApiClient} implementation that runs entirely on-device via {@link LlamaCppEngineBridge}
  * — no network request is made for chat generation. Implements the same abstract contract every
  * cloud provider client implements (verified against the actual {@code AiApiClient.java} in this
  * archive before writing this class — see CHANGES.md Phase 5) so it drops into the existing
  * send path in {@code AiClientFactory} without changes anywhere else in the chat pipeline.
+ *
+ * <p><b>llama.cpp migration (this session).</b> This provider previously ran on
+ * {@code LiteRtLmEngineBridge} (Google's LiteRT-LM), whose {@code .litertlm} catalog files each
+ * had a fixed 4096-token KV cache baked in at export time — not a runtime-configurable value,
+ * and the root cause of the local model only ever getting {@code ToolRegistry}'s smallest tool
+ * tier. It now runs on {@link LlamaCppEngineBridge} (vendored `:llama` module wrapping
+ * {@code ggml-org/llama.cpp}'s JNI bindings), which takes context size as a load-time parameter
+ * instead — fixed at 8192 tokens for every model in this first migration pass (see
+ * {@code LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS}; GPU backend and per-device context tiering
+ * are deferred follow-ups, not part of this change). All of the prompt-assembly, history-trimming,
+ * and tool-call-parsing logic below is engine-agnostic text processing carried over unchanged;
+ * only {@link #HARD_KV_CACHE_TOKENS} and the engine call site changed. The historical javadoc
+ * below still describes real, still-applicable engineering decisions (structured chat turns over
+ * flattened text, stateless-per-call history, the essential-tools-only budget) — read
+ * "LiteRT-LM"/{@code Conversation} references in it as "whichever engine was active at the time
+ * of that fix"; the underlying reasoning carries over to {@link LlamaCppEngineBridge} unchanged.
+ * <b>Not verified against a real build</b> — see {@link LlamaCppEngineBridge}'s class doc for the
+ * three unmet prerequisites (no NDK, no GitHub access to vendor the native module, no Hugging
+ * Face access to download a GGUF model) this sandbox could not satisfy.
  *
  * <p><b>Context/Token MVP — tool calling re-enabled for the local model, essential subset only.</b>
  * Phase 5.4 disabled tools entirely because Phase 5.1's approach (reformat the live
@@ -47,34 +66,37 @@ import pro.sketchware.ai.models.ToolCall;
  * TOOL_CALL_CLOSE_TAG}, and the {@code <tool_call>...</tool_call>} convention — previously kept
  * as dead-but-harmless — are now live again for this provider.
  *
- * <p><b>Phase 5.1 — history trimming</b>: {@link LiteRtLmEngineBridge} now creates a fresh
- * LiteRT-LM {@code Conversation} for every {@link #sendChatRequest} call instead of reusing one
- * for the lifetime of the loaded model (that reuse was the actual cause of context roughly
- * doubling every turn — see that class's javadoc). Fixing that stops the doubling, but the
- * model file is still hard-capped at a fixed KV-cache size baked in at export time (encoded in
- * the filename, e.g. {@code ekv4096} = 4096 tokens — see {@link LocalModelCatalog}; this is not
- * a runtime-configurable value). A long-running conversation still needs its own history capped
- * well under that ceiling, since {@link #buildPromptAssembly} keeps re-sending the full
+ * <p><b>Phase 5.1 — history trimming</b> (LiteRT-LM era, now historical): {@code
+ * LiteRtLmEngineBridge} used to create a fresh LiteRT-LM {@code Conversation} for every {@link
+ * #sendChatRequest} call instead of reusing one for the lifetime of the loaded model (that reuse
+ * was the actual cause of context roughly doubling every turn). Post-migration, {@link
+ * LlamaCppEngineBridge} has no persistent conversation object to begin with, so this specific
+ * failure mode cannot recur — but the underlying need for history trimming remains: the engine
+ * still has a fixed context window (now 8192 tokens, a load-time parameter rather than a value
+ * baked into the model file — see {@link LlamaCppEngineBridge#CONTEXT_SIZE_TOKENS}), and a
+ * long-running conversation still needs its own history capped well under that ceiling, since
+ * {@link #buildPromptAssembly} keeps re-sending the full
  * history every call by design (see that method's javadoc). {@link #trimHistoryForLocalModel}
  * does that: it keeps the most recent messages that fit inside a conservative token budget,
  * estimated with {@link TokenBudgetChecker#estimateTokens} — the same char-count heuristic
  * already used elsewhere in this codebase for payload-size guards, so this isn't a new,
  * unverified estimation method.
  *
- * <p><b>Structured-message fix (field bug — garbled/looping offline output).</b> {@link
- * #buildPromptAssembly} previously flattened the whole conversation into one plain-text string
- * ({@code "System: ...\n\nuser: ...\nassistant: "}) that {@link LiteRtLmEngineBridge} sent
+ * <p><b>Structured-message fix (field bug — garbled/looping offline output, LiteRT-LM era).</b>
+ * {@link #buildPromptAssembly} previously flattened the whole conversation into one plain-text
+ * string ({@code "System: ...\n\nuser: ...\nassistant: "}) that {@code LiteRtLmEngineBridge} sent
  * straight to {@code Conversation.sendMessageAsync(String)}. That bypassed LiteRT-LM's own chat
  * templating — the model never saw its real turn-boundary tokens (e.g. Qwen's {@code <|im_start|>}/
  * {@code <|im_end|>}, Gemma's {@code <start_of_turn>}/{@code <end_of_turn>}), so it had no learned
  * signal for where to stop and kept generating further hallucinated "user:"/"assistant:" turns —
  * the garbled, looping output reported against Qwen3 and Gemma-3 in the field. Fixed by having
  * {@link #buildPromptAssembly} return a {@link PromptAssembly} (system instruction + structured
- * {@link LiteRtLmEngineBridge.HistoryTurn} list + the newest user message, all still trimmed by
- * {@link #trimHistoryForLocalModel} exactly as before) instead of one string, and having {@link
- * LiteRtLmEngineBridge#generate} pass that through {@code ConversationConfig.systemInstruction} /
- * {@code initialMessages} and a final {@code sendMessageAsync(Message.of(...))} call — see that
- * class's "Structured-message fix" javadoc for the full evidence trail. This is the same class of
+ * {@link LlamaCppEngineBridge.HistoryTurn} list + the newest user message, all still trimmed by
+ * {@link #trimHistoryForLocalModel} exactly as before) instead of one string, and having the
+ * engine bridge's {@code generate} method apply the model's own chat template to that structure
+ * rather than the app hand-rolling role-label text — {@link LlamaCppEngineBridge} does this via
+ * llama.cpp's {@code llama_chat_apply_template} (reading the GGUF's embedded template) the same
+ * way {@code LiteRtLmEngineBridge} did via {@code ConversationConfig}. This is the same class of
  * fix for both model families, since both use special-token turn delimiters this app was
  * previously sending as plain text.
  *
@@ -91,16 +113,16 @@ import pro.sketchware.ai.models.ToolCall;
  * <p><b>fetchModels()</b>: there is no network models-list endpoint for a local engine, so this
  * returns the single currently-selected {@link LocalModelCatalog} entry as one {@link ModelInfo}.
  *
- * <p><b>Not tested end-to-end</b>: no Android device/emulator is available in this environment.
- * See CHANGES.md Phase 5 for the explicit list of what still needs field verification. The
- * structured-message fix above carries the same not-yet-compiled caveat as {@link
- * LiteRtLmEngineBridge} — see that class's javadoc.
+ * <p><b>Not tested end-to-end</b>: no Android device/emulator, NDK, or GitHub/Hugging Face
+ * network access is available in this environment. See CHANGES.md Phase 5 for the pre-migration
+ * field-verification history, and {@link LlamaCppEngineBridge}'s class javadoc for the specific
+ * unmet prerequisites this migration still carries.
  */
 public class LocalModelProvider extends AiApiClient {
 
     private final Context appContext;
     private final LocalModelManager modelManager;
-    private final LiteRtLmEngineBridge engineBridge;
+    private final LlamaCppEngineBridge engineBridge;
     /** Persistent project rules/env/tool notes — see class javadoc for why this exists
      *  separately from the trimmed chat history (see {@link #buildPromptAssembly}). */
     private final pro.sketchware.ai.offline.knowledge.KnowledgeStore knowledgeStore;
@@ -110,29 +132,35 @@ public class LocalModelProvider extends AiApiClient {
 
     // ── History / prompt budget ─────────────────────────────────────────────
     //
-    // The model file is hard-capped at HARD_KV_CACHE_TOKENS (see class javadoc — this is
-    // baked into the exported .task file, not a config value this app controls). Reserve a
-    // slice for the model's own output, and fill the rest with the most recent history.
-    // Deliberately conservative: TokenBudgetChecker's estimator is a coarse 4-chars-per-token
-    // heuristic (see its own javadoc), and under-filling the true 4096-token cache is far safer
-    // than an engine-level failure from overfilling it.
+    // llama.cpp migration: HARD_KV_CACHE_TOKENS now mirrors
+    // LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS (8192, a load-time parameter for this engine —
+    // see that class's doc) rather than a value baked into the model file at export time, which
+    // is what LiteRT-LM's ekv4096 exports required. Reserve a slice for the model's own output,
+    // and fill the rest with the most recent history. Deliberately conservative:
+    // TokenBudgetChecker's estimator is a coarse 4-chars-per-token heuristic (see its own
+    // javadoc), and under-filling the context window is far safer than an engine-level failure
+    // from overfilling it.
     //
     // Context/Token MVP: the tool-block reservation is back, but only for the small 7-tool
     // essential subset (see class javadoc) rather than the full 106+-tool registry Phase 5.4
     // found unaffordable. Both the system prompt's and the tool block's real measured sizes are
-    // subtracted from the history budget in buildPromptAssembly.
-    private static final int HARD_KV_CACHE_TOKENS = 4096;
-    private static final int RESERVED_FOR_OUTPUT_TOKENS = 512;
+    // subtracted from the history budget in buildPromptAssembly. The essential-subset choice is
+    // deliberately kept as-is post-migration even though the doubled context could technically
+    // fit more — see the approved migration plan's "explicitly out of scope" section: widening
+    // the tool set is a separate, deliberate follow-up once this budget is proven stable, not an
+    // automatic side effect of this change.
+    private static final int HARD_KV_CACHE_TOKENS = LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS;
+    private static final int RESERVED_FOR_OUTPUT_TOKENS = 1024;
     /** Safety margin subtracted before the final pre-flight check, on top of the
      *  RESERVED_FOR_OUTPUT_TOKENS already carved out — covers estimator error, since
      *  TokenBudgetChecker's char-count heuristic is approximate, not exact. */
-    private static final int FINAL_CHECK_SAFETY_MARGIN_TOKENS = 64;
+    private static final int FINAL_CHECK_SAFETY_MARGIN_TOKENS = 128;
     /** Max size of the persistent-knowledge block (project rules/env/tool notes) — kept
-     *  deliberately small since it competes with chat history for the same tight 4096-token
-     *  cache. CRITICAL entries are still included in full even past this cap (see
-     *  KnowledgeBlockBuilder javadoc) so a rule the user marked critical is never silently
-     *  dropped; this cap mainly limits how many NORMAL (relevance-matched) entries get pulled in. */
-    private static final int MAX_KNOWLEDGE_BLOCK_TOKENS = 300;
+     *  deliberately small since it competes with chat history for the same context window.
+     *  CRITICAL entries are still included in full even past this cap (see KnowledgeBlockBuilder
+     *  javadoc) so a rule the user marked critical is never silently dropped; this cap mainly
+     *  limits how many NORMAL (relevance-matched) entries get pulled in. */
+    private static final int MAX_KNOWLEDGE_BLOCK_TOKENS = 600;
 
     // ── Tool-call prompt convention ─────────────────────────────────────────
     //
@@ -147,7 +175,7 @@ public class LocalModelProvider extends AiApiClient {
         super("", AiProvider.LOCAL_LLM);
         this.appContext = context.getApplicationContext();
         this.modelManager = new LocalModelManager(appContext);
-        this.engineBridge = new LiteRtLmEngineBridge();
+        this.engineBridge = new LlamaCppEngineBridge();
         this.knowledgeStore = new pro.sketchware.ai.offline.knowledge.KnowledgeStore(appContext);
     }
 
@@ -161,7 +189,7 @@ public class LocalModelProvider extends AiApiClient {
                 selected.getId(),
                 selected.getDisplayName() + " (on-device)",
                 AiProvider.LOCAL_LLM,
-                4096, // conservative context estimate; catalog file names encode ekv4096
+                LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS, // fixed n_ctx load-time parameter, see that class's doc
                 selected.getCapabilityNote()));
         return result;
     }
@@ -242,7 +270,7 @@ public class LocalModelProvider extends AiApiClient {
 
         engineBridge.generate(modelFile, assembly.systemInstruction, assembly.history,
                 assembly.latestUserMessage, modelManager.isGpuBackendPreferred(),
-                new LiteRtLmEngineBridge.GenerationCallback() {
+                new LlamaCppEngineBridge.GenerationCallback() {
             @Override
             public void onChunk(@NonNull String textDelta) {
                 if (cancelledTags.contains(tag)) return;
@@ -277,7 +305,7 @@ public class LocalModelProvider extends AiApiClient {
     }
 
     /**
-     * Holds the structured pieces {@link LiteRtLmEngineBridge#generate} needs, replacing the
+     * Holds the structured pieces {@link LlamaCppEngineBridge#generate} needs, replacing the
      * single flattened prompt string this method used to return — see that class's
      * "Structured-message fix" javadoc for why a flattened string was the actual root cause of
      * the garbled/looping offline output reported in the field (Qwen3/Gemma-3: no learned
@@ -293,12 +321,12 @@ public class LocalModelProvider extends AiApiClient {
      */
     private static final class PromptAssembly {
         @Nullable final String systemInstruction;
-        @NonNull final List<LiteRtLmEngineBridge.HistoryTurn> history;
+        @NonNull final List<LlamaCppEngineBridge.HistoryTurn> history;
         @NonNull final String latestUserMessage;
         final int estimatedTokens;
 
         PromptAssembly(@Nullable String systemInstruction,
-                        @NonNull List<LiteRtLmEngineBridge.HistoryTurn> history,
+                        @NonNull List<LlamaCppEngineBridge.HistoryTurn> history,
                         @NonNull String latestUserMessage, int estimatedTokens) {
             this.systemInstruction = systemInstruction;
             this.history = history;
@@ -317,12 +345,12 @@ public class LocalModelProvider extends AiApiClient {
      * each request re-sends full context — rather than trying to keep a long-lived LiteRT-LM
      * {@code Conversation} in sync with this app's own multi-provider message list (which can
      * switch providers mid-conversation, something a persistent on-device conversation object has
-     * no way to represent). See {@link LiteRtLmEngineBridge}'s "Phase 5.1 fix" javadoc for why a
-     * fresh {@code Conversation} per call is required to keep this assumption true at the
-     * LiteRT-LM layer too, and its "Structured-message fix" javadoc for why the prompt itself is
-     * now built as {@code systemInstruction}/{@code initialMessages}/{@code latestUserMessage}
-     * instead of one flattened string with hand-picked role-label text the model was never
-     * trained to recognise as a real turn boundary.
+     * no way to represent). This stateless-per-call design was originally motivated by
+     * LiteRT-LM's {@code Conversation} object (see that engine's now-removed bridge history in
+     * version control for the full "Phase 5.1 fix" evidence trail) and carries over unchanged to
+     * {@link LlamaCppEngineBridge}, which has no persistent conversation object to begin with —
+     * every call renders a fresh prompt from {@code systemInstruction}/history/
+     * {@code latestUserMessage} through the GGUF's own chat template.
      *
      * <p><b>Context/Token MVP — small tool block reinstated.</b> {@code tools} is expected to be
      * the 7-tool essential subset ({@code ToolRegistry.getEssentialTools()}), not the full
@@ -405,7 +433,7 @@ public class LocalModelProvider extends AiApiClient {
         // The newest message is always sent as latestUserMessage (see PromptAssembly doc), so
         // it's excluded from initialMessages here even though trimHistoryForLocalModel keeps it
         // as the last element of `trimmed`.
-        List<LiteRtLmEngineBridge.HistoryTurn> history = new ArrayList<>();
+        List<LlamaCppEngineBridge.HistoryTurn> history = new ArrayList<>();
         int historyTokens = 0;
         String newestContent = "";
         for (int i = 0; i < trimmed.size(); i++) {
@@ -414,9 +442,9 @@ public class LocalModelProvider extends AiApiClient {
             historyTokens += TokenBudgetChecker.estimateTokens(content);
 
             // "tool" is this app's own third role (see ChatMessage's constructors) with no
-            // confirmed dedicated LiteRT-LM factory as of this fix (only Message.user/Message.model
-            // are documented) — folded into a labeled user turn so the model still sees the tool
-            // result as content, rather than guessing at an unconfirmed API shape.
+            // dedicated chat-template role of its own — folded into a labeled user turn so the
+            // model still sees the tool result as content, rather than guessing at an
+            // unconfirmed template role name.
             boolean isUser = !"assistant".equals(m.getRole());
             String text = "assistant".equals(m.getRole()) ? content
                     : "tool".equals(m.getRole()) ? "[Tool result: " + m.getToolName() + "] " + content
@@ -432,7 +460,7 @@ public class LocalModelProvider extends AiApiClient {
                 newestContent = text;
                 continue;
             }
-            history.add(new LiteRtLmEngineBridge.HistoryTurn(isUser, text));
+            history.add(new LlamaCppEngineBridge.HistoryTurn(isUser, text));
         }
 
         int totalTokens = systemPromptTokens + toolBlockTokens + knowledgeBlockTokens + historyTokens;

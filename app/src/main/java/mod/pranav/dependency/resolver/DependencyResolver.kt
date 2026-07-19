@@ -51,6 +51,34 @@ class DependencyResolver(
 
         private const val METADATA_FILE = "resolver-metadata.json"
         private const val DEX_METADATA_FILE = "dex-input-fingerprint.txt"
+
+        // Desugared-library config for D8 (see app/build.gradle's "WHY THIS EXISTS" comment near
+        // the coreLibraryDesugaring block): this app's own Gradle build desugars calls like
+        // InputStream.readAllBytes() in ITS OWN code via coreLibraryDesugaringEnabled, but that has
+        // no effect on the *separate*, manually-constructed D8Command below, which dexes a user's
+        // resolved dependency jars at runtime with no desugared-library configuration of its own.
+        // Without this, a jar containing a Java 9+ API call not present on the user's device API
+        // level dexes successfully but throws NoSuchMethodError at runtime on that device — this is
+        // exactly what a real-world report confirmed on an API 29 emulator. Loaded once and cached;
+        // app/src/main/assets/desugar_jdk_libs_configuration.json is the same
+        // com.android.tools:desugar_jdk_libs_configuration JSON spec AGP resolves for this app's own
+        // build (see build.gradle for how it was staged there).
+        private var desugaredLibraryConfigJson: String? = null
+
+        private fun loadDesugaredLibraryConfigJson(): String? {
+            desugaredLibraryConfigJson?.let { return it }
+            return try {
+                pro.sketchware.SketchApplication.getContext().assets
+                    .open("desugar_jdk_libs_configuration.json")
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .also { desugaredLibraryConfigJson = it }
+            } catch (e: Exception) {
+                // Missing/unreadable asset shouldn't block dexing entirely — fall back to
+                // undesugared D8 output (the pre-fix behavior) rather than failing the whole build.
+                null
+            }
+        }
     }
 
     private val localLibsRoot: Path = Paths.get(
@@ -477,16 +505,15 @@ class DependencyResolver(
             }
         }
 
-        D8.run(
-            D8Command.builder()
-                .setMode(CompilationMode.RELEASE)
-                .setMinApiLevel(buildSettings.minSdkVersion)
-                .addProgramFiles(jarFile)
-                .addLibraryFiles(libraryJars)
-                .addClasspathFiles(jars)
-                .setOutput(jarFile.parent, OutputMode.DexIndexed)
-                .build()
-        )
+        val d8Builder = D8Command.builder()
+            .setMode(CompilationMode.RELEASE)
+            .setMinApiLevel(buildSettings.minSdkVersion)
+            .addProgramFiles(jarFile)
+            .addLibraryFiles(libraryJars)
+            .addClasspathFiles(jars)
+            .setOutput(jarFile.parent, OutputMode.DexIndexed)
+        loadDesugaredLibraryConfigJson()?.let { d8Builder.addDesugaredLibraryConfiguration(it) }
+        D8.run(d8Builder.build())
 
         dexMetadata.writeText(fingerprint)
     }

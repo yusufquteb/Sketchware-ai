@@ -195,22 +195,34 @@ public final class ProviderCapabilities {
                         .maxContext(32_768).maxOutput(4_096).freeRpm(-1).build();
 
             case LOCAL_LLM:
-                // Small on-device model, no vision, small context window (catalog files are
-                // quantized to ekv4096 = 4096-token KV cache — this is a hard limit baked into
-                // the exported model file itself, not a config value; see LocalModelCatalog).
+                // Small on-device model, no vision. llama.cpp migration (this session): context
+                // window is now a load-time parameter (n_ctx = 8192, fixed for every model — see
+                // LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS) instead of a value baked into the
+                // exported model file at export time, which is what LiteRT-LM's ekv4096 exports
+                // required (see LocalModelCatalog for that history).
                 //
                 // Context/Token MVP: tools(true) — re-enabled. Phase 5.4's tools(false) was a
                 // reaction to sending the full 106-tool catalog (8,000-11,000+ tokens) on every
-                // request, which alone blew past the entire 4096-token KV cache. AgentExecutor
-                // now sends only the 7-tool essential subset (ToolRegistry.getEssentialTools())
-                // by default, which is small enough to plausibly coexist with a short
-                // conversation inside the 4096-token budget. LocalModelProvider's existing
-                // pre-flight TokenBudgetChecker check still rejects any prompt that ends up too
-                // large in practice — see that class's sendChatRequest().
+                // request, which alone blew past the old 4096-token KV cache. AgentExecutor
+                // sends only the 7-tool essential subset (ToolRegistry.getEssentialTools()) to
+                // LocalModelProvider's own tool-block builder, but note: AgentExecutor's general
+                // toolRegistry.getToolsForContextBudget(caps.maxContextTokens) tiering (TINY/
+                // MEDIUM/LARGE) is shared across every provider, and 8192 now exceeds
+                // ToolRegistry.TINY_CONTEXT_THRESHOLD_TOKENS (4096) — this local model will
+                // auto-promote out of the TINY tier to MEDIUM (~20 tools) unless that's
+                // deliberately capped elsewhere. Per the approved llama.cpp migration plan this
+                // promotion is NOT meant to happen silently in this change — verify the actual
+                // tool-tier this resolves to and whether ~20 tools' worth of prompt still fits
+                // the 8192-token budget before relying on it; if not, this provider may need an
+                // explicit override rather than relying on the shared tiering thresholds.
+                // LocalModelProvider's existing pre-flight TokenBudgetChecker check still rejects
+                // any prompt that ends up too large in practice — see that class's
+                // sendChatRequest() — but that's a safety net, not a substitute for verifying the
+                // tiering choice deliberately.
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)
-                        .maxContext(4_096).maxOutput(2_048).freeRpm(-1)
+                        .maxContext(8_192).maxOutput(2_048).freeRpm(-1)
                         .freeTierSummary("On-device — no rate limits, speed depends on your hardware").build();
 
             case NOVITA:
