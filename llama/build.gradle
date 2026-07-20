@@ -1,0 +1,106 @@
+// Wrapper module for llama.cpp's official Android JNI library (com.arm.aichat).
+//
+// WHY THIS WRAPPER EXISTS (the root-cause trail, each step confirmed by a real Gradle sync
+// failure on a real machine — see CHANGES.md Phase 6):
+//   1. The actual source lives in the third_party/llama.cpp git submodule
+//      (examples/llama.android/lib). Its own build.gradle.kts applies plugins via the
+//      plugins{} / version-catalog DSL (libs.plugins.android.library), resolved against ITS
+//      OWN gradle/libs.versions.toml — a separate Gradle build we don't include. Pointing
+//      settings.gradle's projectDir at it failed: "Unresolved reference 'android'".
+//   2. Adding matching aliases to our catalog then failed with
+//      "InvalidPluginRequestException: the plugin is already on the classpath with an unknown
+//      version" — Gradle refuses to reconcile a version-pinned plugins{} request against the
+//      same plugin loaded via this project's legacy buildscript{} classpath (root build.gradle).
+//   3. Redirecting the module to a replacement script via project(":llama").buildFile failed:
+//      that property is READ-ONLY on ProjectDescriptor ("Cannot set readonly property:
+//      buildFile"), and its writable sibling buildFileName is deprecated for removal in
+//      Gradle 9 — a dead end, not worth building on.
+//
+// THE DURABLE FIX: this directory is a real module of OUR project with a normal build file in
+// the same style as every other module here (Groovy + apply plugin:, plugin versions come from
+// the root buildscript classpath — no plugins{} DSL, no catalog coupling, nothing readonly to
+// fight). It contains no source of its own: sourceSets and externalNativeBuild below point
+// into the submodule, both officially supported AGP mechanisms. The android{} content mirrors
+// the submodule's own build.gradle.kts (pinned at commit 571d0d5 / tag b10068) — if the
+// submodule is ever bumped, diff its build.gradle.kts against this file and port changes by
+// hand.
+//
+// NOTE: CMakeLists.txt locates the llama.cpp/ggml source tree relative to ITS OWN location
+// (${CMAKE_CURRENT_LIST_DIR}/../../../../../../), not relative to this module dir, so pointing
+// at it from here is safe.
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+def llamaLibDir = file("$rootDir/third_party/llama.cpp/examples/llama.android/lib")
+
+android {
+    namespace = "com.arm.aichat"
+    compileSdk = 36
+
+    ndkVersion = "29.0.13113456"
+
+    defaultConfig {
+        minSdk = 33
+
+        consumerProguardFiles "${llamaLibDir}/consumer-rules.pro"
+
+        ndk {
+            abiFilters "arm64-v8a", "x86_64"
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "-DCMAKE_BUILD_TYPE=Release",
+                        "-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG",
+                        "-DCMAKE_VERBOSE_MAKEFILE=ON",
+                        "-DBUILD_SHARED_LIBS=ON",
+                        "-DLLAMA_BUILD_APP=OFF",
+                        "-DLLAMA_BUILD_COMMON=ON",
+                        "-DLLAMA_OPENSSL=OFF",
+                        "-DGGML_NATIVE=OFF",
+                        "-DGGML_BACKEND_DL=ON",
+                        "-DGGML_CPU_ALL_VARIANTS=ON",
+                        "-DGGML_LLAMAFILE=OFF"
+            }
+        }
+        aarMetadata {
+            minCompileSdk = 35
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "${llamaLibDir}/src/main/cpp/CMakeLists.txt"
+            version "3.31.6"
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile "${llamaLibDir}/src/main/AndroidManifest.xml"
+            java.srcDirs = ["${llamaLibDir}/src/main/java"]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+dependencies {
+    // Same coordinates/versions the submodule's own catalog declares (core-ktx 1.17.0,
+    // datastore-preferences 1.2.0) — kept as direct strings since this wrapper deliberately
+    // avoids coupling to any version catalog (see header).
+    implementation "androidx.core:core-ktx:1.17.0"
+    implementation "androidx.datastore:datastore-preferences:1.2.0"
+}

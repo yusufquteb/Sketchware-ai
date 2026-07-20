@@ -1635,3 +1635,26 @@ Hugging Face لسه محجوب (كتالوج GGUF مش متحقق منه)، وا
 (مفيش بناء فعلي اتعمل). التصميم الجديد **غير مُختبر فعليًا** — الـ
 continuation heuristic (`isContinuationOf`) والتكامل مع الموديول الحقيقي
 لازم يتفحصوا على جهاز حقيقي بمجرد توفر NDK.
+
+## Phase 6 (تابع ٢) — إصلاح جذري لدمج موديول :llama بعد ثلاث محاولات فاشلة موثقة
+
+ثلاث أخطاء sync حقيقية متتالية (من Android Studio على جهاز المستخدم) كشفت إن
+كل محاولات "توجيه" Gradle لملف الـ build الخاص بالـ submodule طريق مسدود:
+1. `Unresolved reference 'android'` — الـ plugins{} بتاع الموديول بيعتمد على
+   version catalog خاص بيه مش موجود عندنا.
+2. بعد إضافة aliases مطابقة: `InvalidPluginRequestException: the plugin is
+   already on the classpath with an unknown version` — تعارض معروف بين
+   plugins{} DSL وأسلوب buildscript{} classpath القديم اللي المشروع كله عليه.
+3. بعد `project(":llama").buildFile = ...`: `Cannot set readonly property:
+   buildFile` — الخاصية للقراءة فقط في ProjectDescriptor، وبديلها
+   buildFileName مهمل ومقرر حذفه في Gradle 9.
+
+**الحل الجذري المعتمد**: مجلد `llama/` موديول حقيقي من مشروعنا بملف
+`build.gradle` عادي (Groovy + `apply plugin:` زي كل الموديولات هنا — نسخ
+البلاجنز جاية من buildscript classpath تلقائيًا بلا أي تعارض)، بيأشر على
+مصادر الـ submodule عبر `sourceSets` (java + manifest) و
+`externalNativeBuild.cmake.path` — آليتان مدعومتان رسميًا في AGP.
+CMakeLists.txt بيحدد مسار مصدر llama.cpp نسبةً لموقعه هو نفسه
+(`${CMAKE_CURRENT_LIST_DIR}`) مش نسبةً للموديول، فالإشارة إليه من برة آمنة.
+`gradle/llama-module.gradle.kts` (محاولة ٣) اتحذف، و`settings.gradle` بقى
+`include(":llama")` بسيط بمجلد `llama/`.
