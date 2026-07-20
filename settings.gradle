@@ -15,8 +15,17 @@ include(":app")
 // third_party/llama.cpp git submodule pinned to commit 571d0d5 (tag b10068) — see that
 // submodule's examples/llama.android/lib/src/main/cpp/CMakeLists.txt, which locates the rest
 // of the llama.cpp/ggml source via a relative path from this exact location, so this module
-// cannot be copied out of the submodule tree on its own. NOT YET BUILD-VERIFIED IN THIS
-// ENVIRONMENT: no Android NDK is installed here (see LlamaCppEngineBridge's class javadoc for
-// the full disclosure) — first real Gradle sync + NDK build is the actual test.
+// cannot be copied out of the submodule tree on its own. NOT YET FULLY BUILD-VERIFIED IN THIS
+// ENVIRONMENT: no Android NDK is installed here — see LlamaCppEngineBridge's class javadoc.
 include(":llama")
 project(":llama").projectDir = file("third_party/llama.cpp/examples/llama.android/lib")
+// Use OUR OWN build script instead of the submodule's own build.gradle.kts — that file's
+// plugins{} block references version-catalog aliases from its own separate
+// gradle/libs.versions.toml (not included in this build) and, once matching aliases were added
+// to our own catalog, a REAL Gradle sync still failed with "InvalidPluginRequestException: the
+// plugin is already on the classpath with an unknown version" — a known conflict between the
+// plugins{}/version-catalog DSL and this project's legacy buildscript-classpath plugin
+// application (see gradle/llama-module.gradle.kts's own header comment for the full trail).
+// projectDir stays pointed at the submodule so the relative source/CMake paths inside that
+// script still resolve correctly inside it.
+project(":llama").buildFile = file("gradle/llama-module.gradle.kts")
