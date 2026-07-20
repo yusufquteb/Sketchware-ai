@@ -203,22 +203,22 @@ public final class ProviderCapabilities {
                 //
                 // Context/Token MVP: tools(true) — re-enabled. Phase 5.4's tools(false) was a
                 // reaction to sending the full 106-tool catalog (8,000-11,000+ tokens) on every
-                // request, which alone blew past the old 4096-token KV cache. AgentExecutor
-                // sends only the 7-tool essential subset (ToolRegistry.getEssentialTools()) to
-                // LocalModelProvider's own tool-block builder, but note: AgentExecutor's general
-                // toolRegistry.getToolsForContextBudget(caps.maxContextTokens) tiering (TINY/
-                // MEDIUM/LARGE) is shared across every provider, and 8192 now exceeds
-                // ToolRegistry.TINY_CONTEXT_THRESHOLD_TOKENS (4096) — this local model will
-                // auto-promote out of the TINY tier to MEDIUM (~20 tools) unless that's
-                // deliberately capped elsewhere. Per the approved llama.cpp migration plan this
-                // promotion is NOT meant to happen silently in this change — verify the actual
-                // tool-tier this resolves to and whether ~20 tools' worth of prompt still fits
-                // the 8192-token budget before relying on it; if not, this provider may need an
-                // explicit override rather than relying on the shared tiering thresholds.
-                // LocalModelProvider's existing pre-flight TokenBudgetChecker check still rejects
-                // any prompt that ends up too large in practice — see that class's
-                // sendChatRequest() — but that's a safety net, not a substitute for verifying the
-                // tiering choice deliberately.
+                // request, which alone blew past the old 4096-token KV cache.
+                //
+                // Tool tier (audit decision, this session): with maxContext at 8192,
+                // AgentExecutor's shared toolRegistry.getToolsForContextBudget() tiering
+                // resolves this provider to the MEDIUM tier (~21 tools) instead of TINY (8).
+                // That promotion is now DELIBERATE, not the unverified accident an earlier
+                // comment here warned about: it directly serves the original goal of this whole
+                // migration (the offline model responding to tools the way online providers do),
+                // the ~21-tool compact block LocalModelProvider.buildToolBlock renders costs on
+                // the order of 1-2K estimated tokens — comfortably inside the 8192 budget next
+                // to the system prompt, knowledge block, and output reserve — and two guards
+                // catch any real-world overflow: LocalModelProvider's pre-flight
+                // TokenBudgetChecker rejection (clear in-app message instead of an engine
+                // error), and the vendored engine's own prompt-size cap. If field use shows the
+                // MEDIUM block crowding out conversation room in practice, cap this provider
+                // back to ToolRegistry's TINY tier explicitly rather than lowering maxContext.
                 return new Builder()
                         .streaming(true).tools(true).vision(false)
                         .jsonMode(false).reasoning(false).systemPrompts(true).temperature(true)

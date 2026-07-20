@@ -1658,3 +1658,10 @@ CMakeLists.txt بيحدد مسار مصدر llama.cpp نسبةً لموقعه ه
 (`${CMAKE_CURRENT_LIST_DIR}`) مش نسبةً للموديول، فالإشارة إليه من برة آمنة.
 `gradle/llama-module.gradle.kts` (محاولة ٣) اتحذف، و`settings.gradle` بقى
 `include(":llama")` بسيط بمجلد `llama/`.
+
+## جلسة التدقيق الشامل (Audit) — يوليو 2026
+تدقيق كامل للمشروع (1271 ملف / ~283 ألف سطر): إصلاح علة إلغاء في حلقة failover بتاعة
+AgentExecutor، وإصلاح جسر llama.cpp (كان close() يدمّر الـ engine singleton نهائياً +
+خطر ANR من runBlocking على main + تسريب scope)، وتصحيح نصيحة deprecated في LintTools،
+واعتماد فئة MEDIUM tools للموديل المحلي رسمياً مع تصحيح التوثيق المنحرف، وحذف 7 ملفات
+ميتة (~382 سطر). **التقرير الكامل بكل النتائج والديون التقنية المؤجلة: `AUDIT.md`.**

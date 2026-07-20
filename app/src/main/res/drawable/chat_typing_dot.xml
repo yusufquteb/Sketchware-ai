@@ -4,7 +4,9 @@
     ====================
     Small circular dot for the typing indicator animation.
     Three of these are used inside the typing indicator container.
-    Animation (alpha pulse) is controlled programmatically by TypingIndicatorAnimator.
+    (A programmatic alpha-pulse animator class for these dots was written but never wired
+    up anywhere, and was removed as dead code in the audit session — if the pulse animation
+    is ever wanted, animate these views where the typing indicator is shown/hidden.)
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">

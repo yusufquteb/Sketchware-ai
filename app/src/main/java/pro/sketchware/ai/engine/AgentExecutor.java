@@ -460,7 +460,15 @@ public class AgentExecutor {
                                     fromProvider.getDisplayName(),
                                     nextPair.provider.getDisplayName(),
                                     nextPair.modelId));
-                            try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
+                            // cancel() relies on executor.shutdownNow()'s interrupt to break this
+                            // wait — swallowing it here (as this line originally did) left the
+                            // loop running through the entire failover queue after the user hit
+                            // stop. Restore the flag and bail out through the normal cancel path.
+                            try { Thread.sleep(800); } catch (InterruptedException ignored2) {
+                                Thread.currentThread().interrupt();
+                                postCancelled(callback);
+                                return;
+                            }
                             if (!sameProvider) {
                                 String key = preferences.getApiKey(nextPair.provider);
                                 currentClient = pro.sketchware.ai.api.AiClientFactory

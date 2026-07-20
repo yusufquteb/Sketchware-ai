@@ -10,7 +10,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.cancel
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -236,17 +236,41 @@ class LlamaCppEngineBridge(context: Context) {
         activeJob?.cancel()
     }
 
-    /** Releases native resources. Safe to call multiple times. */
+    /**
+     * Releases the loaded model. Safe to call multiple times.
+     *
+     * <p>Two deliberate choices here (audit fix — both were real defects in the first version):
+     * <ul>
+     *   <li><b>cleanUp(), never destroy():</b> the vendored engine is a process-wide singleton
+     *       ({@code InferenceEngineImpl.instance} is cached and never reset). {@code destroy()}
+     *       cancels its internal coroutine scope permanently, so one bridge instance calling it
+     *       would brick offline generation for every later bridge in the same process — each
+     *       {@code AiClientFactory.createClient(LOCAL_LLM)} call makes a fresh
+     *       {@code LocalModelProvider}/bridge, but they all share that one engine.
+     *       {@code cleanUp()} unloads the model and returns the engine to its reusable
+     *       Initialized state instead.</li>
+     *   <li><b>Off-thread, not runBlocking:</b> this is reachable from
+     *       {@code ChatViewModel.onCleared()} → {@code LocalModelProvider.shutdown()} on the
+     *       main thread, and the vendored {@code cleanUp()} itself blocks on the engine's
+     *       single-threaded dispatcher — running that inline on main risks a visible freeze
+     *       (ANR) if a generation is still winding down.</li>
+     * </ul>
+     */
     fun close() {
         cancelGeneration()
-        if (loadedModelPath != null) {
-            try {
-                runBlocking { engine.destroy() }
-            } catch (_: Exception) {
-                // best-effort cleanup
-            }
-        }
+        val hadModel = loadedModelPath != null
         loadedModelPath = null
         establishedSystemInstruction = null
+        scope.cancel()
+        if (hadModel) {
+            Thread {
+                try {
+                    engine.cleanUp()
+                } catch (_: Exception) {
+                    // best-effort cleanup — an engine already in Error/Initialized state throws
+                    // IllegalStateException from cleanUp(), which is fine to ignore here
+                }
+            }.start()
+        }
     }
 }
