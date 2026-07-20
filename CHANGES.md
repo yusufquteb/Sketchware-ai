@@ -1577,3 +1577,61 @@ OkHttp (مش UI thread)، فكان بيكمل شغل فترة قصيرة حتى 
 موديول llama.cpp الحقيقي، كتالوج GGUF متحقق منه) لازم تتعمل في بيئة عندها
 وصول شبكة كامل + Android SDK/NDK قبل ما الأوفلاين يرجع يشتغل فعليًا.
 
+
+## Phase 6 (تابع) — GitHub بقى شغال + استنساخ الموديول الحقيقي + إعادة تصميم جوهرية
+
+### تحديث الوضع
+بعد كتابة القسم فوق، اتضح إن **GitHub بقى شغال فعليًا** في الجلسة دي (خلاف
+اللي كان موثّق فوق) — `git clone`/`git ls-remote` حقيقيين على
+`ggml-org/llama.cpp` نجحوا. **Hugging Face لسه محجوب** (403 policy denial
+اتأكد تاني)، **والـ NDK لسه مش موجود**.
+
+### اكتشافات حرجة من قراءة المصدر الحقيقي
+بعد استنساخ `examples/llama.android` فعليًا وقراءة `ai_chat.cpp` و
+`InferenceEngineImpl.kt` الحقيقيين:
+
+1. **الـ API الحقيقي مختلف جذريًا عن التخمين الأول**: مش JNI منخفض المستوى
+   زي ما افترضت أول مرة، لكن API عالي المستوى (`com.arm.aichat.InferenceEngine`:
+   `loadModel()`, `setSystemPrompt()`, `sendUserPrompt(): Flow<String>`).
+2. **المحرك state-ful بالكامل من جوّه**: بيحتفظ بالمحادثة (KV cache +
+   تاريخ الأدوار + ردوده هو نفسه) داخل الكود الـ native، مع context-shifting
+   تلقائي. مفيش API عام لحقن تاريخ كامل مرة واحدة — بس رسالة جديدة كل مرة.
+   ده تعارض مباشر مع تصميم `LocalModelProvider` القديم (إعادة بعت الـ
+   history كامل في كل نداء). **بناءً على اختيار المستخدم الصريح**، اتعمل
+   إعادة تصميم لـ `LocalModelProvider` عشان يتكيّف مع نمط المحرك: بيتتبع هل
+   الطلب الجديد امتداد طبيعي (`isContinuationOf` — prefix match) للمحادثة
+   اللي المحرك عارفها، وبيبعت بس الرسالة الأحدث في كل الحالتين (مش هيستيقظ
+   الـ history القديمة لو حصل انقطاع — قيد موثّق صراحة، مش نسيان).
+3. **`DEFAULT_CONTEXT_SIZE = 8192`** في `ai_chat.cpp` نفسه — نفس الرقم اللي
+   اخترناه بالظبط، صدفة كويسة، من غير ما نحتاج نعدل حاجة.
+4. **تعارض minSdk حقيقي**: الموديول الرسمي محدد `minSdk = 33` و
+   `abiFilters = [arm64-v8a, x86_64]` بس، بينما المشروع كله `minSdk = 26`
+   وعنده 4 معماريات. **القرار المتخذ (الخيار الموصى به)**: مفيش رفع لـ
+   minSdk العام للمشروع (كان هيقصي كل مستخدمي Android 8-12 من كل حاجة، مش
+   بس الأوفلاين) — بدل كده:
+   - `tools:overrideLibrary="com.arm.aichat"` في المانفست لتفادي خطأ الدمج.
+   - `LlamaCppEngineBridge.isDeviceSupported()` بيتفحص فعليًا (SDK_INT >= 33
+     + معمارية 64-bit) قبل أي محاولة استخدام للمحرك — أي جهاز أقدم بياخد
+     رسالة خطأ واضحة بدل كراش.
+
+### ما تم تنفيذه فعليًا في هذا التحديث
+- **`third_party/llama.cpp`**: إضافة submodule حقيقي (shallow، مثبّت على
+  commit `571d0d5` / tag `b10068`)، ~162MB.
+- **`settings.gradle`**: إضافة `:llama` موديول يأشر على
+  `third_party/llama.cpp/examples/llama.android/lib`.
+- **`app/build.gradle`**: `implementation project(":llama")` فعليًا (بدل
+  التعليق النظري السابق)، مع توثيق تعارض minSdk.
+- **`AndroidManifest.xml`**: إضافة `<uses-sdk tools:overrideLibrary=.../>`.
+- **`LlamaCppEngineBridge.kt`**: **إعادة كتابة كاملة** ضد الـ API الحقيقي
+  (`AiChat.getInferenceEngine`, `InferenceEngine`)، مع `isDeviceSupported()`.
+- **`LocalModelProvider.java`**: إعادة تصميم كبيرة — حذف `HistoryTurn`/
+  `trimHistoryForLocalModel`/الـ history budget بالكامل، إضافة
+  `isContinuationOf`/`lastSentMessages`/`forceReset`، تبسيط `PromptAssembly`
+  لرسالة واحدة + system instruction بس، إضافة فحص `isDeviceSupported()` في
+  بداية `sendChatRequest`.
+
+### لسه ناقص (بلا تغيير عن القسم السابق)
+Hugging Face لسه محجوب (كتالوج GGUF مش متحقق منه)، والـ NDK لسه مش موجود
+(مفيش بناء فعلي اتعمل). التصميم الجديد **غير مُختبر فعليًا** — الـ
+continuation heuristic (`isContinuationOf`) والتكامل مع الموديول الحقيقي
+لازم يتفحصوا على جهاز حقيقي بمجرد توفر NDK.

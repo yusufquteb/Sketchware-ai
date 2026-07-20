@@ -267,15 +267,28 @@ dependencies {
     // export time, which this app could not change. llama.cpp takes context size (n_ctx) as a
     // load-time parameter instead — see LlamaCppEngineBridge's class javadoc.
     //
-    // NOT YET WIRED UP: this migration still needs the actual native engine module vendored in
-    // (ggml-org/llama.cpp's examples/llama.android — a `:llama` Gradle module providing
-    // libllama.so/libggml.so + JNI bindings via CMake/NDK) and added here as
-    // `implementation(project(":llama"))`, plus `settings.gradle` updated to include that
-    // module and `ndkVersion`/`externalNativeBuild` configured. Blocked in this environment: no
-    // Android NDK installed, and github.com is not reachable from this session's network policy
-    // to clone the module source. See the approved migration plan (this session) for the full
-    // integration steps and LlamaCppEngineBridge's class javadoc for the exact prerequisites.
+    // The `:llama` module (settings.gradle) vendors ggml-org/llama.cpp's own
+    // examples/llama.android/lib (package com.arm.aichat) via the third_party/llama.cpp git
+    // submodule, pinned to commit 571d0d5 (tag b10068) — confirmed reachable and cloned in a
+    // later part of this same migration session (github.com access became available mid-session;
+    // it was blocked when this dependency block was first written, see git history). NOT YET
+    // BUILD-VERIFIED: no Android NDK is installed in this environment, so this has never actually
+    // been compiled — see LlamaCppEngineBridge's class javadoc for the full disclosure.
     //
+    // IMPORTANT — minSdk mismatch: the vendored :llama module itself declares minSdk=33
+    // (Android 13+) and arm64-v8a/x86_64-only ABI filters in its own build.gradle.kts (not
+    // something this app controls without forking it). This app's minSdk stays 26 — raising it
+    // app-wide to 33 was deliberately NOT done here (would drop Android 8–12 support for every
+    // feature, not just offline AI, without explicit approval). Instead, AndroidManifest.xml
+    // declares tools:overrideLibrary to suppress the resulting manifest-merge error, and
+    // LlamaCppEngineBridge.isDeviceSupported() gates every entry point into this module at
+    // runtime (Build.VERSION.SDK_INT >= 33 and a supported 64-bit ABI) so devices below that
+    // floor never reach the native code — they see a clear "not supported on this device"
+    // message from LocalModelProvider instead of a crash. This needs real-device verification
+    // once NDK access is available; the override-library approach is a standard, sanctioned
+    // AGP mechanism for an optional/conditionally-used higher-minSdk dependency, but has not
+    // been exercised end-to-end here.
+    implementation project(":llama")
     // kotlinx-coroutines-android is still needed — LlamaCppEngineBridge uses the same
     // CoroutineScope(SupervisorJob() + Dispatchers.IO) pattern the old bridge did.
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
