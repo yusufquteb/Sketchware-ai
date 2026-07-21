@@ -25,6 +25,36 @@
 `BackupRestoreManager`، وحذف `ProjectBackupCore.java` و`ProjectRestoreCore.java` (كانا مستخدمين
 من هذه الشاشة فقط). النتيجة: الشاشة تنتج الآن نسخة `.swb` كاملة وقابلة للاستعادة فعلاً.
 
+## ✅ أُصلح في هذه الجلسة — 3 widgets ناقصة في لوحة محرّر الواجهة (blocks)
+مقارنة لوحة الأدوات (palette) بين النسختين أظهرت أن DayDream يضيف **3 عناصر Material**
+غير موجودة عندنا (بقية اللوحة متطابقة):
+
+| Widget | الصنف في الكود المولَّد (`convert`) |
+|---|---|
+| `LoadingIndicator` | `com.google.android.material.loadingindicator.LoadingIndicator` |
+| `MaterialDivider` | `com.google.android.material.divider.MaterialDivider` |
+| `BottomSheetDragHandleView` | `com.google.android.material.bottomsheet.BottomSheetDragHandleView` |
+
+**أما بلوكات المنطق (logic blocks) في حزمة `blocks/` عند DayDream (`DRBlockHandler` /
+`DRPaletteBlock`) فنسختنا أصلاً superset منها**: عندنا كل ما لديهم زائد
+`containsSharedPreferences`, `removeDataSharedPreferences`, `getData/setData` (getString/
+putString), و`intentGetString`/`intentPutExtraString`. لذا لا نقص هناك — الفرق الوحيد أن
+DayDream يمرّر `defaultValue` صريحاً في getters بينما نحن نثبّت القيمة الافتراضية، وهو تكافؤ
+وظيفي (إضافة نسخ DayDream ستُنتج بلوكات مكرّرة ومربكة، فتُركت عمداً).
+
+**الإصلاح** (بأسلوب نسختنا لا بنسخ حزمة `viewbeans` من DayDream): نسختنا تعتمد آلية
+`ViewBean.convert` النظيفة (اسم الصنف الكامل يقود توليد XML + Java + الاستيرادات تلقائياً عبر
+`mq.getImportsByTypeName` والـ `default` فيها)، فلم نحتَج لأي تعديل على ملفات التوليد المُبهمة
+(`Gx`/`wq`/`uq`) كما تفعل DayDream. أُضيف لكل widget:
+- ثابت نوع في `ViewBeans.java` (49/50/51) + إدخال في الـ BiMap + أيقونة في `getViewTypeResId`.
+- صنف `Icon*` في `dev/aldi/sayuti/editor/view/palette/` يضبط `convert` للـ FQCN.
+- صنف `Item*` (معاينة داخل المحرّر) في `dev/aldi/sayuti/editor/view/item/` — معاينة
+  `LoadingIndicator` تستخدم `CircularProgressIndicator` لضمان الرسم داخل المحرّر بينما الكود
+  المولَّد يستهدف الصنف الحقيقي.
+- 3 أيقونات vector في `res/drawable/`.
+- ربط في `PaletteWidget` (switch الاسم) و`ViewPane` (switch النوع) و`ViewEditorFragment`
+  (تسجيل ضمن مجموعة "Widgets").
+
 ## فرص تحسين مؤجّلة (موثّقة، تحتاج جلسات مخصّصة)
 
 مرتبة بالأولوية. كلها ميزات أكبر تحتاج تصميم/اختبار منفصل، فلم تُنفّذ في هذه الجولة تفادياً

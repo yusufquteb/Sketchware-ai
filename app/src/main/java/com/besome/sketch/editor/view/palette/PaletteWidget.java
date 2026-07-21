@@ -18,13 +18,16 @@ import java.util.HashMap;
 import a.a.a.wB;
 import dev.aldi.sayuti.editor.view.palette.IconBadgeView;
 import dev.aldi.sayuti.editor.view.palette.IconBottomNavigationView;
+import dev.aldi.sayuti.editor.view.palette.IconBottomSheetDragHandleView;
 import dev.aldi.sayuti.editor.view.palette.IconCardView;
 import dev.aldi.sayuti.editor.view.palette.IconCircleImageView;
 import dev.aldi.sayuti.editor.view.palette.IconCodeView;
 import dev.aldi.sayuti.editor.view.palette.IconCollapsingToolbar;
 import dev.aldi.sayuti.editor.view.palette.IconGoogleSignInButton;
+import dev.aldi.sayuti.editor.view.palette.IconLoadingIndicator;
 import dev.aldi.sayuti.editor.view.palette.IconLottieAnimation;
 import dev.aldi.sayuti.editor.view.palette.IconMaterialButton;
+import dev.aldi.sayuti.editor.view.palette.IconMaterialDivider;
 import dev.aldi.sayuti.editor.view.palette.IconOTPView;
 import dev.aldi.sayuti.editor.view.palette.IconPatternLockView;
 import dev.aldi.sayuti.editor.view.palette.IconRadioGroup;
@@ -206,6 +209,9 @@ public class PaletteWidget extends LinearLayout {
             case "OTPView" -> new IconOTPView(context);
             case "CodeView" -> new IconCodeView(context);
             case "RecyclerView" -> new IconRecyclerView(context);
+            case "LoadingIndicator" -> new IconLoadingIndicator(context);
+            case "MaterialDivider" -> new IconMaterialDivider(context);
+            case "BottomSheetDragHandleView" -> new IconBottomSheetDragHandleView(context);
             default -> new IconBase(context);
         };
         if (tag != null && !tag.isEmpty()) {

@@ -293,6 +293,9 @@ public class ViewEditorFragment extends qA {
         viewEditor.extraWidget("", "SearchView", "SearchView");
         viewEditor.extraWidget("", "VideoView", "VideoView");
         viewEditor.addWidget(PaletteWidget.b.h, "", "WebView", "WebView");
+        viewEditor.extraWidget("", "LoadingIndicator", "LoadingIndicator");
+        viewEditor.extraWidget("", "MaterialDivider", "MaterialDivider");
+        viewEditor.extraWidget("", "BottomSheetDragHandleView", "BottomSheetDragHandleView");
         widgetsCreatorManager.addWidgetsByTitle("Widgets");
 
         viewEditor.paletteWidget.extraTitle("List", 1);
