@@ -300,12 +300,21 @@ public class AiAssistantBottomSheet extends BottomSheetDialogFragment
         List<AiPageConfig.Tool> tools = config != null ? config.tools : new ArrayList<>();
         sidebarAdapter = new AiSidebarAdapter(tools, tool -> {
             if (tool.inputTemplate == null) return;
-            // Fill input field — user edits then sends
-            binding.aiSheetInput.setText(tool.inputTemplate);
-            binding.aiSheetInput.setSelection(binding.aiSheetInput.getText().length());
-            binding.aiSheetInput.requestFocus();
             pendingDirectKey = (tool.type == AiPageConfig.ToolType.DIRECT)
                 ? tool.actionKey : null;
+            // User-requested behavior change: a picked tool goes straight into the chat.
+            // The only exception is templates with a [placeholder] the user must fill in
+            // (the convention every config template uses, e.g. "[class or symbol name]") —
+            // those still land in the input box for editing before send.
+            boolean needsUserInput = tool.inputTemplate.contains("[")
+                    && tool.inputTemplate.contains("]");
+            binding.aiSheetInput.setText(tool.inputTemplate);
+            binding.aiSheetInput.setSelection(binding.aiSheetInput.getText().length());
+            if (needsUserInput) {
+                binding.aiSheetInput.requestFocus();
+            } else {
+                onSend();
+            }
             showEmpty(chatHistory.isEmpty());
             // Collapse sidebar so the chat area is fully visible
             if (sidebarExpanded) toggleSidebar();

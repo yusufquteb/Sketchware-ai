@@ -61,16 +61,19 @@ import pro.sketchware.ai.models.ToolCall;
  * see {@link LlamaCppEngineBridge}'s class doc for what's confirmed against the actual vendored
  * source versus what still needs a real NDK build to test.
  *
- * <p><b>Context/Token MVP — tool calling re-enabled for the local model, essential subset only.</b>
+ * <p><b>Context/Token MVP — tool calling re-enabled for the local model, tiered subset only.</b>
  * Phase 5.4 disabled tools entirely because sending the live {@code ToolRegistry} — 106 registered
  * tools as of that phase — reformatted into a compact prompt block on every call was fundamentally
  * incompatible with a 4096-token model: even a minimal one-line-per-tool format for all 106 tools
  * alone landed in the 8,000–11,000-token range, confirmed from an actual field failure where a
  * single "hi" message produced an estimated ~11203 prompt tokens. Rather than sending the full
- * registry, {@code AgentExecutor} now sends only the 7-tool essential subset ({@code
- * ToolRegistry.getEssentialTools()}), so {@link #buildToolBlock} builds a small tool block from
- * whatever it's given and its measured token cost is reserved in the prompt budget the same way
- * the system prompt's is (see {@link #buildPromptAssembly}). {@link #parseToolCall}, {@code
+ * registry, {@code AgentExecutor} sends {@code ToolRegistry.getToolsForContextBudget(8192)} —
+ * which resolves to the MEDIUM tier (~21 tools) for this provider, a deliberate audit decision
+ * (see {@code ProviderCapabilities}'s LOCAL_LLM comment for the reasoning and guards; an earlier
+ * revision of this doc said "7-tool essential subset", which stopped being what actually happens
+ * once the context budget doubled). {@link #buildToolBlock} builds a compact block from whatever
+ * it's given and its measured token cost is reserved in the prompt budget the same way the system
+ * prompt's is (see {@link #buildPromptAssembly}). {@link #parseToolCall}, {@code
  * TOOL_CALL_OPEN_TAG}/{@code TOOL_CALL_CLOSE_TAG}, and the {@code <tool_call>...</tool_call>}
  * convention are live for this provider.
  *
@@ -124,12 +127,12 @@ public class LocalModelProvider extends AiApiClient {
     // estimator is a coarse 4-chars-per-token heuristic (see its own javadoc), and under-filling
     // the context window is far safer than an engine-level failure from overfilling it.
     //
-    // Context/Token MVP: the tool-block reservation is for the small 7-tool essential subset
-    // (see class javadoc) rather than the full 106+-tool registry Phase 5.4 found unaffordable.
-    // The essential-subset choice is deliberately kept as-is post-migration even though the
-    // doubled context could technically fit more — see the approved migration plan's
-    // "explicitly out of scope" section: widening the tool set is a separate, deliberate
-    // follow-up once this budget is proven stable, not an automatic side effect of this change.
+    // Context/Token MVP: the tool-block reservation covers the MEDIUM tool tier (~21 tools —
+    // what AgentExecutor actually resolves for this provider at 8192, see class javadoc and
+    // ProviderCapabilities' LOCAL_LLM comment) rather than the full 106+-tool registry Phase
+    // 5.4 found unaffordable. The block's real measured size is subtracted from the budget in
+    // buildPromptAssembly, and the pre-flight check below rejects any assembled prompt that
+    // still ends up too large.
     private static final int HARD_KV_CACHE_TOKENS = LlamaCppEngineBridge.CONTEXT_SIZE_TOKENS;
     private static final int RESERVED_FOR_OUTPUT_TOKENS = 1024;
     /** Safety margin subtracted before the final pre-flight check, on top of the
@@ -437,12 +440,12 @@ public class LocalModelProvider extends AiApiClient {
     }
 
     /**
-     * Builds a compact, one-line-per-tool prompt block for the essential tool subset
-     * (see {@code ToolRegistry.getEssentialTools()} — 7 tools as of the Context/Token MVP fix,
+     * Builds a compact, one-line-per-tool prompt block for the tiered tool subset the caller
+     * passes in (the MEDIUM tier, ~21 tools, for this provider at 8192 — see class javadoc;
      * versus the full 106+-tool catalog this class's Phase 5.4 javadoc describes as unaffordable).
-     * Seven short schemas are small enough to plausibly coexist with a short conversation inside
-     * the 4096-token KV cache, unlike the full registry. Returns an empty string when {@code tools}
-     * is null or empty so callers can skip adding the block entirely.
+     * A compact block this size coexists comfortably with a conversation inside the 8192-token
+     * context, unlike the full registry. Returns an empty string when {@code tools} is null or
+     * empty so callers can skip adding the block entirely.
      *
      * <p><b>Parameter-name fix (field bug — wrong argument keys in tool calls).</b> This method
      * previously rendered only each tool's name and free-text description — never its actual

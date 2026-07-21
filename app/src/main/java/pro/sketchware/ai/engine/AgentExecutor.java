@@ -421,7 +421,11 @@ public class AgentExecutor {
                                 String defaultModel = AiProviderModels.getDefaultModel(currProv);
                                 if (!defaultModel.isEmpty() && !defaultModel.equals(modelHolder[0])) {
                                     modelNotFoundRetries++;
-                                    preferences.clearCachedModels(currProv);
+                                    // Drop only the stale model — clearing the whole cache here
+                                    // was the confirmed cause of "300 fetched models collapse
+                                    // to 1" (UI falls back to the 1-entry static list); see
+                                    // AiPreferences.removeCachedModel's javadoc.
+                                    preferences.removeCachedModel(currProv, modelHolder[0]);
                                     sessionLogger.logFailover(currProv.getDisplayName(),
                                             currProv.getDisplayName(),
                                             "Model not found: " + modelHolder[0]
@@ -460,7 +464,15 @@ public class AgentExecutor {
                                     fromProvider.getDisplayName(),
                                     nextPair.provider.getDisplayName(),
                                     nextPair.modelId));
-                            try { Thread.sleep(800); } catch (InterruptedException ignored2) {}
+                            // cancel() relies on executor.shutdownNow()'s interrupt to break this
+                            // wait — swallowing it here (as this line originally did) left the
+                            // loop running through the entire failover queue after the user hit
+                            // stop. Restore the flag and bail out through the normal cancel path.
+                            try { Thread.sleep(800); } catch (InterruptedException ignored2) {
+                                Thread.currentThread().interrupt();
+                                postCancelled(callback);
+                                return;
+                            }
                             if (!sameProvider) {
                                 String key = preferences.getApiKey(nextPair.provider);
                                 currentClient = pro.sketchware.ai.api.AiClientFactory

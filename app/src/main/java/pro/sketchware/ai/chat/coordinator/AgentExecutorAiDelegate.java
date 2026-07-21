@@ -290,7 +290,10 @@ public class AgentExecutorAiDelegate implements ChatCoordinator.AiDelegate {
             @Override
             public void onToolCallStarted(ToolCall toolCall) {
                 if (toolCall == null) return;
-                addSystemMessage("🔧 " + toolCall.getName());
+                // User-reported: the bare "🔧 tool_name" coordinator line was unintelligible.
+                // Phrase it as an action in progress; the completion message below carries the
+                // outcome.
+                addSystemMessage("🔧 Running " + toolCall.getName() + "…");
                 if (toolProgressListener != null) {
                     mainHandler.post(() -> toolProgressListener.onToolStarted(
                             toolCall.getName(), toolCall.getId()));
@@ -308,6 +311,22 @@ public class AgentExecutorAiDelegate implements ChatCoordinator.AiDelegate {
 
             @Override
             public void onToolCallCompleted(ToolCall toolCall, ToolResult result) {
+                // User-reported: tool turns used to end with no visible outcome (and the
+                // assistant bubble itself is often empty on tool-only turns), so nothing in the
+                // chat said whether the tool worked. Post a short human-readable outcome line —
+                // the full result still reaches the model itself via the tool message.
+                if (toolCall != null && result != null) {
+                    if (result.isSuccess()) {
+                        String out = result.getOutput() != null ? result.getOutput().trim() : "";
+                        String summary = out.isEmpty() ? "done"
+                                : out.length() > 140 ? out.substring(0, 140).replace('\n', ' ') + "…"
+                                : out.replace('\n', ' ');
+                        addSystemMessage("✅ " + toolCall.getName() + ": " + summary);
+                    } else {
+                        String err = result.getError() != null ? result.getError() : "failed";
+                        addSystemMessage("❌ " + toolCall.getName() + ": " + err);
+                    }
+                }
                 if (toolProgressListener != null && toolCall != null) {
                     mainHandler.post(() -> toolProgressListener.onToolCompleted(
                             toolCall.getId()));

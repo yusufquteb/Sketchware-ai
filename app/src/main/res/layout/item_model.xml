@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- android:checkable is required for the active-model marker: ModelSelectorAdapter calls
+     setChecked() on this root, which MaterialCardView silently ignores unless checkable —
+     that no-op was why the currently selected model had no visual indicator (user-reported).
+     Checked state shows the Material checked icon + a primary-colored stroke box. -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     style="?attr/materialCardViewFilledStyle"
@@ -6,9 +10,13 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="8dp"
     android:layout_marginVertical="2dp"
+    android:checkable="true"
     android:clickable="true"
     android:focusable="true"
-    app:cardBackgroundColor="?attr/colorSurfaceContainerLow">
+    app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+    app:checkedIconTint="?attr/colorPrimary"
+    app:strokeColor="@color/model_card_stroke"
+    app:strokeWidth="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"

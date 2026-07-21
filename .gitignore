@@ -1,7 +1,16 @@
-# Gradle
+# Gradle output directories (module-root build/ only).
+#
+# IMPORTANT: the old `**/build/` pattern also matched SOURCE packages named `build`
+# (e.g. app/src/main/java/mod/jbk/build/, .../mod/hey/studios/build/,
+# .../mod/pranav/build/, .../pro/sketchware/ai/tools/build/), silently excluding real
+# source files from git. Local builds still worked because the files were on disk, but a
+# clean clone (CI, a new machine, a collaborator) was missing them and could not compile.
+# The negation below re-includes any `build` directory that lives under a `src/` tree, so
+# only genuine Gradle output dirs stay ignored.
 .gradle/
 build/
 **/build/
+!**/src/**/build/
 
 # Android Studio
 .idea/

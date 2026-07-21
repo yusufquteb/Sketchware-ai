@@ -520,10 +520,20 @@ public class ChatCoordinator implements ChatMessageAdapter.ChatMessageListener {
                     }
 
                     if (streamingMessage != null) {
-                        streamingMessage.setText(fullResponse);
-                        streamingMessage.setStreaming(false);
-                        streamingMessage.setStatus(ChatMessage.MessageStatus.SENT);
-                        if (adapter != null) adapter.updateMessage(streamingMessage);
+                        if (fullResponse.trim().isEmpty()) {
+                            // Tool-only turn (user-reported): the model answered with just a
+                            // tool call and no prose, which used to leave a blank assistant
+                            // bubble sitting in the chat. The tool activity is already shown
+                            // by its own system/tool messages, so drop the empty bubble
+                            // instead of finalizing it.
+                            messages.remove(streamingMessage);
+                            if (adapter != null) adapter.removeMessage(streamingMessage.getId());
+                        } else {
+                            streamingMessage.setText(fullResponse);
+                            streamingMessage.setStreaming(false);
+                            streamingMessage.setStatus(ChatMessage.MessageStatus.SENT);
+                            if (adapter != null) adapter.updateMessage(streamingMessage);
+                        }
                         streamingMessage = null;
                     }
 

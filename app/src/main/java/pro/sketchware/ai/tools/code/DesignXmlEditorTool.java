@@ -71,30 +71,42 @@ public final class DesignXmlEditorTool {
 
     // ── View type map ─────────────────────────────────────────────────────
 
+    /**
+     * Widget name → Sketchware {@link com.besome.sketch.beans.ViewBean} type constant.
+     *
+     * <p>AUDIT FIX (user-reported "add/modify/remove view tools don't work"): this map used to
+     * be an invented numbering that disagreed with the real {@code ViewBean.VIEW_TYPE_*}
+     * constants almost everywhere — e.g. it said TextView=2 (really {@code
+     * VIEW_TYPE_LAYOUT_HSCROLLVIEW}) and EditText=4 (really {@code VIEW_TYPE_WIDGET_TEXTVIEW}),
+     * and listed types 19–22 (RadioButton/RadioGroup/CardView/FAB=20…) that are OUT OF RANGE
+     * entirely ({@code ViewBean.VIEW_TYPE_COUNT} is 19). Adding a "TextView" therefore produced
+     * a horizontal scroll view on the canvas, and out-of-range types could crash the design
+     * editor on reload — the plausible mechanism behind the old "assistant exits the project
+     * after a tool call" field report. Every entry below now mirrors ViewBean's constants
+     * exactly; widget names with no real Sketchware bean type (ImageButton, RadioButton,
+     * RadioGroup, CardView) were removed rather than mapped to something wrong.
+     */
     static final java.util.Map<String, Integer> VIEW_TYPES = new java.util.LinkedHashMap<>();
     static {
-        VIEW_TYPES.put("LinearLayout",          0);
-        VIEW_TYPES.put("HorizontalScrollView",  1);
-        VIEW_TYPES.put("TextView",              2);
-        VIEW_TYPES.put("Button",                3);
-        VIEW_TYPES.put("EditText",              4);
-        VIEW_TYPES.put("ImageView",             6);
-        VIEW_TYPES.put("ImageButton",           7);
-        VIEW_TYPES.put("CheckBox",              8);
-        VIEW_TYPES.put("RadioButton",           9);
-        VIEW_TYPES.put("RadioGroup",           10);
-        VIEW_TYPES.put("Spinner",              11);
-        VIEW_TYPES.put("ScrollView",           12);
-        VIEW_TYPES.put("Switch",               13);
-        VIEW_TYPES.put("SeekBar",              14);
-        VIEW_TYPES.put("ProgressBar",          15);
-        VIEW_TYPES.put("ListView",             16);
-        VIEW_TYPES.put("MapView",              17);
-        VIEW_TYPES.put("WebView",              18);
-        VIEW_TYPES.put("CalendarView",         19);
-        VIEW_TYPES.put("FloatingActionButton", 20);
-        VIEW_TYPES.put("AdView",               21);
-        VIEW_TYPES.put("CardView",             22);
+        VIEW_TYPES.put("LinearLayout",          com.besome.sketch.beans.ViewBean.VIEW_TYPE_LAYOUT_LINEAR);       // 0
+        VIEW_TYPES.put("RelativeLayout",        com.besome.sketch.beans.ViewBean.VIEW_TYPE_LAYOUT_RELATIVE);     // 1
+        VIEW_TYPES.put("HorizontalScrollView",  com.besome.sketch.beans.ViewBean.VIEW_TYPE_LAYOUT_HSCROLLVIEW);  // 2
+        VIEW_TYPES.put("Button",                com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_BUTTON);       // 3
+        VIEW_TYPES.put("TextView",              com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_TEXTVIEW);     // 4
+        VIEW_TYPES.put("EditText",              com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_EDITTEXT);     // 5
+        VIEW_TYPES.put("ImageView",             com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_IMAGEVIEW);    // 6
+        VIEW_TYPES.put("WebView",               com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_WEBVIEW);      // 7
+        VIEW_TYPES.put("ProgressBar",           com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_PROGRESSBAR);  // 8
+        VIEW_TYPES.put("ListView",              com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_LISTVIEW);     // 9
+        VIEW_TYPES.put("Spinner",               com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_SPINNER);      // 10
+        VIEW_TYPES.put("CheckBox",              com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_CHECKBOX);     // 11
+        VIEW_TYPES.put("ScrollView",            com.besome.sketch.beans.ViewBean.VIEW_TYPE_LAYOUT_VSCROLLVIEW);  // 12
+        VIEW_TYPES.put("Switch",                com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_SWITCH);       // 13
+        VIEW_TYPES.put("SeekBar",               com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_SEEKBAR);      // 14
+        VIEW_TYPES.put("CalendarView",          com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_CALENDARVIEW); // 15
+        VIEW_TYPES.put("FloatingActionButton",  com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_FAB);          // 16
+        VIEW_TYPES.put("AdView",                com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_ADVIEW);       // 17
+        VIEW_TYPES.put("MapView",               com.besome.sketch.beans.ViewBean.VIEW_TYPE_WIDGET_MAPVIEW);      // 18
     }
 
     static String typeToName(int type) {
@@ -365,28 +377,12 @@ public final class DesignXmlEditorTool {
     }
 
     private static String getTagForType(int type) {
-        switch (type) {
-            case 0: return "LinearLayout";
-            case 1: return "TextView";
-            case 2: return "EditText";
-            case 3: return "Button";
-            case 4: return "ImageView";
-            case 5: return "ImageButton";
-            case 6: return "CheckBox";
-            case 7: return "RadioButton";
-            case 8: return "RadioGroup";
-            case 9: return "ListView";
-            case 10: return "Spinner";
-            case 11: return "ScrollView";
-            case 12: return "Switch";
-            case 13: return "SeekBar";
-            case 14: return "ProgressBar";
-            case 15: return "WebView";
-            case 16: return "FloatingActionButton";
-            case 17: return "CardView";
-            case 18: return "RecyclerView";
-            default: return "View";
-        }
+        // AUDIT FIX: this switch was a second, DIFFERENT invented numbering (disagreeing with
+        // both ViewBean's real constants and the old VIEW_TYPES map in this same file), so the
+        // XML handed to the model as "current layout" mislabeled nearly every widget. Now
+        // derived from the single corrected VIEW_TYPES map above.
+        String name = typeToName(type);
+        return name.startsWith("View(") ? "View" : name;
     }
 
     private static JsonObject findEntry(JsonArray arr, String activityName) {
@@ -458,43 +454,9 @@ public final class DesignXmlEditorTool {
         return null;
     }
 
-    /** Generates a simple default view object for a given widget type. */
-    private static JsonObject defaultView(String viewId, int type, JsonObject extraProps) {
-        JsonObject v = new JsonObject();
-        v.addProperty("id",       viewId);
-        v.addProperty("type",     type);
-        v.addProperty("text",     "");
-        v.addProperty("textColor", 0xFF212121);
-        v.addProperty("textSize",  12);
-        v.addProperty("padding",   8);
-
-        JsonObject layout = new JsonObject();
-        layout.addProperty("width",  -1);   // MATCH_PARENT
-        layout.addProperty("height", -2);   // WRAP_CONTENT
-        layout.addProperty("gravity", 0);
-        layout.addProperty("layoutGravity", 0);
-        layout.addProperty("marginTop",    0);
-        layout.addProperty("marginBottom", 0);
-        layout.addProperty("marginLeft",   0);
-        layout.addProperty("marginRight",  0);
-        v.add("layout", layout);
-        v.add("children", new JsonArray());
-
-        // Apply extra properties from caller
-        if (extraProps != null) {
-            for (String key : new ArrayList<>(extraProps.keySet())) {
-                if ("layout".equals(key) && extraProps.get(key).isJsonObject()) {
-                    JsonObject extraLayout = extraProps.getAsJsonObject("layout");
-                    for (String lk : new ArrayList<>(extraLayout.keySet())) {
-                        layout.add(lk, extraLayout.get(lk));
-                    }
-                } else {
-                    v.add(key, extraProps.get(key));
-                }
-            }
-        }
-        return v;
-    }
+    // (defaultView() removed in the audit rewrite — it hand-assembled an invented bean shape
+    //  incompatible with the real ViewBean format; add_view now builds beans through
+    //  ViewBeanParser instead. See AddViewTool's audit note.)
 
     // ── Tool 1: describe_layout ───────────────────────────────────────────
 
@@ -574,6 +536,38 @@ public final class DesignXmlEditorTool {
         entry.add("data", dataArr);
         // Write back in Sketchware's @section format (SK.txt compliant)
         writeFile(viewFile, jsonArrayToSections(fileArray));
+    }
+
+    /**
+     * Loads the flat ViewBean list for one activity from the view file (Gson per line — the
+     * same read path {@code add_view_xml}'s merge uses). Returns an empty list when the
+     * activity has no layout yet. Shared by the rewritten add_view/modify_view/remove_view —
+     * see those tools' audit notes for why they moved onto this proven flat-bean path.
+     */
+    private static ArrayList<ViewBean> loadBeans(File viewFile, String activityName) {
+        ArrayList<ViewBean> beans = new ArrayList<>();
+        try {
+            JsonArray fileArr = readViewArray(viewFile);
+            for (int i = 0; i < fileArr.size(); i++) {
+                if (!fileArr.get(i).isJsonObject()) continue;
+                JsonObject entry = fileArr.get(i).getAsJsonObject();
+                if (entry.has("id") && (activityName + ".xml").equals(entry.get("id").getAsString())) {
+                    JsonArray data = entry.has("data") && entry.get("data").isJsonArray()
+                            ? entry.getAsJsonArray("data")
+                            : entry.has("view") && entry.get("view").isJsonArray()
+                                    ? entry.getAsJsonArray("view") : new JsonArray();
+                    for (JsonElement el : data) {
+                        if (!el.isJsonObject()) continue;
+                        try {
+                            ViewBean b = GsonUtils.getGson().fromJson(el, ViewBean.class);
+                            if (b != null) beans.add(b);
+                        } catch (Exception ignored) {}
+                    }
+                    break;
+                }
+            }
+        } catch (Exception ignored) {}
+        return beans;
     }
 
         public static class DescribeLayoutTool implements AgentTool {
@@ -672,10 +666,10 @@ public final class DesignXmlEditorTool {
 
         @Override public String getDescription() {
             return "Adds a new view widget to an activity layout in Sketchware Pro. "
-                 + "Supported widget_type values: LinearLayout, TextView, Button, EditText, "
-                 + "ImageView, ImageButton, CheckBox, RadioButton, RadioGroup, Spinner, "
-                 + "ScrollView, Switch, SeekBar, ProgressBar, ListView, CardView, "
-                 + "FloatingActionButton, WebView. "
+                 + "Supported widget_type values: LinearLayout, RelativeLayout, "
+                 + "HorizontalScrollView, Button, TextView, EditText, ImageView, WebView, "
+                 + "ProgressBar, ListView, Spinner, CheckBox, ScrollView, Switch, SeekBar, "
+                 + "CalendarView, FloatingActionButton, AdView, MapView. "
                  + "Specify parent_view_id to nest inside a container, or omit to add at root. "
                  + "After adding, DesignActivity reloads the canvas automatically.";
         }
@@ -699,6 +693,16 @@ public final class DesignXmlEditorTool {
             return schema;
         }
 
+        /**
+         * AUDIT REWRITE (user-reported "add view doesn't work"): the old implementation wrote
+         * an invented JSON shape — wrong type numbers (see VIEW_TYPES' audit note), {@code text}
+         * as a flat string where ViewBean needs a TextBean object, and a phantom nested
+         * {@code children} array the real flat parent/parentType format doesn't have — so the
+         * design editor either never showed the added view or choked parsing the line. Now
+         * delegates to the same proven ViewBeanParser → flat-ViewBean → saveViewBeans path
+         * {@code add_view_xml} uses, with parent placement done via the real parent/parentType/
+         * index fields.
+         */
         @Override
         public ToolResult execute(JsonObject args, ToolContext ctx) {
             String scId       = requireString(args, "sc_id");
@@ -716,47 +720,59 @@ public final class DesignXmlEditorTool {
             ctx.reportProgress("Adding " + widgetType + "…", -1, true);
             File viewFile = new File(ctx.getProjectDataDir(scId), "view");
             try {
-                JsonArray arr   = readViewArray(viewFile);
-                JsonObject entry = findEntry(arr, actName);
-                if (entry == null) {
-                    // Create new entry
-                    entry = new JsonObject();
-                    entry.addProperty("id", actName + ".xml");
-                    entry.add("data", new JsonArray());
-                    arr.add(entry);
-                }
-                JsonArray data = entry.has("data") && entry.get("data").isJsonArray()
-                        ? entry.getAsJsonArray("data") : new JsonArray();
-                if (!entry.has("data")) entry.add("data", data);
-
-                // Check for duplicate id
-                if (findViewById(data, viewId) != null)
-                    return error("A view with id '" + viewId + "' already exists.");
-
-                JsonObject extra = new JsonObject();
-                if (args.has("text"))   extra.addProperty("text",   args.get("text").getAsString());
-                if (args.has("width") || args.has("height")) {
-                    JsonObject layout = new JsonObject();
-                    if (args.has("width"))  layout.addProperty("width",  args.get("width").getAsInt());
-                    if (args.has("height")) layout.addProperty("height", args.get("height").getAsInt());
-                    extra.add("layout", layout);
+                ArrayList<ViewBean> beans = loadBeans(viewFile, actName);
+                for (ViewBean b : beans) {
+                    if (viewId.equals(b.id))
+                        return error("A view with id '" + viewId + "' already exists.");
                 }
 
-                JsonObject newView = defaultView(viewId, typeCode, extra);
+                // Build a minimal XML snippet and run it through ViewBeanParser — the same
+                // engine the design editor itself trusts — instead of hand-assembling bean
+                // JSON. skipRoot=true: the wrapper LinearLayout is just a container.
+                String text = requireString(args, "text");
+                int width  = args.has("width")  ? args.get("width").getAsInt()  : -2;
+                int height = args.has("height") ? args.get("height").getAsInt() : -2;
+                StringBuilder xml = new StringBuilder();
+                xml.append("<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\" ")
+                   .append("android:layout_width=\"match_parent\" android:layout_height=\"match_parent\" ")
+                   .append("android:orientation=\"vertical\">")
+                   .append('<').append(widgetType)
+                   .append(" android:id=\"@+id/").append(viewId).append('"')
+                   .append(" android:layout_width=\"").append(dimenStr(width)).append('"')
+                   .append(" android:layout_height=\"").append(dimenStr(height)).append('"');
+                if (text != null && !text.isEmpty()) {
+                    String escaped = text.replace("&", "&amp;").replace("<", "&lt;")
+                            .replace(">", "&gt;").replace("\"", "&quot;");
+                    xml.append(" android:text=\"").append(escaped).append('"');
+                }
+                xml.append("/></LinearLayout>");
 
+                String[] errHolder = {null};
+                ArrayList<ViewBean> parsed = xmlToViewBeans(xml.toString(), true, errHolder);
+                if (parsed == null || parsed.isEmpty())
+                    return error("Failed to build view: "
+                            + (errHolder[0] != null ? errHolder[0] : "parser returned nothing"));
+                ViewBean newBean = parsed.get(0);
+
+                // Parent placement via the REAL flat hierarchy fields.
                 String parentId = requireString(args, "parent_view_id");
                 if (parentId != null && !parentId.isEmpty()) {
-                    Object[] found = findViewById(data, parentId);
-                    if (found == null) return error("parent_view_id not found: " + parentId);
-                    JsonObject parent = (JsonObject) found[2];
-                    if (!parent.has("children")) parent.add("children", new JsonArray());
-                    parent.getAsJsonArray("children").add(newView);
-                } else {
-                    data.add(newView);
+                    ViewBean parentBean = null;
+                    for (ViewBean b : beans) {
+                        if (parentId.equals(b.id)) { parentBean = b; break; }
+                    }
+                    if (parentBean == null) return error("parent_view_id not found: " + parentId);
+                    int childCount = 0;
+                    for (ViewBean b : beans) {
+                        if (parentId.equals(b.parent)) childCount++;
+                    }
+                    newBean.parent = parentId;
+                    newBean.parentType = parentBean.type;
+                    newBean.index = childCount;
                 }
 
-                // Write back
-                writeFile(viewFile, jsonArrayToSections(arr));
+                beans.add(newBean);
+                saveViewBeans(viewFile, actName, beans);
                 notifyChange(ctx.getAppContext(), scId, actName);
                 return success(widgetType + " '" + viewId + "' added to '"
                         + actName + "'. DesignActivity canvas reloaded.");
@@ -814,37 +830,65 @@ public final class DesignXmlEditorTool {
             ctx.reportProgress("Modifying view " + viewId + "…", -1, true);
             File viewFile = new File(ctx.getProjectDataDir(scId), "view");
             try {
-                JsonArray arr   = readViewArray(viewFile);
-                JsonObject entry = findEntry(arr, actName);
-                if (entry == null) return error("Activity layout not found: " + actName);
-
-                JsonArray data = entry.getAsJsonArray("data");
-                Object[] found = findViewById(data, viewId);
-                if (found == null) return error("View not found: " + viewId);
-
-                JsonObject view = (JsonObject) found[2];
-
-                // Apply scalar props
-                String[] scalarProps = {"text","textColor","textSize","textStyle","padding",
-                                        "backgroundColor","visibility","enabled","clickable"};
-                for (String prop : scalarProps) {
-                    if (args.has(prop)) view.add(prop, args.get(prop));
+                // AUDIT REWRITE (user-reported "modify view doesn't work"): the old code patched
+                // raw JSON with flat top-level text/textColor/textSize keys — but ViewBean keeps
+                // those inside its TextBean object ({"text":{"text":...,"textSize":...}}), so a
+                // patched line either failed Gson parsing in the design editor or the values
+                // were silently ignored. Now edits the real ViewBean fields directly.
+                ArrayList<ViewBean> beans = loadBeans(viewFile, actName);
+                if (beans.isEmpty()) return error("Activity layout not found: " + actName);
+                ViewBean target = null;
+                for (ViewBean b : beans) {
+                    if (viewId.equals(b.id)) { target = b; break; }
                 }
+                if (target == null) return error("View not found: " + viewId);
 
-                // Apply layout sub-object
+                List<String> applied = new ArrayList<>();
+                if (args.has("text")) {
+                    target.text.text = args.get("text").getAsString();
+                    applied.add("text");
+                }
+                if (args.has("textColor")) {
+                    target.text.textColor = args.get("textColor").getAsInt();
+                    applied.add("textColor");
+                }
+                if (args.has("textSize")) {
+                    target.text.textSize = args.get("textSize").getAsInt();
+                    applied.add("textSize");
+                }
+                if (args.has("backgroundColor")) {
+                    target.layout.backgroundColor = args.get("backgroundColor").getAsInt();
+                    applied.add("backgroundColor");
+                }
+                if (args.has("padding")) {
+                    int pad = args.get("padding").getAsInt();
+                    target.layout.paddingLeft = pad;
+                    target.layout.paddingRight = pad;
+                    target.layout.paddingTop = pad;
+                    target.layout.paddingBottom = pad;
+                    applied.add("padding");
+                }
+                if (args.has("enabled"))   { target.enabled   = args.get("enabled").getAsInt();   applied.add("enabled"); }
+                if (args.has("clickable")) { target.clickable = args.get("clickable").getAsInt(); applied.add("clickable"); }
                 if (args.has("layout") && args.get("layout").isJsonObject()) {
-                    JsonObject layoutPatch = args.getAsJsonObject("layout");
-                    if (!view.has("layout")) view.add("layout", new JsonObject());
-                    JsonObject layout = view.getAsJsonObject("layout");
-                    for (String key : new ArrayList<>(layoutPatch.keySet())) {
-                        layout.add(key, layoutPatch.get(key));
-                    }
+                    JsonObject lp = args.getAsJsonObject("layout");
+                    if (lp.has("width"))         { target.layout.width         = lp.get("width").getAsInt();         applied.add("layout.width"); }
+                    if (lp.has("height"))        { target.layout.height        = lp.get("height").getAsInt();        applied.add("layout.height"); }
+                    if (lp.has("gravity"))       { target.layout.gravity       = lp.get("gravity").getAsInt();       applied.add("layout.gravity"); }
+                    if (lp.has("marginTop"))     { target.layout.marginTop     = lp.get("marginTop").getAsInt();     applied.add("layout.marginTop"); }
+                    if (lp.has("marginBottom"))  { target.layout.marginBottom  = lp.get("marginBottom").getAsInt();  applied.add("layout.marginBottom"); }
+                    if (lp.has("marginLeft"))    { target.layout.marginLeft    = lp.get("marginLeft").getAsInt();    applied.add("layout.marginLeft"); }
+                    if (lp.has("marginRight"))   { target.layout.marginRight   = lp.get("marginRight").getAsInt();   applied.add("layout.marginRight"); }
                 }
+                if (applied.isEmpty())
+                    return error("No supported property given. Supported: text, textColor, textSize, "
+                            + "backgroundColor, padding, enabled, clickable, "
+                            + "layout.{width,height,gravity,marginTop,marginBottom,marginLeft,marginRight}");
 
-                writeFile(viewFile, jsonArrayToSections(arr));
+                saveViewBeans(viewFile, actName, beans);
                 notifyChange(ctx.getAppContext(), scId, actName);
                 return success("View '" + viewId + "' modified in '" + actName
-                        + "'. DesignActivity canvas reloaded.");
+                        + "' (" + String.join(", ", applied) + "). DesignActivity canvas reloaded.");
             } catch (IOException | JsonSyntaxException e) {
                 return error("Failed to modify view: " + e.getMessage());
             }
@@ -888,22 +932,57 @@ public final class DesignXmlEditorTool {
             ctx.reportProgress("Removing view " + viewId + "…", -1, true);
             File viewFile = new File(ctx.getProjectDataDir(scId), "view");
             try {
-                JsonArray arr   = readViewArray(viewFile);
-                JsonObject entry = findEntry(arr, actName);
-                if (entry == null) return error("Activity layout not found: " + actName);
+                // AUDIT REWRITE (user-reported "remove view doesn't work"): the old code removed
+                // an element from a nested "children" JSON tree that the real flat
+                // parent/parentType format doesn't have — in a real file the target is a
+                // top-level line, and its descendants are OTHER lines pointing at it via
+                // `parent`, which the old code left behind as orphans. Now removes the target
+                // bean plus its entire descendant chain from the flat list.
+                ArrayList<ViewBean> beans = loadBeans(viewFile, actName);
+                if (beans.isEmpty()) return error("Activity layout not found: " + actName);
 
-                JsonArray data = entry.getAsJsonArray("data");
-                Object[] found = findViewById(data, viewId);
-                if (found == null) return error("View not found: " + viewId);
+                boolean exists = false;
+                for (ViewBean b : beans) {
+                    if (viewId.equals(b.id)) { exists = true; break; }
+                }
+                if (!exists) return error("View not found: " + viewId);
 
-                JsonArray parentArr = (JsonArray) found[0];
-                int idx = (Integer) found[1];
-                parentArr.remove(idx);
+                java.util.Set<String> toRemove = new java.util.HashSet<>();
+                toRemove.add(viewId);
+                boolean grew = true;
+                while (grew) {
+                    grew = false;
+                    for (ViewBean b : beans) {
+                        if (b.id != null && !toRemove.contains(b.id)
+                                && b.parent != null && toRemove.contains(b.parent)) {
+                            toRemove.add(b.id);
+                            grew = true;
+                        }
+                    }
+                }
+                int before = beans.size();
+                beans.removeIf(b -> b.id != null && toRemove.contains(b.id));
+                int removed = before - beans.size();
 
-                writeFile(viewFile, jsonArrayToSections(arr));
+                if (beans.isEmpty()) {
+                    // saveViewBeans validates non-empty; removing the last view means an empty
+                    // screen, which is legitimate — write an empty section instead.
+                    JsonArray fileArray = readViewArray(viewFile);
+                    for (int i = 0; i < fileArray.size(); i++) {
+                        if (fileArray.get(i).isJsonObject()
+                                && (actName + ".xml").equals(fileArray.get(i).getAsJsonObject()
+                                        .get("id").getAsString())) {
+                            fileArray.get(i).getAsJsonObject().add("data", new JsonArray());
+                            break;
+                        }
+                    }
+                    writeFile(viewFile, jsonArrayToSections(fileArray));
+                } else {
+                    saveViewBeans(viewFile, actName, beans);
+                }
                 notifyChange(ctx.getAppContext(), scId, actName);
-                return success("View '" + viewId + "' removed from '" + actName
-                        + "'. DesignActivity canvas reloaded.");
+                return success("View '" + viewId + "' removed from '" + actName + "' ("
+                        + removed + " view(s) including nested children). DesignActivity canvas reloaded.");
             } catch (IOException | JsonSyntaxException e) {
                 return error("Failed to remove view: " + e.getMessage());
             }
@@ -1387,11 +1466,13 @@ public final class DesignXmlEditorTool {
             ctx.reportProgress("Batch-patching " + patches.size() + " view(s) in " + actName + "…", -1, true);
             File viewFile = new File(ctx.getProjectDataDir(scId), "view");
             try {
-                JsonArray arr    = readViewArray(viewFile);
-                JsonObject entry = findEntry(arr, actName);
-                if (entry == null) return error("Activity layout not found: " + actName);
+                // AUDIT REWRITE: same defect family as modify_view (see its audit note) — the
+                // old code patched flat top-level text/textColor keys into raw JSON where
+                // ViewBean keeps them inside its TextBean/LayoutBean objects, so patches never
+                // took effect on the canvas. Now edits real ViewBean fields per patch entry.
+                ArrayList<ViewBean> beans = loadBeans(viewFile, actName);
+                if (beans.isEmpty()) return error("Activity layout not found: " + actName);
 
-                JsonArray data = entry.getAsJsonArray("data");
                 List<String> applied  = new ArrayList<>();
                 List<String> missing  = new ArrayList<>();
 
@@ -1403,29 +1484,39 @@ public final class DesignXmlEditorTool {
                                        ? patch.getAsJsonObject("props") : null;
                     if (viewId == null || pProps == null) continue;
 
-                    Object[] found = findViewById(data, viewId);
-                    if (found == null) { missing.add(viewId); continue; }
+                    ViewBean target = null;
+                    for (ViewBean b : beans) {
+                        if (viewId.equals(b.id)) { target = b; break; }
+                    }
+                    if (target == null) { missing.add(viewId); continue; }
 
-                    JsonObject view = (JsonObject) found[2];
-                    String[] scalars = {"text","textColor","textSize","textStyle","padding",
-                                        "backgroundColor","visibility","enabled","clickable"};
-                    for (String k : scalars) {
-                        if (pProps.has(k)) view.add(k, pProps.get(k));
+                    if (pProps.has("text"))            target.text.text            = pProps.get("text").getAsString();
+                    if (pProps.has("textColor"))       target.text.textColor       = pProps.get("textColor").getAsInt();
+                    if (pProps.has("textSize"))        target.text.textSize        = pProps.get("textSize").getAsInt();
+                    if (pProps.has("backgroundColor")) target.layout.backgroundColor = pProps.get("backgroundColor").getAsInt();
+                    if (pProps.has("enabled"))         target.enabled              = pProps.get("enabled").getAsInt();
+                    if (pProps.has("clickable"))       target.clickable            = pProps.get("clickable").getAsInt();
+                    if (pProps.has("padding")) {
+                        int pad = pProps.get("padding").getAsInt();
+                        target.layout.paddingLeft = pad;  target.layout.paddingRight  = pad;
+                        target.layout.paddingTop  = pad;  target.layout.paddingBottom = pad;
                     }
                     if (pProps.has("layout") && pProps.get("layout").isJsonObject()) {
                         JsonObject lp = pProps.getAsJsonObject("layout");
-                        if (!view.has("layout")) view.add("layout", new JsonObject());
-                        JsonObject layout = view.getAsJsonObject("layout");
-                        for (String lk : new ArrayList<>(lp.keySet())) {
-                            layout.add(lk, lp.get(lk));
-                        }
+                        if (lp.has("width"))        target.layout.width        = lp.get("width").getAsInt();
+                        if (lp.has("height"))       target.layout.height       = lp.get("height").getAsInt();
+                        if (lp.has("gravity"))      target.layout.gravity      = lp.get("gravity").getAsInt();
+                        if (lp.has("marginTop"))    target.layout.marginTop    = lp.get("marginTop").getAsInt();
+                        if (lp.has("marginBottom")) target.layout.marginBottom = lp.get("marginBottom").getAsInt();
+                        if (lp.has("marginLeft"))   target.layout.marginLeft   = lp.get("marginLeft").getAsInt();
+                        if (lp.has("marginRight"))  target.layout.marginRight  = lp.get("marginRight").getAsInt();
                     }
                     applied.add(viewId);
                 }
 
                 if (applied.isEmpty()) return error("No views were patched. IDs not found: " + missing);
 
-                writeFile(viewFile, jsonArrayToSections(arr));
+                saveViewBeans(viewFile, actName, beans);
                 notifyChange(ctx.getAppContext(), scId, actName);
 
                 StringBuilder sb = new StringBuilder();
@@ -1490,15 +1581,20 @@ public final class DesignXmlEditorTool {
             ctx.reportProgress("Replacing subtree of '" + containerId + "' in " + actName + "…", -1, true);
             File viewFile = new File(ctx.getProjectDataDir(scId), "view");
             try {
-                JsonArray arr    = readViewArray(viewFile);
-                JsonObject entry = findEntry(arr, actName);
-                if (entry == null) return error("Activity layout not found: " + actName);
-
-                JsonArray data = entry.getAsJsonArray("data");
-                Object[] found = findViewById(data, containerId);
-                if (found == null) return error("Container view not found: " + containerId);
-
-                JsonObject container = (JsonObject) found[2];
+                // AUDIT REWRITE: the old code attached the new subtree as a nested "children"
+                // JSON array on the container — a field the real flat parent/parentType format
+                // doesn't have, so the design editor never saw the replacement (and the old
+                // children lines stayed behind as live orphans). Now works entirely on the flat
+                // bean list: descendants of the container are removed, the parsed new beans are
+                // re-parented onto the container via the real parent/parentType/index fields,
+                // and the whole list is saved through the proven saveViewBeans path.
+                ArrayList<ViewBean> beans = loadBeans(viewFile, actName);
+                if (beans.isEmpty()) return error("Activity layout not found: " + actName);
+                ViewBean container = null;
+                for (ViewBean b : beans) {
+                    if (containerId.equals(b.id)) { container = b; break; }
+                }
+                if (container == null) return error("Container view not found: " + containerId);
 
                 // Parse the XML fragment — treat the outermost tag as a wrapper, use its children
                 String[] errHolder = {null};
@@ -1506,20 +1602,40 @@ public final class DesignXmlEditorTool {
                 if (newBeans == null)
                     return error("XML parse failed: " + (errHolder[0] != null ? errHolder[0] : "unknown"));
 
-                // Convert parsed ViewBeans back to JsonObject children
-                // We use the Gson-based flat list but need hierarchical children here.
-                // Strategy: serialise flat beans back to JSON array via Gson and re-attach as children.
-                com.google.gson.Gson gson = GsonUtils.getGson();
-                JsonArray newChildren = new JsonArray();
-                for (ViewBean b : newBeans) {
-                    newChildren.add(gson.toJsonTree(b));
+                // Drop the container's existing descendants (flat model: parent chains).
+                java.util.Set<String> oldSubtree = new java.util.HashSet<>();
+                oldSubtree.add(containerId);
+                boolean grew = true;
+                while (grew) {
+                    grew = false;
+                    for (ViewBean b : beans) {
+                        if (b.id != null && !oldSubtree.contains(b.id)
+                                && b.parent != null && oldSubtree.contains(b.parent)) {
+                            oldSubtree.add(b.id);
+                            grew = true;
+                        }
+                    }
                 }
-                container.add("children", newChildren);
+                oldSubtree.remove(containerId); // keep the container itself
+                beans.removeIf(b -> b.id != null && oldSubtree.contains(b.id));
 
-                writeFile(viewFile, jsonArrayToSections(arr));
+                // Re-parent the new beans: parser roots (parent null/"root") become direct
+                // children of the container; nested parents inside the fragment are kept.
+                int index = 0;
+                for (ViewBean b : newBeans) {
+                    if (b.parent == null || b.parent.isEmpty() || "root".equals(b.parent)) {
+                        b.parent = containerId;
+                        b.parentType = container.type;
+                        b.index = index++;
+                    }
+                    beans.add(b);
+                }
+
+                saveViewBeans(viewFile, actName, beans);
                 notifyChange(ctx.getAppContext(), scId, actName);
                 return success("Replaced children of '" + containerId + "' with "
-                        + newBeans.size() + " new view(s) in '" + actName + "'.");
+                        + newBeans.size() + " new view(s) in '" + actName + "' ("
+                        + oldSubtree.size() + " old view(s) removed).");
             } catch (IOException | JsonSyntaxException e) {
                 return error("Replace subtree failed: " + e.getMessage());
             }

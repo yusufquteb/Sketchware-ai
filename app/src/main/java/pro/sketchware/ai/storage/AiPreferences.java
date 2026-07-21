@@ -205,6 +205,29 @@ public class AiPreferences {
         prefs.edit().remove(KEY_CACHED_MODELS_PREFIX + provider.name()).apply();
     }
 
+    /**
+     * Removes ONE stale model from a provider's cached list, keeping the rest.
+     *
+     * <p>Audit fix (the "300 models collapse to 1" field report, e.g. NVIDIA): when a single
+     * cached model ID went stale (API removed it), {@code AgentExecutor}'s model-not-found
+     * retry used to call {@link #clearCachedModels} — wiping the whole fetched list (hundreds
+     * of models for large providers) over one bad entry. Every models UI then fell back to
+     * {@code AiProviderModels.getStaticModels()}, which for several providers holds exactly one
+     * verified entry — so the user watched "300 models" become "1" without any obvious cause.
+     * Dropping only the offending model keeps the rest of the user's fetched list intact.
+     */
+    public void removeCachedModel(@NonNull AiProvider provider, @NonNull String modelId) {
+        List<ModelInfo> cached = getCachedModels(provider);
+        if (cached.isEmpty()) return;
+        boolean removed = cached.removeIf(m -> modelId.equals(m.getId()));
+        if (!removed) return;
+        if (cached.isEmpty()) {
+            clearCachedModels(provider);
+        } else {
+            setCachedModels(provider, cached);
+        }
+    }
+
     public void setSelectedModel(@NonNull AiProvider provider, @NonNull String modelId) {
         prefs.edit().putString(KEY_SELECTED_MODEL_PREFIX + provider.name(), modelId).apply();
     }

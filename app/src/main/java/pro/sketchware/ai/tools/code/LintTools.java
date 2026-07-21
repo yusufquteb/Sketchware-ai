@@ -176,7 +176,7 @@ public class LintTools {
 
                 // Thread.sleep on main thread (heuristic: inside Activity without explicit thread)
                 if (trimmed.contains("Thread.sleep(")) {
-                    issues.add(new LintIssue(lineNum, "WARNING", "Thread.sleep() may block the UI thread — use Handler.postDelayed() or AsyncTask"));
+                    issues.add(new LintIssue(lineNum, "WARNING", "Thread.sleep() may block the UI thread — use Handler(Looper.getMainLooper()).postDelayed() or an ExecutorService background task"));
                 }
 
                 // Deprecated: new Thread().start() instead of ExecutorService

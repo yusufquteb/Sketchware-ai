@@ -46,6 +46,25 @@ import pro.sketchware.databinding.BottomSheetProjectOptionsBinding;
 import pro.sketchware.databinding.MyprojectsItemBinding;
 
 public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.ProjectViewHolder> {
+
+    /**
+     * Shared bounded pool for per-row background work (icon load from disk, one-time metadata
+     * repair writes). onBindViewHolder previously spawned up to THREE raw {@code new Thread()}s
+     * per row bind — with a large project list, every scroll (and every window relayout, e.g.
+     * the keyboard opening over this screen for a dialog's number field) rebinds the visible
+     * rows and stampeded dozens of unpooled threads doing disk I/O at once. That thread storm
+     * plus disk contention is the confirmed mechanism behind the "projects page freezes with
+     * many projects" and "app locks up when tapping the SDK number input" field reports (the
+     * IME resize relayout re-binds the list behind the dialog).
+     */
+    private static final java.util.concurrent.ExecutorService BIND_EXECUTOR =
+            java.util.concurrent.Executors.newFixedThreadPool(2);
+
+    /** sc_ids whose one-time metadata repair (missing sc_ver_code / sketchware_ver) has already
+     *  been queued this process — prevents re-queuing the same disk write on every rebind. */
+    private static final java.util.Set<String> METADATA_REPAIR_QUEUED =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private final ProjectsFragment projectsFragment;
     private final Activity activity;
     private final DB preference;
@@ -146,30 +165,50 @@ public class ProjectsAdapter extends RecyclerView.Adapter<ProjectsAdapter.Projec
 
         holder.binding.imgIcon.setImageResource(R.drawable.ic_project_icon_fallback);
 
+        // One-time metadata repair — the in-memory map is patched immediately (so this bind and
+        // later rebinds see correct values), and the disk write is queued at most once per
+        // sc_id per process instead of on every rebind. See BIND_EXECUTOR's javadoc for why
+        // these must not be raw per-bind threads.
+        boolean needsRepair = false;
         if (yB.c(projectMap, "sc_ver_code").isEmpty()) {
             projectMap.put("sc_ver_code", "1");
             projectMap.put("sc_ver_name", "1.0");
-            new Thread(() -> lC.b(scId, projectMap)).start();
+            needsRepair = true;
         }
-
         if (yB.b(projectMap, "sketchware_ver") <= 0) {
             projectMap.put("sketchware_ver", 61);
-            new Thread(() -> lC.b(scId, projectMap)).start();
+            needsRepair = true;
+        }
+        if (needsRepair && METADATA_REPAIR_QUEUED.add(scId)) {
+            BIND_EXECUTOR.execute(() -> lC.b(scId, projectMap));
         }
 
         if (yB.a(projectMap, "custom_icon")) {
             String iconFolder = wq.e() + File.separator + scId;
-            new Thread(() -> {
+            // Tag guards against the recycled-holder race: by the time the disk read finishes,
+            // this holder may already be re-bound to a different project — without the check,
+            // a fast scroll shows the wrong icon on the wrong row.
+            holder.binding.imgIcon.setTag(scId);
+            BIND_EXECUTOR.execute(() -> {
                 File iconFile = new File(iconFolder, "icon.png");
+                final Uri uri;
                 if (iconFile.exists()) {
                     String providerPath = activity.getPackageName() + ".provider";
-                    Uri uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
-                    activity.runOnUiThread(() -> holder.binding.imgIcon.setImageURI(uri));
+                    uri = FileProvider.getUriForFile(activity, providerPath, iconFile);
                 } else {
-                    activity.runOnUiThread(() ->
-                            holder.binding.imgIcon.setImageResource(R.drawable.ic_project_icon_fallback));
+                    uri = null;
                 }
-            }).start();
+                activity.runOnUiThread(() -> {
+                    if (!scId.equals(holder.binding.imgIcon.getTag())) return;
+                    if (uri != null) {
+                        holder.binding.imgIcon.setImageURI(uri);
+                    } else {
+                        holder.binding.imgIcon.setImageResource(R.drawable.ic_project_icon_fallback);
+                    }
+                });
+            });
+        } else {
+            holder.binding.imgIcon.setTag(null);
         }
 
         if (isPinned(projectMap)) {

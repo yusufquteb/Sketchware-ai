@@ -79,7 +79,10 @@ import a.a.a.wq;
 import a.a.a.yB;
 import a.a.a.zB;
 import dev.aldi.sayuti.editor.view.item.ItemBadgeView;
+import dev.aldi.sayuti.editor.view.item.ItemBottomSheetDragHandleView;
 import dev.aldi.sayuti.editor.view.item.ItemCircleImageView;
+import dev.aldi.sayuti.editor.view.item.ItemLoadingIndicator;
+import dev.aldi.sayuti.editor.view.item.ItemMaterialDivider;
 import dev.aldi.sayuti.editor.view.item.ItemCodeView;
 import dev.aldi.sayuti.editor.view.item.ItemLottieAnimation;
 import dev.aldi.sayuti.editor.view.item.ItemMaterialButton;
@@ -316,6 +319,10 @@ public class ViewPane extends RelativeLayout {
             case ViewBeans.VIEW_TYPE_WIDGET_OTPVIEW -> new ItemOTPView(context);
             case ViewBeans.VIEW_TYPE_WIDGET_CODEVIEW -> new ItemCodeView(context);
             case ViewBeans.VIEW_TYPE_WIDGET_RECYCLERVIEW -> new ItemRecyclerView(context);
+            case ViewBeans.VIEW_TYPE_WIDGET_LOADINGINDICATOR -> new ItemLoadingIndicator(context);
+            case ViewBeans.VIEW_TYPE_WIDGET_MATERIALDIVIDER -> new ItemMaterialDivider(context);
+            case ViewBeans.VIEW_TYPE_WIDGET_BOTTOMSHEETDRAGHANDLEVIEW ->
+                    new ItemBottomSheetDragHandleView(context);
             default -> getUnknownItemView(viewBean);
         };
         item.setId(++b);
