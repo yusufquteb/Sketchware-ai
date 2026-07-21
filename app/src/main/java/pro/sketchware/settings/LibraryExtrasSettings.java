@@ -24,6 +24,7 @@ public final class LibraryExtrasSettings {
     public static final String KEY_UI_WINDOW_INSETS        = "lib_ui_window_insets";
     public static final String KEY_UI_TEXT_COLOR_REMOVAL   = "lib_ui_text_color_removal";
     public static final String KEY_UI_BACK_GESTURE         = "lib_ui_back_gesture";
+    public static final String KEY_SEC_CONTENT_PROTECTION  = "lib_sec_content_protection";
 
     private final ProjectSettingsStore store;
 
@@ -72,4 +73,13 @@ public final class LibraryExtrasSettings {
 
     public boolean isBackGesture()              { return store.getBoolean(KEY_UI_BACK_GESTURE, false); }
     public void    setBackGesture(boolean v)    { store.putBoolean(KEY_UI_BACK_GESTURE, v); }
+
+    // ── Security Settings ───────────────────────────────────────────────────
+    /**
+     * When enabled, every generated Activity sets {@code WindowManager.LayoutParams.FLAG_SECURE}
+     * in {@code onCreate}, blocking screenshots and screen recording of the built app.
+     * Ported from the Sketchware-DayDream "Content protection" toggle.
+     */
+    public boolean isContentProtection()        { return store.getBoolean(KEY_SEC_CONTENT_PROTECTION, false); }
+    public void    setContentProtection(boolean v){ store.putBoolean(KEY_SEC_CONTENT_PROTECTION, v); }
 }

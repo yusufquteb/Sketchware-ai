@@ -76,13 +76,31 @@ DayDream يمرّر `defaultValue` صريحاً في getters بينما نحن �
    `git/DayDreamGitTools.checkDiff`) — يمنع تعارضات صامتة في العمل الجماعي. الآلية
    (`GitRepositoryCore.hasRemoteChanges`) موجودة عندنا لكن تُستدعى فقط من شاشات الدفع اليدوية.
 
-5. **مفاتيح إعدادات ناقصة**: Content protection (`FLAG_SECURE`)، تعطيل طلب الأذونات التلقائي،
-   Retrofit2 toggle. النمط جاهز (`LibraryExtrasSettings` + `DaydreamToolsSection`) — تحتاج فقط
-   ربطاً فعلياً بتوليد المانفست/الكود ليكون لها أثر.
+5. **مفاتيح إعدادات ناقصة**: ~~Content protection (`FLAG_SECURE`)~~، تعطيل طلب الأذونات
+   التلقائي، Retrofit2 toggle. النمط جاهز (`LibraryExtrasSettings` + `DaydreamToolsSection`).
+   - ✅ **Content protection (`FLAG_SECURE`) نُفّذ في هذه الجلسة** — راجع القسم أدناه.
+   - **Retrofit2 toggle** مؤجَّل: طبقة شبكة كاملة + dependencies + تحويل توليد الطلبات، أكبر
+     وأعلى مخاطرة على مولّد الكود.
 
-6. **مولّدات كود Kotlin** (DayDream: `java/generator/*.kt` — Firebase/ListView/ArrayList/
-   ObjectAnimator/View) و`DRManifestManager`/`DRGradleManager` — طبقات غير موجودة عندنا،
-   ميزات جديدة كبيرة.
+6. ~~**مولّدات كود Kotlin** (Firebase/ListView/ArrayList/ObjectAnimator/View)~~ — **تبيّن أنها
+   موجودة عندنا أصلاً** بعد الفحص العميق، وأحياناً أوسع: بلوكات `setAlpha`, `seekBarSetProgress`,
+   `getAtListMap`, `listSmoothScrollTo`, والـ ObjectAnimator كلها موجودة (`lq.java`/`Lx.java`)،
+   وبلوكات Firebase Auth (`updateEmail`, `updatePassword`, `emailVerification`, `deleteUser`)
+   موجودة، بل عندنا **زيادة** `updateProfile` + `phoneAuth` + `googleSignIn` (أضافها Agus،
+   `Lx.java:677-683`). مولّدات DayDream مجرد إعادة تنظيم لكود موجود عندنا — **لا نقص حقيقي.**
+
+## ✅ أُصلح في هذه الجلسة — Content protection (`FLAG_SECURE`)
+مفتاح جديد "Content protection" في قسم إعدادات المشروع (بطاقة **Security** جديدة داخل
+`DaydreamToolsSection`). عند تفعيله، **كل Activity في التطبيق المولَّد** يستدعي
+`getWindow().setFlags(FLAG_SECURE, FLAG_SECURE)` في `onCreate` → يمنع **تصوير وتسجيل الشاشة**
+(مفيد لتطبيقات البيانات الحساسة: بنوك/دفع/دردشة).
+
+نُفّذ بأسلوب نسختنا النظيف عبر البنية الموجودة (لا نسخ من DayDream):
+- `LibraryExtrasSettings`: مفتاح `KEY_SEC_CONTENT_PROTECTION` + `isContentProtection()`/`setContentProtection()`.
+- الحقن في مولّد الـ Activity (`Jx.java`) بعد `super.onCreate` مباشرةً بنفس نمط حقن
+  `isEdgeToEdge()` الموجود — ثابت مؤهَّل بالكامل (`android.view.WindowManager.LayoutParams.FLAG_SECURE`)
+  فلا يحتاج استيراداً في الكود المولَّد. للـ Activities فقط (الـ fragments بلا نافذة).
+- مفتاح UI في بطاقة "Security" (`DaydreamToolsSection`) بأيقونة `ic_mtrl_shield_lock`.
 
 ## ما هو أفضل عندنا بالفعل (لا يُنقل)
 - **Git core**: `GitRepositoryCore` أقوى من `GitFeaturesCore` (fallback فروع، hard-reset،

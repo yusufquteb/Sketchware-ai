@@ -429,6 +429,17 @@ public class Jx {
             sb.append("protected void onCreate(Bundle _savedInstanceState) {").append(EOL);
             sb.append("super.onCreate(_savedInstanceState);").append(EOL);
 
+            // ── Content Protection (FLAG_SECURE) — Security setting ────────
+            // When enabled, blocks screenshots / screen recording of the built app.
+            // Fully-qualified constant so no extra import is needed in generated code.
+            {
+                LibraryExtrasSettings securitySettings = new LibraryExtrasSettings(
+                        new ProjectSettingsStore(SketchApplication.getContext(), sc_id));
+                if (securitySettings.isContentProtection()) {
+                    sb.append("getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);").append(EOL);
+                }
+            }
+
             // ── EdgeToEdge / WindowInsets (UI Settings) ───────────────────
             if (buildConfig.g) {
                 LibraryExtrasSettings extraSettings = new LibraryExtrasSettings(
