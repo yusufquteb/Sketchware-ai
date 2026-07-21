@@ -50,6 +50,13 @@ android {
         }
         externalNativeBuild {
             cmake {
+                // 16 KB page size: GGML_CPU_ALL_VARIANTS builds each CPU-variant backend
+                // (haswell/alderlake/sandybridge/...) as its own add_library() inside ggml's
+                // own CMakeLists, and those targets do not reliably inherit the NDK toolchain's
+                // default 16 KB ELF alignment linker flag. Force it globally via the CMake
+                // cache so every shared object produced by this build — llama, ggml, and every
+                // per-variant ggml-cpu-*.so — is aligned, per Google's documented workaround:
+                // https://developer.android.com/guide/practices/page-sizes#cmake
                 arguments "-DCMAKE_BUILD_TYPE=Release",
                         "-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG",
                         "-DCMAKE_VERBOSE_MAKEFILE=ON",
@@ -60,7 +67,9 @@ android {
                         "-DGGML_NATIVE=OFF",
                         "-DGGML_BACKEND_DL=ON",
                         "-DGGML_CPU_ALL_VARIANTS=ON",
-                        "-DGGML_LLAMAFILE=OFF"
+                        "-DGGML_LLAMAFILE=OFF",
+                        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",
+                        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-z,max-page-size=16384"
             }
         }
         aarMetadata {
