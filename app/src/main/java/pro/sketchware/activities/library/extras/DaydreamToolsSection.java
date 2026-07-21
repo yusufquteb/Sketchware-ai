@@ -43,6 +43,8 @@ public class DaydreamToolsSection {
     private DaydreamToolItemView rowTextColorRemoval;
     private DaydreamToolItemView rowBackGesture;
 
+    private DaydreamToolItemView rowContentProtection;
+
     public DaydreamToolsSection(Context context, String scId) {
         this.context = context;
         this.scId = scId;
@@ -60,6 +62,7 @@ public class DaydreamToolsSection {
     public void build(android.view.ViewGroup container, boolean firebaseEnabled, boolean appCompatEnabled) {
         buildFirebaseGoogleCard(container);
         buildUserInterfaceCard(container);
+        buildSecurityCard(container);
         buildExtraLibrariesCard(container);
 
         refreshAvailability(firebaseEnabled, appCompatEnabled);
@@ -119,6 +122,20 @@ public class DaydreamToolsSection {
                 .setChecked(settings.isBackGesture());
         rowBackGesture.setOnCheckedChangeListener((b, checked) -> settings.setBackGesture(checked));
         card.addToolItem(rowBackGesture, false);
+    }
+
+    // ── Security ────────────────────────────────────────────────────────────
+
+    private void buildSecurityCard(android.view.ViewGroup parent) {
+        DaydreamSubCardView card = new DaydreamSubCardView(context, R.drawable.ic_mtrl_shield_lock, "Security");
+        parent.addView(card);
+
+        rowContentProtection = new DaydreamToolItemView(context)
+                .setTitle("Content protection")
+                .setDescription("When enabled, every Activity sets FLAG_SECURE, blocking screenshots and screen recording of your built app. Useful for apps that display sensitive data (banking, payments, private chats).")
+                .setChecked(settings.isContentProtection());
+        rowContentProtection.setOnCheckedChangeListener((b, checked) -> settings.setContentProtection(checked));
+        card.addToolItem(rowContentProtection, false);
     }
 
     // ── Extra Libraries ─────────────────────────────────────────────────────
