@@ -1,0 +1,36 @@
+# Build check for every push/PR — added per audit recommendation: this repo previously had
+# no CI at all, so Gradle sync/compile breakage was only ever discovered manually in
+# Android Studio (three such breakages in a row during the llama.cpp module integration).
+name: Android Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # third_party/llama.cpp is a submodule the :llama module builds from source
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The :llama module needs NDK + CMake (see llama/build.gradle). The exact versions it
+      # pins are installed on demand by AGP from the SDK manager; the default GitHub runner
+      # image ships the Android SDK cmdline-tools already.
+      - name: Build debug APK (android26 flavor)
+        run: ./gradlew assembleAndroid26Debug --stacktrace --no-daemon

@@ -770,6 +770,9 @@ public final class FileTools {
         @Override public String getName() { return "global_search"; }
         @Override public String getDescription() { return "Search for a keyword across project files. Pass sc_id to restrict to one project (Project scope), or omit sc_id to search all allowed workspace projects (Global scope)."; }
         @Override public JsonObject getParametersSchema() {
+            // Audit fix: execute() has always supported case_sensitive/use_regex/file_filter,
+            // but they were never declared here — so the model had no way to know they exist
+            // and the tool always ran in its weakest (plain, case-insensitive, all-files) mode.
             JsonObject p = new JsonObject();
             JsonObject q = new JsonObject(); q.addProperty("type", "string");
             q.addProperty("description", "Keyword or regex to search for");
@@ -777,6 +780,15 @@ public final class FileTools {
             JsonObject sc = new JsonObject(); sc.addProperty("type", "string");
             sc.addProperty("description", "Optional: restrict search to this project sc_id. Omit for workspace-wide search.");
             p.add("sc_id", sc);
+            JsonObject cs = new JsonObject(); cs.addProperty("type", "boolean");
+            cs.addProperty("description", "Match case exactly (default false)");
+            p.add("case_sensitive", cs);
+            JsonObject rx = new JsonObject(); rx.addProperty("type", "boolean");
+            rx.addProperty("description", "Treat query as a regular expression (default false)");
+            p.add("use_regex", rx);
+            JsonObject ff = new JsonObject(); ff.addProperty("type", "string");
+            ff.addProperty("description", "Restrict by file kind: ALL (default), JAVA, XML, GRADLE, DATA");
+            p.add("file_filter", ff);
             JsonObject schema = new JsonObject(); schema.addProperty("type", "object");
             schema.add("properties", p);
             // sc_id is optional — only query is required
@@ -798,9 +810,18 @@ public final class FileTools {
             String query = arguments.get("query").getAsString();
             boolean caseSensitive = arguments.has("case_sensitive") && arguments.get("case_sensitive").getAsBoolean();
             boolean useRegex      = arguments.has("use_regex")      && arguments.get("use_regex").getAsBoolean();
-            pro.sketchware.util.ProjectSearchUtil.FileFilter fileFilter = arguments.has("file_filter")
-                    ? pro.sketchware.util.ProjectSearchUtil.FileFilter.valueOf(arguments.get("file_filter").getAsString())
-                    : pro.sketchware.util.ProjectSearchUtil.FileFilter.ALL;
+            pro.sketchware.util.ProjectSearchUtil.FileFilter fileFilter;
+            try {
+                fileFilter = arguments.has("file_filter")
+                        ? pro.sketchware.util.ProjectSearchUtil.FileFilter.valueOf(
+                                arguments.get("file_filter").getAsString().trim()
+                                        .toUpperCase(java.util.Locale.ROOT))
+                        : pro.sketchware.util.ProjectSearchUtil.FileFilter.ALL;
+            } catch (IllegalArgumentException bad) {
+                // Audit fix: an unknown filter value used to throw straight out of valueOf()
+                // and surface as a raw "Search failed" — answer with the valid options instead.
+                return error("Unknown file_filter. Valid values: ALL, JAVA, XML, GRADLE, DATA");
+            }
 
             // Determine which projects to search
             List<String> targets = new java.util.ArrayList<>();
@@ -817,13 +838,19 @@ public final class FileTools {
             }
 
             try {
+                // Audit fix: results used to be unbounded — a common keyword across a big
+                // workspace could dump thousands of lines straight into the model's context.
+                final int MAX_RESULTS = 200;
+                int totalMatches = 0;
                 com.google.gson.JsonArray resultArray = new com.google.gson.JsonArray();
                 for (String pid : targets) {
                     List<pro.sketchware.util.ProjectSearchUtil.SearchResult> found =
                         pro.sketchware.util.ProjectSearchUtil.globalSearch(
                             new java.io.File(context.getProjectDataDir(pid), ""),
                             query, caseSensitive, useRegex, fileFilter);
+                    totalMatches += found.size();
                     for (pro.sketchware.util.ProjectSearchUtil.SearchResult r : found) {
+                        if (resultArray.size() >= MAX_RESULTS) break;
                         com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
                         obj.addProperty("sc_id",        pid);
                         obj.addProperty("file_path",    r.filePath);
@@ -837,8 +864,12 @@ public final class FileTools {
                 com.google.gson.JsonObject summary = new com.google.gson.JsonObject();
                 summary.addProperty("query",         query);
                 summary.addProperty("scope",         scId != null ? "project:" + scId : "workspace");
-                summary.addProperty("total_matches", resultArray.size());
+                summary.addProperty("total_matches", totalMatches);
                 summary.add("results",               resultArray);
+                if (totalMatches > resultArray.size()) {
+                    summary.addProperty("note", "Showing first " + resultArray.size() + " of "
+                            + totalMatches + " matches — narrow the query or use file_filter/sc_id.");
+                }
                 return success(summary.toString());
 
             } catch (Exception e) {
