@@ -65,7 +65,7 @@ public class LocalModelManager {
         return dir;
     }
 
-    /** Final path for a model's {@code .litertlm} file (may not exist yet). */
+    /** Final path for a model's {@code .gguf} file (may not exist yet). */
     @NonNull
     public File getModelFile(@NonNull LocalModelCatalog model) {
         return new File(getModelsDir(), model.getFileName());
