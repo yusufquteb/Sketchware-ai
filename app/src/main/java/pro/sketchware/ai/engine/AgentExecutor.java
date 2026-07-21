@@ -421,7 +421,11 @@ public class AgentExecutor {
                                 String defaultModel = AiProviderModels.getDefaultModel(currProv);
                                 if (!defaultModel.isEmpty() && !defaultModel.equals(modelHolder[0])) {
                                     modelNotFoundRetries++;
-                                    preferences.clearCachedModels(currProv);
+                                    // Drop only the stale model — clearing the whole cache here
+                                    // was the confirmed cause of "300 fetched models collapse
+                                    // to 1" (UI falls back to the 1-entry static list); see
+                                    // AiPreferences.removeCachedModel's javadoc.
+                                    preferences.removeCachedModel(currProv, modelHolder[0]);
                                     sessionLogger.logFailover(currProv.getDisplayName(),
                                             currProv.getDisplayName(),
                                             "Model not found: " + modelHolder[0]

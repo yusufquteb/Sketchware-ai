@@ -100,7 +100,12 @@ public final class MaterialAuditTool implements AgentTool {
             report.append("Recommended fixes:\n");
             report.append("  • Replace #RRGGBB colors with @color/ resource references\n");
             report.append("  • Change textSize unit from dp to sp for accessibility scaling\n");
-            report.append("  • Use MaterialButton (type=4) instead of AppCompat Button (type=3)\n");
+            // AUDIT FIX: an earlier revision recommended "MaterialButton (type=4)" — type 4 is
+            // actually VIEW_TYPE_WIDGET_TEXTVIEW, and Sketchware has no separate MaterialButton
+            // bean type at all. Material button styling comes from the material3 library +
+            // app theme, not a view-type swap.
+            report.append("  • Enable the material3 library (add_library tool) and the Material ")
+                  .append("app theme in Project Settings so Buttons render as Material buttons\n");
         }
 
         return ToolResult.success(null, report.toString());
