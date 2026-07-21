@@ -20,11 +20,10 @@ import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import pro.sketchware.project.ProjectBackupCore;
+import mod.hey.studios.project.backup.BackupRestoreManager;
 import pro.sketchware.project.ProjectCleanupCore;
 import pro.sketchware.project.ProjectCloneCore;
 import pro.sketchware.project.ProjectExportEnhancer;
-import pro.sketchware.project.ProjectRestoreCore;
 import pro.sketchware.utility.SketchwareUtil;
 
 public class ProjectLifecycleActivity extends BaseAppCompatActivity {
@@ -63,11 +62,19 @@ public class ProjectLifecycleActivity extends BaseAppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         // ── Backup & Restore ──────────────────────────────────────────────────
+        // Audit/DayDream-comparison fix: these two buttons used to call the
+        // ProjectBackupCore/ProjectRestoreCore helpers, which only zipped/unzipped the single
+        // .sketchware/data/{scId} folder — producing incomplete backups missing the project's
+        // resources (fonts/icons/images/sounds), local libraries, and project descriptor. The
+        // app already has a complete, mature backup system (BackupRestoreManager + BackupFactory)
+        // that gathers every real project path, offers local-libs/custom-blocks options, and
+        // uses a proper .swb file picker for restore. Delegate to it so this screen produces
+        // real, restorable backups instead of a lossy data-only zip.
         LinearLayout backupBox = section(content, "Backup & Restore",
-                "Create a snapshot or recover from a previous backup.");
-        btn(backupBox, "Create project-data backup",
-                () -> run("Creating backup…", this::createBackup));
-        btn(backupBox, "Restore backup into project data", this::showRestoreDialog);
+                "Create a full project backup (.swb) or recover from a previous one.");
+        btn(backupBox, "Create full project backup (.swb)",
+                () -> new BackupRestoreManager(this).backup(scId, scId));
+        btn(backupBox, "Restore backup", () -> new BackupRestoreManager(this).restore());
 
         // ── Export & Clone ────────────────────────────────────────────────────
         LinearLayout transferBox = section(content, "Export & Clone",
@@ -154,13 +161,6 @@ public class ProjectLifecycleActivity extends BaseAppCompatActivity {
 
     // ── Business logic (unchanged) ────────────────────────────────────────────
 
-    private String createBackup() throws Exception {
-        File backup = ProjectBackupCore.backup(
-                ProjectToolPaths.getProjectDataDir(scId),
-                ProjectToolPaths.getProjectBackupDir(scId), scId);
-        return "Backup written:\n" + backup.getAbsolutePath();
-    }
-
     private String exportGeneratedProject() throws Exception {
         File source = ProjectToolPaths.getProjectMyscDir(scId).exists()
                 ? ProjectToolPaths.getProjectMyscDir(scId)
@@ -206,36 +206,6 @@ public class ProjectLifecycleActivity extends BaseAppCompatActivity {
                         ProjectCloneCore.cloneProject(ProjectToolPaths.getProjectDataDir(scId), target);
                         return "Cloned to:\n" + target.getAbsolutePath();
                     });
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private void showRestoreDialog() {
-        EditText input = new EditText(this);
-        input.setSingleLine(false);
-        input.setMinLines(2);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        input.setHint("/storage/emulated/0/.sketchware/backups/…zip");
-        int p = dp(20);
-        input.setPadding(p, p / 2, p, p / 2);
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Restore backup")
-                .setMessage("Restoring replaces the current project-data folder. Create a backup first if needed.")
-                .setView(input)
-                .setPositiveButton("Restore", (d, w) -> {
-                    String path = input.getText() == null ? "" : input.getText().toString().trim();
-                    if (path.isEmpty()) { SketchwareUtil.toastError("Backup path missing"); return; }
-                    new MaterialAlertDialogBuilder(this)
-                            .setTitle("Replace project data?")
-                            .setMessage("Current project data will be replaced by the selected backup.")
-                            .setPositiveButton("Replace", (cd, cw) -> run("Restoring…", () -> {
-                                ProjectRestoreCore.restore(new File(path),
-                                        ProjectToolPaths.getProjectDataDir(scId), true);
-                                return "Restored from:\n" + path;
-                            }))
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
