@@ -87,7 +87,12 @@ class LlamaCppEngineBridge(context: Context) {
          * (arm64-v8a or x86_64, the only ones the module's build.gradle.kts declares). Callers
          * (see [LocalModelProvider]) must check this before constructing/using this bridge —
          * see class doc's "minSdk mismatch" note for why this exists.
+         *
+         * @JvmStatic so the Java caller can invoke it as LlamaCppEngineBridge.isDeviceSupported()
+         * rather than LlamaCppEngineBridge.Companion.isDeviceSupported() — CONTEXT_SIZE_TOKENS
+         * above is already Java-static because it's a const val, but a companion fun needs this.
          */
+        @JvmStatic
         fun isDeviceSupported(): Boolean {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
             val supportedAbis = Build.SUPPORTED_ABIS ?: return false
