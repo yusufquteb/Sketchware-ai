@@ -15,7 +15,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Generous: the :llama module compiles llama.cpp/ggml from source for two ABIs
+    # (arm64-v8a + x86_64) with GGML_CPU_ALL_VARIANTS — that native build is the slow part.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,13 +29,21 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # The :llama module (llama/build.gradle) pins ndkVersion 29.0.13113456 and CMake 3.31.6.
+      # AGP will not auto-install the NDK because its license isn't pre-accepted on the runner
+      # (the previous run failed with LicenceNotAcceptedException) — accept licenses and install
+      # both explicitly here so the build doesn't stop to do it mid-configuration.
+      - name: Accept licenses and install NDK + CMake
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "ndk;29.0.13113456" "cmake;3.31.6"
+
       - uses: gradle/actions/setup-gradle@v4
 
-      # The :llama module needs NDK + CMake (see llama/build.gradle). The exact versions it
-      # pins are installed on demand by AGP from the SDK manager; the default GitHub runner
-      # image ships the Android SDK cmdline-tools already.
       - name: Build debug APK (android26 flavor)
         # `sh gradlew` (not ./gradlew) so the build works even if the executable bit on the
-        # wrapper is ever lost again — the previous run failed here with exit 126
+        # wrapper is ever lost again — an earlier run failed here with exit 126
         # "Permission denied" before the bit was committed.
         run: sh gradlew assembleAndroid26Debug --stacktrace --no-daemon
