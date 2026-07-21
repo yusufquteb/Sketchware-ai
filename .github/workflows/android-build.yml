@@ -33,4 +33,7 @@ jobs:
       # pins are installed on demand by AGP from the SDK manager; the default GitHub runner
       # image ships the Android SDK cmdline-tools already.
       - name: Build debug APK (android26 flavor)
-        run: ./gradlew assembleAndroid26Debug --stacktrace --no-daemon
+        # `sh gradlew` (not ./gradlew) so the build works even if the executable bit on the
+        # wrapper is ever lost again — the previous run failed here with exit 126
+        # "Permission denied" before the bit was committed.
+        run: sh gradlew assembleAndroid26Debug --stacktrace --no-daemon
