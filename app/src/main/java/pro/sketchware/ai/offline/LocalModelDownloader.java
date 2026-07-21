@@ -22,7 +22,7 @@ import okhttp3.Response;
 import pro.sketchware.ai.storage.AiPreferences;
 
 /**
- * Downloads a {@code .litertlm} model file from Hugging Face with resume support.
+ * Downloads a {@code .gguf} model file from Hugging Face with resume support.
  *
  * <p><b>Why OkHttp directly instead of WorkManager/DownloadManager:</b> this project has
  * no existing runtime dependency on either. {@code androidx.work:work-runtime} only
