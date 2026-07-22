@@ -1,0 +1,115 @@
+name: Build Debug APK and Notify via Telegram
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-notify:
+    runs-on: ubuntu-latest
+    # Generous: the :llama module compiles llama.cpp/ggml from source for two ABIs
+    # (arm64-v8a + x86_64) — that native build is the slow part of assembleDebug here.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # third_party/llama.cpp is a submodule the :llama module builds from source.
+          submodules: recursive
+          # Needed so `git log -1` below can read the real last commit message/hash
+          # instead of a shallow clone's single synthetic commit.
+          fetch-depth: 2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # The :llama module (llama/build.gradle) pins ndkVersion 29.0.13113456 and CMake 3.31.6.
+      # AGP will not auto-install the NDK because its license isn't pre-accepted on a fresh
+      # runner (LicenceNotAcceptedException otherwise) — accept licenses and install both
+      # explicitly here so assembleDebug doesn't stop mid-configuration.
+      - name: Accept licenses and install NDK + CMake
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "ndk;29.0.13113456" "cmake;3.31.6"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        id: build
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Collect build metadata
+        if: success()
+        id: meta
+        run: |
+          {
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "actor=${GITHUB_ACTOR}"
+            echo "short_sha=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          # Last commit message may be multi-line — write to a file rather than a
+          # GITHUB_OUTPUT line so no shell/YAML escaping of newlines is needed.
+          git log -1 --pretty=%B > /tmp/last_commit_message.txt
+
+      - name: Find built APK
+        if: success()
+        id: apk
+        run: |
+          set -e
+          APK_PATH=$(find . -type f -iname "*debug*.apk" | sort | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No debug APK found under the outputs directory." >&2
+            exit 1
+          fi
+          echo "APK found: $APK_PATH"
+          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$APK_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Send APK to Telegram
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -e
+          {
+            echo "✅ Build succeeded — ${{ steps.apk.outputs.name }}"
+            echo ""
+            echo "Branch: ${{ steps.meta.outputs.branch }}"
+            echo "By: ${{ steps.meta.outputs.actor }}"
+            echo "Commit: ${{ steps.meta.outputs.short_sha }}"
+            echo ""
+            echo "Message:"
+            cat /tmp/last_commit_message.txt
+          } > /tmp/telegram_caption.txt
+          # Telegram caption limit is 1024 characters — truncate defensively so the
+          # API call itself can never fail on an unusually long commit message.
+          head -c 1024 /tmp/telegram_caption.txt > /tmp/telegram_caption_trimmed.txt
+          curl -sS -f \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${TELEGRAM_CHAT_ID}" \
+            -F "document=@${{ steps.apk.outputs.path }}" \
+            -F "caption=</tmp/telegram_caption_trimmed.txt"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          printf '%s\n%s\n' \
+            "❌ Build failed on branch ${GITHUB_REF_NAME} (by ${GITHUB_ACTOR})" \
+            "${RUN_URL}" > /tmp/telegram_failure_text.txt
+          curl -sS -f \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text@/tmp/telegram_failure_text.txt"
