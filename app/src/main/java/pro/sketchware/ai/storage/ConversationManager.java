@@ -104,6 +104,26 @@ public class ConversationManager {
         deleteMessages(id);
     }
 
+    /**
+     * Deletes every conversation stored under a "assistant_"-prefixed workspace ID — the
+     * namespace {@code AiAssistantBottomSheet} (the floating, per-screen assistant opened from
+     * places like Manage Sound/Image or Compile Log) uses, as opposed to the dedicated Agent
+     * tab's own workspace IDs (real {@link pro.sketchware.ai.models.Workspace} entries or a
+     * plain project scId). Called on app exit so these ad-hoc, page-scoped chats never
+     * accumulate indefinitely — the main Agent tab's history is untouched since it never uses
+     * this prefix.
+     */
+    public void deleteAllAssistantSheetConversations() {
+        if (!conversationsBaseDir.exists() || !conversationsBaseDir.isDirectory()) return;
+        File[] workspaceDirs = conversationsBaseDir.listFiles(File::isDirectory);
+        if (workspaceDirs == null) return;
+        for (File dir : workspaceDirs) {
+            if (dir.getName().startsWith("assistant_")) {
+                deleteAllConversationsForWorkspace(dir.getName());
+            }
+        }
+    }
+
     public void deleteAllConversationsForWorkspace(@NonNull String workspaceId) {
         validateId(workspaceId);
         File workspaceDir = new File(conversationsBaseDir, workspaceId);
