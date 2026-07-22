@@ -7,18 +7,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Generous: the :llama module compiles llama.cpp/ggml from source for two ABIs
+    # (arm64-v8a + x86_64) — that native build is the slow part of assembleDebug here.
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          # third_party/llama.cpp is a submodule the :llama module builds from source —
+          # without this the native build fails with an empty submodule directory.
+          submodules: recursive
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # The :llama module (llama/build.gradle) pins ndkVersion 29.0.13113456 and CMake 3.31.6.
+      # AGP will not auto-install the NDK because its license isn't pre-accepted on a fresh
+      # runner (LicenceNotAcceptedException otherwise) — accept licenses and install both
+      # explicitly here so assembleDebug doesn't stop mid-configuration.
+      - name: Accept licenses and install NDK + CMake
+        run: |
+          set -e
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "ndk;29.0.13113456" "cmake;3.31.6"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -52,27 +69,33 @@ jobs:
           COMMIT_HASH=$(git rev-parse --short HEAD)
           BRANCH="${{ github.ref_name }}"
           ACTOR="${{ github.actor }}"
-          
-          # Build the message
-          MESSAGE="✅ *Build Succeeded*%0A%0A"
-          MESSAGE="${MESSAGE}📦 APK: \`${{ steps.locate_apk.outputs.apk_name }}\`%0A"
-          MESSAGE="${MESSAGE}🔗 Branch: \`${BRANCH}\`%0A"
-          MESSAGE="${MESSAGE}👤 By: ${ACTOR}%0A"
-          MESSAGE="${MESSAGE}🔖 Commit: \`${COMMIT_HASH}\`%0A%0A"
-          MESSAGE="${MESSAGE}📝 Message: ${COMMIT_MSG}%0A%0A"
-          MESSAGE="${MESSAGE}⬇️ Download from GitHub Actions artifacts (expires in 7 days)"
-          
-          echo "message=${MESSAGE}" >> "$GITHUB_OUTPUT"
 
-      - name: Send notification to Telegram
+          # Written to a file (not a GITHUB_OUTPUT line) so the Telegram caption step
+          # below needs no further shell/YAML escaping of the commit message's content.
+          {
+            echo "✅ Build succeeded — ${{ steps.locate_apk.outputs.apk_name }}"
+            echo ""
+            echo "Branch: ${BRANCH}"
+            echo "By: ${ACTOR}"
+            echo "Commit: ${COMMIT_HASH}"
+            echo ""
+            echo "Message: ${COMMIT_MSG}"
+          } > /tmp/telegram_caption.txt
+
+      - name: Send APK to Telegram
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${CHAT_ID}" \
-            -d "text=${{ steps.build_desc.outputs.message }}" \
-            -d "parse_mode=Markdown"
+          set -e
+          # Telegram caption limit is 1024 characters — truncate defensively so the
+          # API call itself can never fail on an unusually long commit message.
+          head -c 1024 /tmp/telegram_caption.txt > /tmp/telegram_caption_trimmed.txt
+          curl -sS -f \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${CHAT_ID}" \
+            -F "document=@${{ steps.locate_apk.outputs.apk_path }}" \
+            -F "caption=</tmp/telegram_caption_trimmed.txt"
 
       - name: Notify Telegram on failure
         if: failure()
@@ -85,7 +108,7 @@ jobs:
           MESSAGE="${MESSAGE}🔗 Branch: ${{ github.ref_name }}%0A"
           MESSAGE="${MESSAGE}👤 By: ${{ github.actor }}%0A%0A"
           MESSAGE="${MESSAGE}📋 View logs: ${LOGS_URL}"
-          
+
           curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -d "chat_id=${CHAT_ID}" \
             -d "text=${MESSAGE}" \
