@@ -91,11 +91,38 @@ jobs:
           # Telegram caption limit is 1024 characters — truncate defensively so the
           # API call itself can never fail on an unusually long commit message.
           head -c 1024 /tmp/telegram_caption.txt > /tmp/telegram_caption_trimmed.txt
-          curl -sS -f \
-            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
-            -F "chat_id=${CHAT_ID}" \
-            -F "document=@${{ steps.locate_apk.outputs.apk_path }}" \
-            -F "caption=</tmp/telegram_caption_trimmed.txt"
+
+          # Telegram's Bot API hard-caps sendDocument uploads at 50 MB — this app's debug
+          # APK (Firebase + the bundled ECJ/R8/javaparser compiler toolchain + unminified
+          # debug build) has measured at ~150 MB, well over that limit, and curl fails with
+          # HTTP 413 if attempted anyway. Check the real file size first and fall back to a
+          # text message linking the GitHub Actions artifact (already uploaded above, 7-day
+          # retention) instead of hard-failing the whole job on an unfixable platform limit.
+          APK_SIZE=$(stat -c%s "${{ steps.locate_apk.outputs.apk_path }}")
+          TELEGRAM_MAX_BYTES=$((49 * 1024 * 1024))
+
+          if [ "$APK_SIZE" -le "$TELEGRAM_MAX_BYTES" ]; then
+            curl -sS -f \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${CHAT_ID}" \
+              -F "document=@${{ steps.locate_apk.outputs.apk_path }}" \
+              -F "caption=</tmp/telegram_caption_trimmed.txt"
+          else
+            APK_SIZE_MB=$((APK_SIZE / 1024 / 1024))
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            {
+              cat /tmp/telegram_caption_trimmed.txt
+              echo ""
+              echo "⚠️ APK is ${APK_SIZE_MB} MB — over Telegram's 50 MB bot upload limit, so it"
+              echo "could not be attached here. Download it from the workflow run's Artifacts"
+              echo "section instead (expires in 7 days):"
+              echo "${RUN_URL}"
+            } > /tmp/telegram_toolarge_text.txt
+            curl -sS -f \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${CHAT_ID}" \
+              --data-urlencode "text@/tmp/telegram_toolarge_text.txt"
+          fi
 
       - name: Notify Telegram on failure
         if: failure()
