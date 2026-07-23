@@ -58,14 +58,18 @@ android {
         // of a single APK bundling all four. This project links native code
         // through libsu, R8/D8, and other dependencies, so native .so files
         // for every ABI are a meaningful share of the current APK size.
-        // Whoever installs a split APK must pick the one matching their
-        // device's architecture (arm64-v8a covers the overwhelming majority
-        // of modern Android devices; armeabi-v7a covers older/32-bit ones).
+        //
+        // 64-bit only, no universal fallback: the :llama module only ever builds
+        // for arm64-v8a/x86_64 anyway (see llama/build.gradle's ndk.abiFilters), so
+        // armeabi-v7a/x86 splits never had offline AI and the universal APK just
+        // bundled every ABI's native libs (including llama.cpp x4) into one huge
+        // file. 32-bit Android devices are effectively extinct at this point, so
+        // dropping those splits is a real, safe size win with no user impact.
         abi {
             enable true
             reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            universalApk true // also produce one fallback APK with all ABIs
+            include "arm64-v8a", "x86_64"
+            universalApk false
         }
     }
 
@@ -75,10 +79,24 @@ android {
             shrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.debug
+            // Native .so size: AGP keeps full DWARF debug symbols in native libraries by
+            // default (no stripping), which is a large share of the size for a heavily
+            // templated/inlined C++ codebase like ggml/llama.cpp. "NONE" strips them
+            // entirely — this app has no native-crash symbolication pipeline set up
+            // (Crashlytics NDK symbol upload isn't configured), so there's nothing to lose
+            // by stripping; the only effect is smaller .so files.
+            ndk {
+                debugSymbolLevel = "NONE"
+            }
         }
         debug {
             minifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // See the release block's comment — same rationale, and this is the build
+            // type actually produced by assembleDebug/assembleAndroid26Debug.
+            ndk {
+                debugSymbolLevel = "NONE"
+            }
         }
     }
 
