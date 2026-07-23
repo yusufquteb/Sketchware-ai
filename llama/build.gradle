@@ -50,13 +50,32 @@ android {
         }
         externalNativeBuild {
             cmake {
-                // 16 KB page size: GGML_CPU_ALL_VARIANTS builds each CPU-variant backend
-                // (haswell/alderlake/sandybridge/...) as its own add_library() inside ggml's
-                // own CMakeLists, and those targets do not reliably inherit the NDK toolchain's
-                // default 16 KB ELF alignment linker flag. Force it globally via the CMake
-                // cache so every shared object produced by this build — llama, ggml, and every
-                // per-variant ggml-cpu-*.so — is aligned, per Google's documented workaround:
+                // 16 KB page size: forced globally via the CMake cache so every shared object
+                // produced by this build is aligned, per Google's documented workaround:
                 // https://developer.android.com/guide/practices/page-sizes#cmake
+                //
+                // APK size: GGML_CPU_ALL_VARIANTS=ON (the previous setting) makes ggml's own
+                // CMakeLists add ~7 separate CPU-variant backend .so's per ABI on Android
+                // (android_armv8.0_1 through android_armv9.2_2 for arm64-v8a; ~14 x86 variants
+                // for x86_64 — see third_party/llama.cpp/ggml/src/CMakeLists.txt's
+                // GGML_CPU_ALL_VARIANTS block), each its own add_library() — that's what
+                // ballooned the arm64-v8a debug APK to ~330 MB. GGML_BACKEND_DL stays ON (the
+                // native side still dlopen's the CPU backend .so by directory path at runtime
+                // via ggml_backend_load_all_from_path in ai_chat.cpp — that mechanism works
+                // identically whether there's one .so in the directory or seven), but we now
+                // build ONE CPU backend per ABI instead of seven-to-fourteen:
+                //   - arm64-v8a: GGML_CPU_ARM_ARCH pins a single -march baseline (armv8.2-a
+                //     with dotprod+fp16 arithmetic) instead of iterating every ARM revision
+                //     from armv8.0 to armv9.2 — armv8.2 covers the overwhelming majority of
+                //     arm64 Android devices since ~2018 and is the same baseline ggml's own
+                //     ALL_VARIANTS logic picks once DOTPROD+FP16_VECTOR_ARITHMETIC are enabled
+                //     (see ggml-cpu/CMakeLists.txt's ARM GGML_CPU_ALL_VARIANTS branch).
+                //   - x86_64: the individual GGML_SSE42/AVX/AVX2/F16C/FMA/BMI2 feature flags
+                //     below select a single "haswell"-equivalent baseline (2013+ CPUs) instead
+                //     of iterating from bare SSE4.2 up through AVX-512/AMX variants.
+                // Devices/emulators below these baselines simply won't run the offline model —
+                // an acceptable trade for a debug/direct-distribution APK (not Play Store,
+                // where per-device delivery would otherwise pick the right split automatically).
                 arguments "-DCMAKE_BUILD_TYPE=Release",
                         "-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG",
                         "-DCMAKE_VERBOSE_MAKEFILE=ON",
@@ -66,7 +85,14 @@ android {
                         "-DLLAMA_OPENSSL=OFF",
                         "-DGGML_NATIVE=OFF",
                         "-DGGML_BACKEND_DL=ON",
-                        "-DGGML_CPU_ALL_VARIANTS=ON",
+                        "-DGGML_CPU_ALL_VARIANTS=OFF",
+                        "-DGGML_CPU_ARM_ARCH=armv8.2-a+dotprod+fp16",
+                        "-DGGML_SSE42=ON",
+                        "-DGGML_AVX=ON",
+                        "-DGGML_AVX2=ON",
+                        "-DGGML_F16C=ON",
+                        "-DGGML_FMA=ON",
+                        "-DGGML_BMI2=ON",
                         "-DGGML_LLAMAFILE=OFF",
                         "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",
                         "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-z,max-page-size=16384"
