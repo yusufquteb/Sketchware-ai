@@ -94,8 +94,15 @@ android {
                         "-DGGML_FMA=ON",
                         "-DGGML_BMI2=ON",
                         "-DGGML_LLAMAFILE=OFF",
-                        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384",
-                        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-z,max-page-size=16384"
+                        // -Wl,-s strips symbol tables/debug info at link time, unconditionally
+                        // for every ABI/build type. This matters because AGP's own stripping
+                        // (app/build.gradle's ndk.debugSymbolLevel) only applies to non-debuggable
+                        // (release) variants -- debug variants are never auto-stripped by AGP no
+                        // matter what debugSymbolLevel is set to, which is why the debug APK
+                        // stayed ~289MB/281MB after that setting was added. Stripping here, before
+                        // AGP ever sees the .so, applies to both build types.
+                        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384,-s",
+                        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-z,max-page-size=16384,-s"
             }
         }
         aarMetadata {
