@@ -1782,3 +1782,22 @@ Play Console/Crashlytics للـ symbolication) — مش في حجم ملفات `
 (`CMAKE_SHARED_LINKER_FLAGS`/`CMAKE_EXE_LINKER_FLAGS`)، بحيث ملفات `.so` بتاعة llama.cpp
 تطلع مجردة من رموز التصحيح وقت الـ compile/link مباشرة — قبل ما AGP يتعامل معاها خالص، وبالتالي
 بينطبق على الـ debug والـ release بدون فرق. **غير مُختبر بعد على جهاز حقيقي.**
+
+## Phase 8 — إخفاء الأوفلاين لأجهزة API < 33 + إصلاح "Cannot load model in Error!"
+
+**مشكلة 1 — خطأ "Cannot load model in Error!"**:
+سبب الخطأ: لما `engine.loadModel()` تفشل، الـ engine يدخل حالة `Error`. في المحاولة الجاية،
+الكود كان يتجاوز `engine.cleanUp()` (لأن `loadedModelPath == null` بعد الفشل)، ويحاول
+`loadModel()` مباشرة من حالة `Error` — اللي بتطرح `"Cannot load model in Error!"`. الحل:
+`cleanUp()` دايمًا قبل `loadModel()` بغض النظر عن حالة `loadedModelPath`، لضمان إن الـ engine
+يكون في حالة `Initialized` قبل أي محاولة تحميل (الـ `IllegalStateException` من `cleanUp()` لما
+الـ engine يكون أصلاً `Initialized` بيتم تجاهله بأمان).
+
+**مشكلة 2 — الأوفلاين على أجهزة غير مدعومة (API < 33 أو 32-bit)**:
+الوحدة المدمجة `:llama` تتطلب Android 13+ (API 33) وـ 64-bit ABI (`arm64-v8a` أو `x86_64`).
+بدل ما المستخدم يشوف قائمة فاضية أو يحصل crash، الآن:
+- `setupOfflineModels()` تتحقق من `LlamaCppEngineBridge.isDeviceSupported()` أول خطوة.
+- لو الجهاز غير مدعوم: تُظهر رسالة توضيحية بالعربي في `tvOfflineRamWarning`، وتخفي الـ
+  recycler/GPU switch/knowledge button، وترجع مبكراً (مش بتهيئ الـ adapter أو الـ manager).
+- `setupOfflineModelsToggle()` تخفي السهم وتمنع الطي/الفتح على الأجهزة غير المدعومة فتبقى
+  القسم مفتوح يعرض الرسالة فقط.
