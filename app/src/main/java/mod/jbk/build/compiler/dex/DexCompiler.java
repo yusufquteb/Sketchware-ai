@@ -84,17 +84,18 @@ public class DexCompiler {
     private static final String DESUGAR_CONFIG_ASSET = "desugar_jdk_libs_configuration.json";
 
     /**
-     * API level below which desugar_jdk_libs's backported APIs (including
-     * InputStream.readAllBytes(), added in API 33, and everything else the
-     * library covers) are not natively present and desugared-library
-     * configuration is both meaningful and valid to attach. Matches this app's
-     * own lower product flavor's minSdk (android26 = 26) as the conservative
-     * cutover point; requesting desugaring above this is unnecessary overhead,
-     * and R8 will not reject it, but it also can't help since the assumption
-     * "this API is missing" no longer generally holds — that's exactly the
-     * threshold the library itself is designed around.
+     * API level at or above which every API backported by desugar_jdk_libs 2.x is available
+     * natively — anything below this may be missing APIs the library covers. Set conservatively to
+     * 34 (Android 14) since desugar_jdk_libs 2.x backports APIs introduced as late as Java 17,
+     * some of which arrived in platform API 33/34. D8/R8 ignores the config for any individual
+     * API that is already present at the given minApiLevel, so attaching it for minApiLevel < 34
+     * is always safe and causes no overhead for APIs that don't need backporting.
+     *
+     * NOTE: the previous value was 26, which meant desugaring was skipped for projects with
+     * minSdk 26–33. InputStream.readAllBytes() (added at API 33) was then absent at runtime on
+     * devices below API 33, causing the NoSuchMethodError reported on Pixel 4 API 29.
      */
-    private static final int DESUGARING_RELEVANT_BELOW_API = 26;
+    private static final int DESUGARING_RELEVANT_BELOW_API = 34;
 
     public static void compileDexFiles(ProjectBuilder builder) throws CompilationFailedException {
         int minApiLevel;
