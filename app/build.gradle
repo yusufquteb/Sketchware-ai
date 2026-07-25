@@ -257,7 +257,12 @@ dependencies {
     // 3.29.0 (2023-06) predates that change and is safe on all API levels while still
     // supporting Java 14 language features — sufficient for typical Sketchware user projects.
     // The android33 flavor keeps the latest ECJ because readAllBytes() is natively available.
-    android26Implementation "org.eclipse.jdt:ecj:3.29.0"
+    // strictly prevents Gradle from upgrading to ECJ 3.34+ (which uses readAllBytes()) when a
+    // transitive dependency requests a newer version — without this, version conflict resolution
+    // silently wins and the API-26 build ends up with an ECJ that crashes on API 26-32 devices.
+    android26Implementation("org.eclipse.jdt:ecj") {
+        version { strictly "3.29.0" }
+    }
     android33Implementation "org.eclipse.jdt:ecj:3.45.0"
     android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
         exclude group: "com.google.guava", module: "guava"
