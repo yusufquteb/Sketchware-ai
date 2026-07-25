@@ -250,18 +250,15 @@ dependencies {
     }
     android26Implementation "com.android.tools:r8:8.11.18"
     android33Implementation "com.android.tools:r8:8.13.17"
-    // ECJ 3.34.0+ adopted InputStream.readAllBytes() (Java 9, API 33) in
-    // Util.getInputStreamAsByteArray(). AGP's L8 desugaring does not reliably apply
-    // to ECJ's bytecode when it runs in the android:process=":compiler" service, so the
-    // call crashes with NoSuchMethodError on API 26-32 devices (e.g. Pixel 4 API 29).
-    // 3.29.0 (2023-06) predates that change and is safe on all API levels while still
-    // supporting Java 14 language features — sufficient for typical Sketchware user projects.
-    // The android33 flavor keeps the latest ECJ because readAllBytes() is natively available.
-    // strictly prevents Gradle from upgrading to ECJ 3.34+ (which uses readAllBytes()) when a
-    // transitive dependency requests a newer version — without this, version conflict resolution
-    // silently wins and the API-26 build ends up with an ECJ that crashes on API 26-32 devices.
+    // 3.27.0+ switched Util.getInputStreamAsByteArray() to call InputStream.readAllBytes()
+    // (Java 9 / API 33), crashing with NoSuchMethodError on API 26-32 devices.
+    // 3.26.0 (2022-12) is the last release that does NOT make this call — confirmed by
+    // the Sketchware-DayDream fork which uses the same version successfully.
+    // The android33 flavor keeps the latest ECJ because readAllBytes() is native there.
+    // strictly prevents Gradle's conflict resolution from upgrading past 3.26.0 when any
+    // transitive dependency requests a newer version.
     android26Implementation("org.eclipse.jdt:ecj") {
-        version { strictly "3.29.0" }
+        version { strictly "3.26.0" }
     }
     android33Implementation "org.eclipse.jdt:ecj:3.45.0"
     android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
