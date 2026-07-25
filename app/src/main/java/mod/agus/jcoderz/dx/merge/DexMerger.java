@@ -1147,8 +1147,10 @@ public final class DexMerger {
                 annotation += (int) Math.ceil(contents.annotations.byteCount * 2);
                 // all of the bytes in a debug info section may be uleb/sleb. The additive constant
                 // is a fudge factor observed to be required when merging small
-                // DEX files (b/68483205).
-                debugInfo += contents.debugInfos.byteCount * 2 + 8;
+                // DEX files (b/68483205). The 4x multiplier (up from 2x) guards against
+                // BufferOverflowException when merged pool indices are large enough that
+                // their LEB128 representation expands significantly vs. the per-input DEX values.
+                debugInfo += contents.debugInfos.byteCount * 4 + 8;
             }
         }
 
