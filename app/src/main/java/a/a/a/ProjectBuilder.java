@@ -361,6 +361,14 @@ public class ProjectBuilder {
     }
 
     public boolean isD8Enabled() {
+        // D8/R8 (com.android.tools:r8:8.11.18) uses Java 9+ APIs (InputStream.readAllBytes etc.)
+        // in its own implementation bytecode. AGP's coreLibraryDesugaring doesn't reliably
+        // desugar R8 itself (circular toolchain dependency), so calling D8.run() on API < 33
+        // throws NoSuchMethodError at runtime. Fall back to the bundled DX dexer on older
+        // devices — DX is pure Java 7 bytecode and runs safely on any API level.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return false;
+        }
         if (isModernJavaEnabled()) {
             return true;
         }
@@ -369,6 +377,10 @@ public class ProjectBuilder {
     }
 
     public boolean isR8DexerEnabled() {
+        // See isD8Enabled() — same limitation applies to R8.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return false;
+        }
         return build_settings.getValue(
                 BuildSettings.SETTING_DEXER,
                 BuildSettings.SETTING_DEXER_DX

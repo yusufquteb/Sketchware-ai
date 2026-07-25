@@ -217,6 +217,20 @@ public class AiSettingsActivity extends AppCompatActivity {
     // ── Offline AI Models (on-device, LiteRT-LM) ────────────────────────────
 
     private void setupOfflineModels() {
+        // Runtime check: the vendored :llama module requires Android 13 (API 33) and a 64-bit
+        // ABI (arm64-v8a or x86_64). On unsupported devices, show a clear notice and skip
+        // all model/adapter setup so there's no crash or misleading empty list.
+        if (!pro.sketchware.ai.offline.LlamaCppEngineBridge.isDeviceSupported()) {
+            binding.tvOfflineRamWarning.setText(
+                "الذكاء الاصطناعي بدون إنترنت يتطلب Android 13 (API 33) أو أعلى على " +
+                "معالج 64-bit (arm64-v8a أو x86_64). جهازك لا يستوفي هذا المتطلب.");
+            binding.tvOfflineRamWarning.setVisibility(View.VISIBLE);
+            binding.switchGpuBackend.setVisibility(View.GONE);
+            binding.offlineModelsRecycler.setVisibility(View.GONE);
+            binding.btnManageKnowledge.setVisibility(View.GONE);
+            return;
+        }
+
         localModelManager = new pro.sketchware.ai.offline.LocalModelManager(this);
 
         if (localModelManager.isLowRamDevice()) {
@@ -1390,9 +1404,17 @@ public class AiSettingsActivity extends AppCompatActivity {
 
     /** Same collapsible pattern as {@link #setupAdvancedSettingsToggle()}, applied to the
      *  "Offline AI Models" card. Unlike the other collapsible sections on this screen, this one
-     *  starts EXPANDED by default so on-device models are immediately visible/discoverable. */
+     *  starts EXPANDED by default so on-device models are immediately visible/discoverable.
+     *  On devices that don't meet the requirements (API < 33 or 32-bit ABI), the section stays
+     *  expanded but non-collapsible — it only shows the notice set in setupOfflineModels(). */
     private void setupOfflineModelsToggle() {
         binding.offlineModelsContent.setVisibility(android.view.View.VISIBLE);
+        if (!pro.sketchware.ai.offline.LlamaCppEngineBridge.isDeviceSupported()) {
+            // Non-collapsible on unsupported devices: hide the arrow and don't add a click
+            // listener so the section stays open showing only the requirements notice.
+            binding.ivOfflineModelsArrow.setVisibility(android.view.View.GONE);
+            return;
+        }
         binding.ivOfflineModelsArrow.setRotation(180f);
         binding.offlineModelsHeader.setOnClickListener(v -> {
             boolean visible = binding.offlineModelsContent.getVisibility() == android.view.View.VISIBLE;

@@ -59,16 +59,18 @@ android {
         // through libsu, R8/D8, and other dependencies, so native .so files
         // for every ABI are a meaningful share of the current APK size.
         //
-        // 64-bit only, no universal fallback: the :llama module only ever builds
-        // for arm64-v8a/x86_64 anyway (see llama/build.gradle's ndk.abiFilters), so
-        // armeabi-v7a/x86 splits never had offline AI and the universal APK just
-        // bundled every ABI's native libs (including llama.cpp x4) into one huge
-        // file. 32-bit Android devices are effectively extinct at this point, so
-        // dropping those splits is a real, safe size win with no user impact.
+        // Four ABI splits: 32-bit (armeabi-v7a, x86) and 64-bit (arm64-v8a, x86_64).
+        // The :llama module only builds for arm64-v8a/x86_64 (see llama/build.gradle's
+        // ndk.abiFilters), so the 32-bit splits are produced without llama.cpp native
+        // libs — they're small and don't support offline AI, but the app runs and shows
+        // a clear "requires Android 13+" notice in Settings instead of crashing.
+        // This matters for development: x86/x86_64 emulators and any real 32-bit device
+        // can install the app. No universal APK (saves ~200-300 MB per build vs bundling
+        // all four ABIs' libs in one file, which the previous universalApk=true did).
         abi {
             enable true
             reset()
-            include "arm64-v8a", "x86_64"
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
             universalApk false
         }
     }
@@ -248,7 +250,14 @@ dependencies {
     }
     android26Implementation "com.android.tools:r8:8.11.18"
     android33Implementation "com.android.tools:r8:8.13.17"
-    android26Implementation "org.eclipse.jdt:ecj:3.34.0"
+    // ECJ 3.34.0+ adopted InputStream.readAllBytes() (Java 9, API 33) in
+    // Util.getInputStreamAsByteArray(). AGP's L8 desugaring does not reliably apply
+    // to ECJ's bytecode when it runs in the android:process=":compiler" service, so the
+    // call crashes with NoSuchMethodError on API 26-32 devices (e.g. Pixel 4 API 29).
+    // 3.29.0 (2023-06) predates that change and is safe on all API levels while still
+    // supporting Java 14 language features — sufficient for typical Sketchware user projects.
+    // The android33 flavor keeps the latest ECJ because readAllBytes() is natively available.
+    android26Implementation "org.eclipse.jdt:ecj:3.29.0"
     android33Implementation "org.eclipse.jdt:ecj:3.45.0"
     android26Implementation("com.github.javaparser:javaparser-symbol-solver-core:3.25.3") {
         exclude group: "com.google.guava", module: "guava"

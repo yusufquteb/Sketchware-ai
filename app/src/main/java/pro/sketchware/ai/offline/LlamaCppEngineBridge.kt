@@ -165,12 +165,18 @@ class LlamaCppEngineBridge(context: Context) {
             try {
                 val needsLoad = loadedModelPath != modelFile.absolutePath
                 if (needsLoad) {
-                    if (loadedModelPath != null) {
-                        try {
-                            engine.cleanUp()
-                        } catch (_: Exception) {
-                            // best-effort — loadModel below will surface any real failure
-                        }
+                    // Always cleanUp before loadModel, regardless of whether a model was
+                    // previously loaded. The engine may be in Error state from a prior failed
+                    // loadModel() call — calling loadModel() again from Error state throws
+                    // "Cannot load model in Error!". cleanUp() returns it to Initialized state.
+                    // If the engine is already in Initialized state (no prior model), cleanUp()
+                    // throws IllegalStateException — that's expected and safely ignored here;
+                    // the subsequent loadModel() call handles everything from Initialized state.
+                    try {
+                        engine.cleanUp()
+                    } catch (_: Exception) {
+                        // Expected when already Initialized (no model loaded) or after a
+                        // previously-errored load. loadModel() below surfaces real failures.
                     }
                     engine.loadModel(modelFile.absolutePath)
                     loadedModelPath = modelFile.absolutePath
